@@ -1,0 +1,468 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{5631741C-4B62-4D3D-9518-F0350E8E1051}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <StartupObject>THE_PROJECT.My.MyApplication</StartupObject>
+    <RootNamespace>THE_PROJECT</RootNamespace>
+    <AssemblyName>THE_PROJECT</AssemblyName>
+    <FileAlignment>512</FileAlignment>
+    <MyType>WindowsForms</MyType>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DocumentationFile>THE_PROJECT.xml</DocumentationFile>
+    <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DocumentationFile>THE_PROJECT.xml</DocumentationFile>
+    <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionExplicit>On</OptionExplicit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionCompare>Binary</OptionCompare>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionStrict>Off</OptionStrict>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionInfer>On</OptionInfer>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+  <ItemGroup>
+    <Import Include="Microsoft.VisualBasic" />
+    <Import Include="System" />
+    <Import Include="System.Collections" />
+    <Import Include="System.Collections.Generic" />
+    <Import Include="System.Data" />
+    <Import Include="System.Drawing" />
+    <Import Include="System.Diagnostics" />
+    <Import Include="System.Windows.Forms" />
+    <Import Include="System.Linq" />
+    <Import Include="System.Xml.Linq" />
+    <Import Include="System.Threading.Tasks" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AABaseOperationForm.Designer.vb">
+      <DependentUpon>AABaseOperationForm.vb</DependentUpon>
+    </Compile>
+    <Compile Include="AABaseOperationForm.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ABaseEditMappingProvider.Designer.vb">
+      <DependentUpon>ABaseEditMappingProvider.vb</DependentUpon>
+    </Compile>
+    <Compile Include="ABaseEditMappingProvider.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AEditFieldMapper.vb" />
+    <Compile Include="AppConfig.vb" />
+    <Compile Include="ABaseOperationForm.Designer.vb">
+      <DependentUpon>ABaseOperationForm.vb</DependentUpon>
+    </Compile>
+    <Compile Include="ABaseOperationForm.vb" />
+    <Compile Include="AppSession.vb" />
+    <Compile Include="AuditHelper.vb" />
+    <Compile Include="AvgCostData.vb" />
+    <Compile Include="CurrentUser.vb" />
+    <Compile Include="CuttingWasteApplicationService.vb" />
+    <Compile Include="DbConfig.vb" />
+    <Compile Include="frmBaseSearch.Designer.vb">
+      <DependentUpon>frmBaseSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmBaseSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmBOM.Designer.vb">
+      <DependentUpon>frmBOM.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmBOM.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmBOMSearch.Designer.vb">
+      <DependentUpon>frmBOMSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmBOMSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmCostCorrectionAdvanceAnalysis.Designer.vb">
+      <DependentUpon>frmCostCorrectionAdvanceAnalysis.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmCostCorrectionAdvanceAnalysis.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmCutting.Designer.vb">
+      <DependentUpon>frmCutting.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmCutting.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmCuttingWasteCalculator.Designer.vb">
+      <DependentUpon>frmCuttingWasteCalculator.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmCuttingWasteCalculator.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmCuttingSearch.Designer.vb">
+      <DependentUpon>frmCuttingSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmCuttingSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmEmployeeSearch.Designer.vb">
+      <DependentUpon>frmEmployeeSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmEmployeeSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmCuttingWasteCalculatorSearch.Designer.vb">
+      <DependentUpon>frmCuttingWasteCalculatorSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmCuttingWasteCalculatorSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmCostCorrection.Designer.vb">
+      <DependentUpon>frmCostCorrection.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmCostCorrection.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmSalesReturnsearch.Designer.vb">
+      <DependentUpon>frmSalesReturnsearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmSalesReturnsearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmSalesReturn.Designer.vb">
+      <DependentUpon>frmSalesReturn.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmSalesReturn.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmInvoice.Designer.vb">
+      <DependentUpon>frmInvoice.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmInvoice.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmInvoicePrint.Designer.vb">
+      <DependentUpon>frmInvoicePrint.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmInvoicePrint.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmLoadingBoard.Designer.vb">
+      <DependentUpon>frmLoadingBoard.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmLoadingBoard.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmLogin.Designer.vb">
+      <DependentUpon>frmLogin.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmLogin.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmMasterForm.Designer.vb">
+      <DependentUpon>frmMasterForm.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmMasterForm.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmMoveLO.Designer.vb">
+      <DependentUpon>frmMoveLO.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmMoveLO.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmMoveSR.Designer.vb">
+      <DependentUpon>frmMoveSR.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmMoveSR.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmPartnerSearch.Designer.vb">
+      <DependentUpon>frmPartnerSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmPartnerSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmPostLoadingConfirmation.Designer.vb">
+      <DependentUpon>frmPostLoadingConfirmation.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmPostLoadingConfirmation.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmProduct.Designer.vb">
+      <DependentUpon>frmProduct.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmProduct.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmProduction.Designer.vb">
+      <DependentUpon>frmProduction.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmProduction.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmProductionSearch.Designer.vb">
+      <DependentUpon>frmProductionSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmProductionSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmProductSearch.Designer.vb">
+      <DependentUpon>frmProductSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmProductSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmPurchases.Designer.vb">
+      <DependentUpon>frmPurchases.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmPurchases.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmPurchaseSearch.Designer.vb">
+      <DependentUpon>frmPurchaseSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmPurchaseSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmSaleRequest.Designer.vb">
+      <DependentUpon>frmSaleRequest.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmSaleRequest.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmSRDistripution.Designer.vb">
+      <DependentUpon>frmSRDistripution.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmSRDistripution.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmSRSearch.Designer.vb">
+      <DependentUpon>frmSRSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmSRSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmStockTransaction.Designer.vb">
+      <DependentUpon>frmStockTransaction.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmStockTransaction.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmStockTransactionSearch.Designer.vb">
+      <DependentUpon>frmStockTransactionSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmStockTransactionSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="HashHelper.vb" />
+    <Compile Include="InventoryMovementDTO.vb" />
+    <Compile Include="CostCorrectionModels.vb" />
+    <Compile Include="CostCorrectionService.vb" />
+    <Compile Include="InventoryRepository.vb" />
+    <Compile Include="PurchaseApplicationService.vb" />
+    <Compile Include="InvoiceApplicationService.vb" />
+    <Compile Include="frmInvoiceSearch.Designer.vb">
+      <DependentUpon>frmInvoiceSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmInvoiceSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="InvoiceHeaderInput.vb" />
+    <Compile Include="LoadingApplicationService.vb" />
+    <Compile Include="LoadingLineInput.vb" />
+    <Compile Include="LoadingOrderHeaderInput.vb" />
+    <Compile Include="My Project\AssemblyInfo.vb" />
+    <Compile Include="My Project\Application.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Application.myapp</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <Compile Include="My Project\Resources.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="My Project\Settings.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <Compile Include="PermissionService.vb" />
+    <Compile Include="SecurityHelper.vb" />
+    <Compile Include="TempIdGenerator.vb" />
+    <Compile Include="TraceLog.vb" />
+    <Compile Include="TransactionDetailDTO.vb" />
+    <Compile Include="TransactionEngine.vb" />
+    <Compile Include="TransactionRepository.vb" />
+    <Compile Include="UtilityHelpers.vb" />
+    <Compile Include="ValidationEngine.vb" />
+    <Compile Include="WorkflowEngine.vb" />
+    <Compile Include="WorkflowRepository.vb" />
+    <Compile Include="Workflow_OperationPolicyHelper.vb" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="AABaseOperationForm.resx">
+      <DependentUpon>AABaseOperationForm.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ABaseEditMappingProvider.resx">
+      <DependentUpon>ABaseEditMappingProvider.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ABaseOperationForm.resx">
+      <DependentUpon>ABaseOperationForm.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmBaseSearch.resx">
+      <DependentUpon>frmBaseSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmBOM.resx">
+      <DependentUpon>frmBOM.vb</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmBOMSearch.resx">
+      <DependentUpon>frmBOMSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmCostCorrectionAdvanceAnalysis.resx">
+      <DependentUpon>frmCostCorrectionAdvanceAnalysis.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmCutting.resx">
+      <DependentUpon>frmCutting.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmCuttingWasteCalculator.resx">
+      <DependentUpon>frmCuttingWasteCalculator.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmCuttingSearch.resx">
+      <DependentUpon>frmCuttingSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmCuttingWasteCalculatorSearch.resx">
+      <DependentUpon>frmCuttingWasteCalculatorSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmCostCorrection.resx">
+      <DependentUpon>frmCostCorrection.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmSalesReturnsearch.resx">
+      <DependentUpon>frmSalesReturnsearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmSalesReturn.resx">
+      <DependentUpon>frmSalesReturn.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmInvoice.resx">
+      <DependentUpon>frmInvoice.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmInvoicePrint.resx">
+      <DependentUpon>frmInvoicePrint.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmLoadingBoard.resx">
+      <DependentUpon>frmLoadingBoard.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmLogin.resx">
+      <DependentUpon>frmLogin.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmMasterForm.resx">
+      <DependentUpon>frmMasterForm.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmMoveLO.resx">
+      <DependentUpon>frmMoveLO.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmMoveSR.resx">
+      <DependentUpon>frmMoveSR.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmPartnerSearch.resx">
+      <DependentUpon>frmPartnerSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmPostLoadingConfirmation.resx">
+      <DependentUpon>frmPostLoadingConfirmation.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmProduct.resx">
+      <DependentUpon>frmProduct.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmProduction.resx">
+      <DependentUpon>frmProduction.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmProductionSearch.resx">
+      <DependentUpon>frmProductionSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmProductSearch.resx">
+      <DependentUpon>frmProductSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmPurchases.resx">
+      <DependentUpon>frmPurchases.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmPurchaseSearch.resx">
+      <DependentUpon>frmPurchaseSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmSaleRequest.resx">
+      <DependentUpon>frmSaleRequest.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmSRDistripution.resx">
+      <DependentUpon>frmSRDistripution.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmSRSearch.resx">
+      <DependentUpon>frmSRSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmStockTransaction.resx">
+      <DependentUpon>frmStockTransaction.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmStockTransactionSearch.resx">
+      <DependentUpon>frmStockTransactionSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmInvoiceSearch.resx">
+      <DependentUpon>frmInvoiceSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="My Project\Resources.resx">
+      <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.vb</LastGenOutput>
+      <CustomToolNamespace>My.Resources</CustomToolNamespace>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".editorconfig" />
+    <None Include=".gitignore" />
+    <None Include="App.config" />
+    <None Include="My Project\Application.myapp">
+      <Generator>MyApplicationCodeGenerator</Generator>
+      <LastGenOutput>Application.Designer.vb</LastGenOutput>
+    </None>
+    <None Include="My Project\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <CustomToolNamespace>My</CustomToolNamespace>
+      <LastGenOutput>Settings.Designer.vb</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
+</Project>

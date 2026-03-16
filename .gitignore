@@ -1,0 +1,40 @@
+﻿## Visual Studio / .NET
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.cache
+*.log
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]ny [Cc]PU/
+
+## NuGet
+packages/
+*.nupkg
+.nuget/
+
+## Test results
+TestResults/
+*.trx
+
+## Publish
+**/publish/
+**/AppPackages/
+
+## OS files
+Thumbs.db
+.DS_Store
+
+## Local config / secrets (عدّلها حسب مشروعك)
+**/*local*.config
+**/*local*.json
+**/appsettings.Development.json
+**/connectionStrings.config

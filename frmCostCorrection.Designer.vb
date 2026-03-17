@@ -731,7 +731,7 @@ Partial Class frmCostCorrection
         Me.dgvAffectedOperations.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvAffectedOperations.RowHeadersWidth = 51
         Me.dgvAffectedOperations.RowTemplate.Height = 26
-        Me.dgvAffectedOperations.Size = New System.Drawing.Size(1448, 197)
+        Me.dgvAffectedOperations.Size = New System.Drawing.Size(1448, 225)
         Me.dgvAffectedOperations.TabIndex = 0
         '
         'SplitContainer1
@@ -749,7 +749,7 @@ Partial Class frmCostCorrection
         '
         Me.SplitContainer1.Panel2.Controls.Add(Me.SplitContainer2)
         Me.SplitContainer1.Size = New System.Drawing.Size(1448, 770)
-        Me.SplitContainer1.SplitterDistance = 173
+        Me.SplitContainer1.SplitterDistance = 87
         Me.SplitContainer1.TabIndex = 9
         '
         'dgvAdjustResult
@@ -763,7 +763,7 @@ Partial Class frmCostCorrection
         Me.dgvAdjustResult.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvAdjustResult.RowHeadersWidth = 51
         Me.dgvAdjustResult.RowTemplate.Height = 26
-        Me.dgvAdjustResult.Size = New System.Drawing.Size(1448, 173)
+        Me.dgvAdjustResult.Size = New System.Drawing.Size(1448, 87)
         Me.dgvAdjustResult.TabIndex = 6
         '
         'SplitContainer2
@@ -780,8 +780,8 @@ Partial Class frmCostCorrection
         'SplitContainer2.Panel2
         '
         Me.SplitContainer2.Panel2.Controls.Add(Me.dgvSimulation)
-        Me.SplitContainer2.Size = New System.Drawing.Size(1448, 593)
-        Me.SplitContainer2.SplitterDistance = 197
+        Me.SplitContainer2.Size = New System.Drawing.Size(1448, 679)
+        Me.SplitContainer2.SplitterDistance = 225
         Me.SplitContainer2.TabIndex = 1
         '
         'dgvSimulation
@@ -794,7 +794,7 @@ Partial Class frmCostCorrection
         Me.dgvSimulation.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvSimulation.RowHeadersWidth = 51
         Me.dgvSimulation.RowTemplate.Height = 26
-        Me.dgvSimulation.Size = New System.Drawing.Size(1448, 392)
+        Me.dgvSimulation.Size = New System.Drawing.Size(1448, 450)
         Me.dgvSimulation.TabIndex = 0
         '
         'frmCostCorrection

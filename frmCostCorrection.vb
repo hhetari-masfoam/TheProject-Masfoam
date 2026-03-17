@@ -16,6 +16,13 @@ Public Class frmCostCorrection
             Return "COR"
         End Get
     End Property
+    ' --- Single-row edit guard ---
+    Private _editedRowIndex As Integer = -1
+    Private _editedRowSnapshot As Dictionary(Of String, Object) = Nothing
+    Private _snapshotCapturedForRowIndex As Integer = -1
+    ' --- single-row edit guard ---
+
+
 
     Private Sub CreateEditableDocumentDetailsTable()
         RevalDetailsTable = New DataTable()
@@ -273,74 +280,50 @@ ByRef city As String
     e As EventArgs
 ) Handles btnLoadOriginalDocument.Click
 
-        Select Case tabMain.SelectedTab.Name
+        Dim tabName As String = tabMain.SelectedTab.Name
 
-        '================================
-        ' PURCHASE
-        '================================
-            Case "tabPUR"
+        Select Case tabName
 
+            Case "tabPUR", "tabPurchase"
                 Using f As New frmPurchaseSearch()
-
                     If f.ShowDialog() <> DialogResult.OK Then Exit Sub
                     If f.SelectedDocumentID <= 0 Then Exit Sub
-
                     LoadOriginalDocumentForRevaluation(f.SelectedDocumentID)
                     SetModeUI()
-
                 End Using
 
-
-        '================================
-        ' PRODUCTION
-        '================================
-            Case "tabPRO"
-
+            Case "tabPRO", "tabProduction"
                 Using f As New frmProductionSearch()
-
                     If f.ShowDialog() <> DialogResult.OK Then Exit Sub
                     If f.SelectedProductionID <= 0 Then Exit Sub
-
                     LoadOriginalDocumentForRevaluation(f.SelectedProductionID)
                     SetModeUI()
-
                 End Using
 
-
-        '================================
-        ' CUT
-        '================================
-            Case "tabCUT"
-
+            Case "tabCUT", "tabCut"
                 Using f As New frmCuttingSearch()
-
                     If f.ShowDialog() <> DialogResult.OK Then Exit Sub
                     If f.SelectedCuttingID <= 0 Then Exit Sub
-
                     LoadOriginalDocumentForRevaluation(f.SelectedCuttingID)
                     SetModeUI()
-
                 End Using
 
-
-        '================================
-        ' SCRAP
-        '================================
-            Case "tabSCR"
-
+            Case "tabSCR", "tabScrap"
                 Using f As New frmCuttingWasteCalculatorSearch()
-
                     If f.ShowDialog() <> DialogResult.OK Then Exit Sub
                     If f.SelectedWasteID <= 0 Then Exit Sub
-
                     LoadOriginalDocumentForRevaluation(f.SelectedWasteID)
                     SetModeUI()
-
                 End Using
+
+            Case Else
+                MessageBox.Show("اسم التاب غير معروف: " & tabName)
 
         End Select
 
     End Sub
+
+
     Protected Sub LoadPartnerComboBox()
         Try
             cboPartnerCode.DataSource = Nothing
@@ -459,27 +442,38 @@ ORDER BY p.PartnerName
     e As EventArgs
 ) Handles tabMain.SelectedIndexChanged
 
-        Select Case tabMain.SelectedTab.Name
+        Dim tabName As String = tabMain.SelectedTab.Name
 
-            Case "tabPurchase"
+        Select Case tabName
+
+        ' Purchase
+            Case "tabPUR", "tabPurchase"
                 CurrentOperationType = "PUR"
 
-            Case "tabProduction"
+        ' Production
+            Case "tabPRO", "tabProduction"
                 CurrentOperationType = "PRO"
 
-            Case "tabCut"
+        ' Cut
+            Case "tabCUT", "tabCut"
                 CurrentOperationType = "CUT"
 
-            Case "tabScrap"
+        ' Scrap
+            Case "tabSCR", "tabScrap"
                 CurrentOperationType = "SCR"
 
+            Case Else
+                ' fallback safe default
+                CurrentOperationType = "PUR"
         End Select
 
-        ' عند تغيير التاب نعيد بناء الجريد السفلي
         RefreshAdjustmentDeltaView()
-        If CurrentOperationType = "PUR" Then dgvMain.DataSource = RevalDetailsTable
-    End Sub
 
+        If CurrentOperationType = "PUR" Then
+            dgvMain.DataSource = RevalDetailsTable
+        End If
+
+    End Sub
 
 
     Private Sub BindDocumentHeaderToForm(header As RevaluationDocumentHeaderDto)
@@ -577,14 +571,16 @@ ORDER BY p.PartnerName
 
     End Sub
     Private Sub dgvMain_CellEndEdit(sender As Object, e As DataGridViewCellEventArgs) Handles dgvMain.CellEndEdit
-        If Not IsLoading Then
-            RefreshAdjustmentDeltaView()
-            RefreshDisplayedTotals()
-        End If
+        If IsLoading Then Return
+        If IsCancelMode Then Return
+        RefreshAdjustmentDeltaView()
+        RefreshDisplayedTotals()
     End Sub
+
     Private Sub dgvMain_CellValidating(sender As Object, e As DataGridViewCellValidatingEventArgs) Handles dgvMain.CellValidating
         Dim colName = dgvMain.Columns(e.ColumnIndex).Name
-        If colName = "NewQty" OrElse colName = "NewUnitPrice" Then
+
+        If colName = "colQty" OrElse colName = "colUnitPrice" Then
             If Not String.IsNullOrEmpty(e.FormattedValue.ToString()) Then
                 Dim val As Decimal
                 If Decimal.TryParse(e.FormattedValue.ToString(), val) Then
@@ -599,8 +595,12 @@ ORDER BY p.PartnerName
     End Sub
     Private Sub SetModeUI()
         If RevalDetailsTable Is Nothing Then Exit Sub
+
+        dgvMain.AllowUserToAddRows = False
+        dgvMain.AllowUserToDeleteRows = False
+        dgvMain.EditMode = DataGridViewEditMode.EditOnEnter
+
         If IsCancelMode Then
-            ' وضع الإلغاء: يصير الجريد فقط للعرض ويصفر الكمية والسعر ثم يعيد الحساب والمجاميع تلقائياً
             dgvMain.ReadOnly = True
 
             For Each row As DataRow In RevalDetailsTable.Rows
@@ -610,77 +610,117 @@ ORDER BY p.PartnerName
                 End If
             Next
 
+            ResetSingleRowEditGuard()
+
             RefreshAdjustmentDeltaView()
-            RefreshDisplayedTotals() ' ��تعيد الحسابات لكل صف وكل الاجماليات تلقائياً
+            RefreshDisplayedTotals()
             dgvMain.Refresh()
-        Else
-            dgvMain.ReadOnly = False
-            For Each col As DataGridViewColumn In dgvMain.Columns
-
-                Dim prop = col.DataPropertyName
-
-                If prop = "NewQty" OrElse
-       prop = "NewUnitPrice" OrElse
-       prop = "TaxTypeID" OrElse
-       prop = "TaxRate" Then
-
-                    col.ReadOnly = False
-                Else
-                    col.ReadOnly = True
-                End If
-
-            Next
-
-            cboVATRate.Enabled = True
-            cboTargetStore.Enabled = False
-            txtPartnerName.ReadOnly = True
-            txtPhone.ReadOnly = True
-            txtSubTotal.ReadOnly = True
-            txtVATTotal.ReadOnly = True
-            txtGrandTotal.ReadOnly = True
+            Return
         End If
+
+        ' === Edit mode ===
+        dgvMain.ReadOnly = False
+
+        For Each col As DataGridViewColumn In dgvMain.Columns
+            Dim isAllowed As Boolean =
+            String.Equals(col.Name, "colQty", StringComparison.OrdinalIgnoreCase) OrElse
+            String.Equals(col.Name, "colUnitPrice", StringComparison.OrdinalIgnoreCase)
+
+            col.ReadOnly = Not isAllowed
+        Next
+
+        ResetSingleRowEditGuard()
+
+        cboVATRate.Enabled = True
+        cboTargetStore.Enabled = False
+        txtPartnerName.ReadOnly = True
+        txtPhone.ReadOnly = True
+        txtSubTotal.ReadOnly = True
+        txtVATTotal.ReadOnly = True
+        txtGrandTotal.ReadOnly = True
     End Sub
 
     Private Sub RefreshDisplayedTotals()
-        Dim subTotal As Decimal = 0D
+
+        Dim subTotal As Decimal = 0D          ' Net before VAT (after discount)
         Dim vatTotal As Decimal = 0D
         Dim grandTotal As Decimal = 0D
 
+        Dim isTaxInclusive As Boolean = chkIsTaxInclusive.Checked
+
         For Each row As DataRow In RevalDetailsTable.Rows
-            If row.RowState <> DataRowState.Deleted Then
-                ' إعادة الحساب لكل صف بناءً على الكمية والسعر
-                Dim qty As Decimal = ToDec(row("NewQty"))
-                Dim price As Decimal = ToDec(row("NewUnitPrice"))
-                Dim grossAmount As Decimal = qty * price
+            If row.RowState = DataRowState.Deleted Then Continue For
 
-                Dim discountRate As Decimal = ToDec(row("DiscountRate"))
-                Dim discountAmount As Decimal = grossAmount * discountRate / 100D
+            Dim qty As Decimal = ToDec(row("NewQty"))
+            Dim unitPrice As Decimal = ToDec(row("NewUnitPrice"))
 
-                Dim taxableAmount As Decimal = grossAmount - discountAmount
-                Dim taxRate As Decimal = ToDec(row("TaxRate"))
-                Dim taxAmount As Decimal = taxableAmount * taxRate / 100D
+            Dim discountRate As Decimal = ToDec(row("DiscountRate"))
+            If discountRate < 0D Then discountRate = 0D
+            If discountRate > 100D Then discountRate = 100D
 
-                Dim netAmount As Decimal = taxableAmount
-                Dim lineTotal As Decimal = netAmount + taxAmount
+            Dim taxRate As Decimal = ToDec(row("TaxRate"))
+            If taxRate < 0D Then taxRate = 0D
 
-                row("GrossAmount") = grossAmount
-                row("DiscountAmount") = discountAmount
-                row("TaxableAmount") = taxableAmount
-                row("TaxAmount") = taxAmount
-                row("NetAmount") = netAmount
-                row("LineTotal") = lineTotal
-
-                subTotal += netAmount
-                vatTotal += taxAmount
-                grandTotal += lineTotal
+            Dim includeTaxLine As Boolean = True
+            If RevalDetailsTable.Columns.Contains("IncludeTax") Then
+                If Not IsDBNull(row("IncludeTax")) Then includeTaxLine = CBool(row("IncludeTax"))
             End If
+
+            Dim grossAmount As Decimal = qty * unitPrice
+            Dim discountAmount As Decimal = grossAmount * discountRate / 100D
+
+            ' Base amount for tax calc depends on inclusive/exclusive
+            Dim taxableAmount As Decimal = grossAmount - discountAmount
+            Dim taxAmount As Decimal = 0D
+            Dim netAmount As Decimal = 0D
+            Dim lineTotal As Decimal = 0D
+
+            If Not includeTaxLine OrElse taxRate <= 0D Then
+                ' no tax
+                netAmount = taxableAmount
+                taxAmount = 0D
+                lineTotal = netAmount
+            ElseIf isTaxInclusive Then
+                ' Price already includes tax => extract tax portion
+                ' taxableAmount here is "price incl tax after discount"
+                Dim divisor As Decimal = 1D + (taxRate / 100D)
+                If divisor <= 0D Then divisor = 1D
+
+                netAmount = taxableAmount / divisor
+                taxAmount = taxableAmount - netAmount
+                lineTotal = taxableAmount
+            Else
+                ' Tax exclusive => add tax on top
+                netAmount = taxableAmount
+                taxAmount = netAmount * taxRate / 100D
+                lineTotal = netAmount + taxAmount
+            End If
+
+            ' rounding (adjust if you use 3 decimals etc.)
+            grossAmount = Math.Round(grossAmount, 2, MidpointRounding.AwayFromZero)
+            discountAmount = Math.Round(discountAmount, 2, MidpointRounding.AwayFromZero)
+            taxableAmount = Math.Round(taxableAmount, 2, MidpointRounding.AwayFromZero)
+            netAmount = Math.Round(netAmount, 2, MidpointRounding.AwayFromZero)
+            taxAmount = Math.Round(taxAmount, 2, MidpointRounding.AwayFromZero)
+            lineTotal = Math.Round(lineTotal, 2, MidpointRounding.AwayFromZero)
+
+            row("GrossAmount") = grossAmount
+            row("DiscountAmount") = discountAmount
+            row("TaxableAmount") = taxableAmount
+            row("NetAmount") = netAmount
+            row("TaxAmount") = taxAmount
+            row("LineTotal") = lineTotal
+
+            subTotal += netAmount
+            vatTotal += taxAmount
+            grandTotal += lineTotal
         Next
 
         txtSubTotal.Text = subTotal.ToString("N2")
         txtVATTotal.Text = vatTotal.ToString("N2")
         txtGrandTotal.Text = grandTotal.ToString("N2")
-    End Sub
 
+    End Sub
     Private Sub InitializeAffectedOperationsGrid()
 
         Dim dt As New DataTable()
@@ -753,10 +793,10 @@ ORDER BY p.PartnerName
     End Sub
     Private Sub FillAffectedOperations(source As DataTable)
 
-        Dim dt As DataTable =
-        CType(dgvAffectedOperations.DataSource, DataTable)
-
+        Dim dt As DataTable = CType(dgvAffectedOperations.DataSource, DataTable)
         dt.Rows.Clear()
+
+        If source Is Nothing Then Exit Sub
 
         For Each r As DataRow In source.Rows
 
@@ -767,7 +807,7 @@ ORDER BY p.PartnerName
             row("SourceDetailID") = If(IsDBNull(r("SourceDetailID")), DBNull.Value, r("SourceDetailID"))
 
             row("ProductID") = r("ProductID")
-            row("BaseProductID") = r("BaseProductID")
+            row("BaseProductID") = If(source.Columns.Contains("BaseProductID"), r("BaseProductID"), r("ProductID"))
             row("StoreID") = r("StoreID")
             row("OperationTypeID") = r("OperationTypeID")
 
@@ -785,33 +825,32 @@ ORDER BY p.PartnerName
             If source.Columns.Contains("InUnitCost") Then
                 row("InUnitCost") = r("InUnitCost")
             Else
-                row("InUnitCost") = r("InUnitCost")
+                row("InUnitCost") = 0D
             End If
 
-            row("OutUnitCost") = r("OutUnitCost")
+            If source.Columns.Contains("OutUnitCost") Then
+                row("OutUnitCost") = r("OutUnitCost")
+            Else
+                row("OutUnitCost") = 0D
+            End If
+
             row("NewAvgCost") = r("NewAvgCost")
 
             row("LedgerSequence") = r("LedgerSequence")
             row("SourceLedgerID") = r("SourceLedgerID")
-            row("RootLedgerID") = r("RootLedgerID")
 
-            row("SupersededByLedgerID") = If(IsDBNull(r("SupersededByLedgerID")), DBNull.Value, r("SupersededByLedgerID"))
+            row("RootLedgerID") = If(source.Columns.Contains("RootLedgerID") AndAlso Not IsDBNull(r("RootLedgerID")), r("RootLedgerID"), DBNull.Value)
+            row("SupersededByLedgerID") = If(source.Columns.Contains("SupersededByLedgerID") AndAlso Not IsDBNull(r("SupersededByLedgerID")), r("SupersededByLedgerID"), DBNull.Value)
+            row("RootTransactionID") = If(source.Columns.Contains("RootTransactionID") AndAlso Not IsDBNull(r("RootTransactionID")), r("RootTransactionID"), DBNull.Value)
 
-            row("RootTransactionID") = r("RootTransactionID")
             row("PostingDate") = r("PostingDate")
-            row("BaseProductID") = r("BaseProductID")
 
-
-            row("RootLedgerID") = If(IsDBNull(r("RootLedgerID")), DBNull.Value, r("RootLedgerID"))
-
-            row("SupersededByLedgerID") = If(IsDBNull(r("SupersededByLedgerID")), DBNull.Value, r("SupersededByLedgerID"))
-
-            row("RootTransactionID") = If(IsDBNull(r("RootTransactionID")), DBNull.Value, r("RootTransactionID"))
             dt.Rows.Add(row)
 
         Next
 
     End Sub
+
     Private Function CreateSimulationTable() As DataTable
 
         Dim dt As New DataTable()
@@ -853,8 +892,8 @@ ORDER BY p.PartnerName
     End Function
     Private Sub btnAffectedOperations_Click(sender As Object, e As EventArgs) Handles btnAffectedOperations.Click
 
-        If RevalDetailsTable Is Nothing OrElse RevalDetailsTable.Rows.Count = 0 Then
-            MessageBox.Show("لا يوجد بيانات لإعادة التقييم.", "تنبيه")
+        If CType(dgvAdjustResult.DataSource, DataTable).Rows.Count = 0 Then
+            MessageBox.Show("لا يوجد تعديل على الكمية أو السعر، لذلك لا توجد عمليات متأثرة.", "تنبيه")
             Exit Sub
         End If
 
@@ -955,50 +994,87 @@ ORDER BY p.PartnerName
         Dim sim As DataTable = CType(dgvSimulation.DataSource, DataTable)
         sim.Rows.Clear()
 
-        Dim hasPrev As Boolean = source.Columns.Contains("PrevLedgerID")
+        ' 1) لازم يكون في تعديل (سطر واحد حسب القيد عندكم)
+        If adjust Is Nothing OrElse adjust.Rows.Count = 0 Then
+            ' لا يوجد تعديل -> لا نبني محاكاة
+            Exit Sub
+        End If
 
+        Dim correctedProductID As Integer = CInt(adjust.Rows(0)("ProductID"))
+        Dim correctedQty As Decimal = ToDec(adjust.Rows(0)("NewQty"))
+        Dim correctedUnitCost As Decimal = ToDec(adjust.Rows(0)("NewUnitCost"))
+
+        ' 2) نحاول نلتقط StoreID من تفاصيل المستند (اختياري لتحسين الدقة)
+        Dim correctedStoreID As Integer? = Nothing
+        If RevalDetailsTable IsNot Nothing Then
+            Dim dr = RevalDetailsTable.AsEnumerable().
+            FirstOrDefault(Function(r)
+                               If IsDBNull(r("ProductID")) Then Return False
+                               Return CInt(r("ProductID")) = correctedProductID AndAlso
+                                      (ToDec(r("OldQty")) <> ToDec(r("NewQty")) OrElse ToDec(r("OldUnitPrice")) <> ToDec(r("NewUnitPrice")))
+                           End Function)
+
+            If dr IsNot Nothing AndAlso RevalDetailsTable.Columns.Contains("SourceStoreID") AndAlso Not IsDBNull(dr("SourceStoreID")) Then
+                correctedStoreID = CInt(dr("SourceStoreID"))
+            End If
+        End If
+
+        ' 3) تحديد Ledger البداية الصحيح: أول IN لنفس Product (ولنفس Store إن توفر)
         Dim startLedgerRow As DataRow =
+        source.AsEnumerable().
+        Where(Function(r)
+                  If IsDBNull(r("ProductID")) Then Return False
+                  If CInt(r("ProductID")) <> correctedProductID Then Return False
+                  If ToDec(r("InQty")) <= 0D Then Return False
+
+                  If correctedStoreID.HasValue Then
+                      If IsDBNull(r("StoreID")) Then Return False
+                      If CInt(r("StoreID")) <> correctedStoreID.Value Then Return False
+                  End If
+
+                  Return True
+              End Function).
+        OrderBy(Function(r) CDate(r("PostingDate"))).
+        ThenBy(Function(r) CLng(r("LedgerSequence"))).
+        ThenBy(Function(r) CLng(r("LedgerID"))).
+        FirstOrDefault()
+
+        ' لو ما وجدنا نفس المخزن، نرجع لأول IN لنفس المنتج بدون شرط مخزن
+        If startLedgerRow Is Nothing Then
+            startLedgerRow =
             source.AsEnumerable().
             Where(Function(r)
-                      If IsDBNull(r("SourceDetailID")) Then Return False
+                      If IsDBNull(r("ProductID")) Then Return False
+                      If CInt(r("ProductID")) <> correctedProductID Then Return False
                       If ToDec(r("InQty")) <= 0D Then Return False
-                      If hasPrev AndAlso Not IsDBNull(r("PrevLedgerID")) Then Return False
                       Return True
                   End Function).
             OrderBy(Function(r) CDate(r("PostingDate"))).
             ThenBy(Function(r) CLng(r("LedgerSequence"))).
             ThenBy(Function(r) CLng(r("LedgerID"))).
             FirstOrDefault()
+        End If
 
         If startLedgerRow Is Nothing Then
-            startLedgerRow =
-                source.AsEnumerable().
-                OrderBy(Function(r) CDate(r("PostingDate"))).
-                ThenBy(Function(r) CLng(r("LedgerSequence"))).
-                ThenBy(Function(r) CLng(r("LedgerID"))).
-                First()
+            ' لا يوجد IN لهذا المنتج ضمن المتأثرين
+            Exit Sub
         End If
 
         Dim startLedgerID As Long = CLng(startLedgerRow("LedgerID"))
 
-        Dim correctedQty As Decimal? = Nothing
-        Dim correctedUnitCost As Decimal? = Nothing
-
-        If adjust IsNot Nothing AndAlso adjust.Rows.Count > 0 Then
-            correctedQty = ToDec(adjust.Rows(0)("NewQty"))
-            correctedUnitCost = ToDec(adjust.Rows(0)("NewUnitCost"))
-        End If
-
+        ' 4) ترتيب المصدر
         Dim orderedSource =
-            source.AsEnumerable().
-            OrderBy(Function(r) CDate(r("PostingDate"))).
-            ThenBy(Function(r) CLng(r("LedgerSequence"))).
-            ThenBy(Function(r) CLng(r("LedgerID")))
+        source.AsEnumerable().
+        OrderBy(Function(r) CDate(r("PostingDate"))).
+        ThenBy(Function(r) CLng(r("LedgerSequence"))).
+        ThenBy(Function(r) CLng(r("LedgerID")))
 
+        ' 5) بناء جدول المحاكاة: نسخ + إعداد Correct* + تطبيق تصحيح المستخدم فقط على startLedgerID
         For Each r As DataRow In orderedSource
 
             Dim row = sim.NewRow()
 
+            ' نسخ الأعمدة المشتركة
             For Each col As DataColumn In source.Columns
                 If sim.Columns.Contains(col.ColumnName) Then
                     row(col.ColumnName) = r(col.ColumnName)
@@ -1025,14 +1101,12 @@ ORDER BY p.PartnerName
                 row("CorrectOutUnitCost") = 0D
             End If
 
+            ' تطبيق تصحيح المستخدم على Ledger البداية فقط
             If CLng(r("LedgerID")) = startLedgerID Then
-                If correctedQty.HasValue Then
-                    row("CorrectInQty") = correctedQty.Value
-                    row("CorrectOutQty") = 0D
-                End If
-                If correctedUnitCost.HasValue Then
-                    row("CorrectInUnitCost") = correctedUnitCost.Value
-                End If
+                row("CorrectInQty") = correctedQty
+                row("CorrectOutQty") = 0D
+                row("CorrectInUnitCost") = correctedUnitCost
+                ' CorrectOutUnitCost يبقى 0 لأنه IN
             End If
 
             sim.Rows.Add(row)
@@ -1096,7 +1170,7 @@ ORDER BY p.PartnerName
                     inUnitCost = specified
                 Else
                     inUnitCost = oldAvgCost
-                    r("CorrectInUnitCost") = inUnitCost
+                    inUnitCost = 0D
                 End If
             End If
 
@@ -1107,11 +1181,16 @@ ORDER BY p.PartnerName
             ' New avg (WAC per ProductID)
             Dim newAvgCost As Decimal = oldAvgCost
             If inQty > 0D Then
-                Dim denom As Decimal = oldQty + inQty
-                If denom > 0D Then
-                    newAvgCost = ((oldQty * oldAvgCost) + (inQty * inUnitCost)) / denom
+                If inUnitCost > 0D Then
+                    Dim denom As Decimal = oldQty + inQty
+                    If denom > 0D Then
+                        newAvgCost = ((oldQty * oldAvgCost) + (inQty * inUnitCost)) / denom
+                    Else
+                        newAvgCost = inUnitCost
+                    End If
                 Else
-                    newAvgCost = inUnitCost
+                    ' تكلفة الدخول غير معروفة بعد -> لا تغيّر المتوسط الآن
+                    newAvgCost = oldAvgCost
                 End If
             End If
 
@@ -1137,91 +1216,7 @@ ORDER BY p.PartnerName
         Next
 
     End Sub
-    Private Sub ApplyTransferLinksOnly(simLedgers As DataTable)
 
-        If simLedgers Is Nothing OrElse simLedgers.Rows.Count = 0 Then Exit Sub
-
-        Dim links As DataTable = _revaluationService.GetSimulationLinks(simLedgers)
-        _lastSimulationLinks = links
-
-        For Each link As DataRow In links.Rows
-
-            Dim linkType As Integer = CInt(link("LinkType"))
-
-            ' TRANSFER only (LinkTypeID=1)
-            If linkType <> 1 Then Continue For
-
-            Dim sourceLedgerID As Long = CLng(link("SourceLedgerID"))
-            Dim targetLedgerID As Long = CLng(link("TargetLedgerID"))
-
-            Dim sourceRow As DataRow =
-            simLedgers.AsEnumerable().
-            FirstOrDefault(Function(r) CLng(r("LedgerID")) = sourceLedgerID)
-
-            Dim targetRow As DataRow =
-            simLedgers.AsEnumerable().
-            FirstOrDefault(Function(r) CLng(r("LedgerID")) = targetLedgerID)
-
-            If sourceRow Is Nothing OrElse targetRow Is Nothing Then Continue For
-
-            ' Rule: In cost = Out cost (transfer)
-            Dim sourceOutCost As Decimal = ToDec(sourceRow("CorrectOutUnitCost"))
-            If sourceOutCost <= 0D Then
-                sourceOutCost = ToDec(sourceRow("OldAvgCost"))
-                If sourceOutCost <= 0D Then sourceOutCost = ToDec(sourceRow("NewAvgCost"))
-            End If
-
-            If ToDec(targetRow("CorrectInQty")) > 0D Then
-                targetRow("CorrectInUnitCost") = sourceOutCost
-            End If
-
-        Next
-
-    End Sub
-
-    Private Sub RecalculateLinkedCosts()
-
-        Dim dt As DataTable =
-    CType(dgvSimulation.DataSource, DataTable)
-
-        Dim links As DataTable =
-    _revaluationService.GetSimulationLinks(dt)
-
-        For Each link As DataRow In links.Rows
-
-            Dim sourceID As Long = CLng(link("SourceLedgerID"))
-            Dim targetID As Long = CLng(link("TargetLedgerID"))
-
-            Dim sourceRow =
-        dt.AsEnumerable().
-        FirstOrDefault(Function(r) CLng(r("LedgerID")) = sourceID)
-
-            Dim targetRow =
-        dt.AsEnumerable().
-        FirstOrDefault(Function(r) CLng(r("LedgerID")) = targetID)
-
-            If sourceRow Is Nothing OrElse targetRow Is Nothing Then Continue For
-
-            Dim avgCost As Decimal =
-        CDec(sourceRow("NewAvgCost"))
-
-            ' إذا كان الهدف حركة دخول
-            If CDec(targetRow("CorrectInQty")) > 0 Then
-
-                targetRow("CorrectInUnitCost") = avgCost
-
-            End If
-
-            ' إذا كان الهدف حركة خروج
-            If CDec(targetRow("CorrectOutQty")) > 0 Then
-
-                targetRow("CorrectOutUnitCost") = avgCost
-
-            End If
-
-        Next
-
-    End Sub
     Private Sub FillSimulationGrid()
 
         Dim source As DataTable =
@@ -1392,33 +1387,41 @@ ORDER BY p.PartnerName
         Dim links As DataTable = _revaluationService.GetSimulationLinks(simLedgers)
         _lastSimulationLinks = links
 
-        ' Helper lambdas to get ledger rows quickly
+        ' Map ledgers by ID for fast lookup
         Dim ledgerById As Dictionary(Of Long, DataRow) =
-            simLedgers.AsEnumerable().ToDictionary(Function(r) CLng(r("LedgerID")))
+        simLedgers.AsEnumerable().ToDictionary(Function(r) CLng(r("LedgerID")))
 
         Dim getLedgerRow =
-            Function(id As Long) As DataRow
-                If ledgerById.ContainsKey(id) Then Return ledgerById(id)
-                Return Nothing
-            End Function
+        Function(id As Long) As DataRow
+            If ledgerById.ContainsKey(id) Then Return ledgerById(id)
+            Return Nothing
+        End Function
 
-        Dim getOutUnitCost =
-            Function(row As DataRow) As Decimal
-                If row Is Nothing Then Return 0D
-                Dim c As Decimal = ToDec(row("CorrectOutUnitCost"))
-                If c > 0D Then Return c
-                c = ToDec(row("OldAvgCost"))
-                If c > 0D Then Return c
-                Return ToDec(row("NewAvgCost"))
-            End Function
+        ' Stable unit-cost for SOURCE when propagating through links:
+        ' Prefer CorrectOutUnitCost, else OutUnitCost, else OldAvgCost.
+        ' DO NOT use NewAvgCost as fallback (may be temporary during iterations).
+        Dim getSourceOutUnitCost =
+        Function(row As DataRow) As Decimal
+            If row Is Nothing Then Return 0D
+
+            Dim c As Decimal = ToDec(row("CorrectOutUnitCost"))
+            If c > 0D Then Return c
+
+            c = ToDec(row("OutUnitCost"))
+            If c > 0D Then Return c
+
+            c = ToDec(row("OldAvgCost"))
+            If c > 0D Then Return c
+
+            Return 0D
+        End Function
 
         '=========================================================
-        ' 1) TRANSFER (LinkType=1): Target IN cost = Source OUT cost
+        ' 1) TRANSFER (LinkType=1)
         '=========================================================
         For Each link As DataRow In links.Rows
 
-            Dim linkType As Integer = CInt(link("LinkType"))
-            If linkType <> 1 Then Continue For
+            If CInt(link("LinkType")) <> 1 Then Continue For
 
             Dim sourceID As Long = CLng(link("SourceLedgerID"))
             Dim targetID As Long = CLng(link("TargetLedgerID"))
@@ -1427,21 +1430,24 @@ ORDER BY p.PartnerName
             Dim targetRow As DataRow = getLedgerRow(targetID)
             If sourceRow Is Nothing OrElse targetRow Is Nothing Then Continue For
 
+            Dim srcCost As Decimal = getSourceOutUnitCost(sourceRow)
+            If srcCost <= 0D Then Continue For
+
             If ToDec(targetRow("CorrectInQty")) > 0D Then
-                targetRow("CorrectInUnitCost") = getOutUnitCost(sourceRow)
+                targetRow("CorrectInUnitCost") = srcCost
             End If
+
         Next
 
         '=========================================================
-        ' 2) Build "consume total cost" per TARGET ledger (LinkType=2)
-        '    TotalConsumeCost(target) = sum(flowQty * sourceOutUnitCost)
+        ' 2) PRODUCTION CONSUME (LinkType=2): many OUT raw -> one IN final
+        '    Target IN unit cost = Sum(flowQty * sourceOutUnitCost) / targetInQty
         '=========================================================
-        Dim consumeTotalCostByTarget As New Dictionary(Of Long, Decimal)()
+        Dim prodTotalCostByTarget As New Dictionary(Of Long, Decimal)()
 
         For Each link As DataRow In links.Rows
 
-            Dim linkType As Integer = CInt(link("LinkType"))
-            If linkType <> 2 Then Continue For
+            If CInt(link("LinkType")) <> 2 Then Continue For
 
             Dim sourceID As Long = CLng(link("SourceLedgerID"))
             Dim targetID As Long = CLng(link("TargetLedgerID"))
@@ -1450,21 +1456,19 @@ ORDER BY p.PartnerName
             Dim sourceRow As DataRow = getLedgerRow(sourceID)
             If sourceRow Is Nothing Then Continue For
 
-            Dim cost As Decimal = flowQty * getOutUnitCost(sourceRow)
+            Dim srcCost As Decimal = getSourceOutUnitCost(sourceRow)
+            If srcCost <= 0D Then Continue For
 
-            If Not consumeTotalCostByTarget.ContainsKey(targetID) Then
-                consumeTotalCostByTarget(targetID) = 0D
+            Dim cost As Decimal = flowQty * srcCost
+
+            If Not prodTotalCostByTarget.ContainsKey(targetID) Then
+                prodTotalCostByTarget(targetID) = 0D
             End If
-            consumeTotalCostByTarget(targetID) += cost
+            prodTotalCostByTarget(targetID) += cost
 
         Next
 
-        '=========================================================
-        ' 3) If a TARGET ledger receives consume links and is an IN movement,
-        '    set its IN unit cost = totalConsumeCost / its IN qty
-        '    (This covers "production: out one, in many" if target is the product ledger itself)
-        '=========================================================
-        For Each kvp In consumeTotalCostByTarget
+        For Each kvp In prodTotalCostByTarget
 
             Dim targetID As Long = kvp.Key
             Dim totalCost As Decimal = kvp.Value
@@ -1473,6 +1477,8 @@ ORDER BY p.PartnerName
             If targetRow Is Nothing Then Continue For
 
             Dim inQty As Decimal = ToDec(targetRow("CorrectInQty"))
+            If inQty <= 0D Then inQty = ToDec(targetRow("InQty"))
+
             If inQty > 0D Then
                 targetRow("CorrectInUnitCost") = totalCost / inQty
             End If
@@ -1480,73 +1486,65 @@ ORDER BY p.PartnerName
         Next
 
         '=========================================================
-        ' 4) Outputs distribution (LinkType=3) from a SOURCE to many targets,
-        '    excluding SCRAP (LinkType=9) which has zero cost.
+        ' 3) MULTI-OUTPUT DISTRIBUTION (LinkType=3) + SCRAP (LinkType=9)
+        '    One SOURCE -> many targets (e.g., Cutting, Waste->Scrap).
+        '    Scrap targets (9) = cost 0, but included as movement qty.
         '
-        '    We distribute based on FlowQty proportion among LinkType=3 targets.
-        '
-        '    Cost base:
-        '      - If the SOURCE ledger itself has an OUT movement, use its OUT cost.
-        '      - Otherwise, if the SOURCE has a "consume total cost" (as a target in step 2),
-        '        use that total cost as the pool to distribute.
+        '    poolCost = sourceOutQty * sourceOutUnitCost
+        '    distribute poolCost across LinkType=3 targets by FlowQty proportion.
         '=========================================================
-        Dim linksBySource As Dictionary(Of Long, List(Of DataRow)) =
-            links.AsEnumerable().
-            Where(Function(l) CInt(l("LinkType")) = 3 OrElse CInt(l("LinkType")) = 9).
-            GroupBy(Function(l) CLng(l("SourceLedgerID"))).
-            ToDictionary(Function(g) g.Key, Function(g) g.ToList())
+        Dim outputsBySource As Dictionary(Of Long, List(Of DataRow)) =
+        links.AsEnumerable().
+        Where(Function(l) CInt(l("LinkType")) = 3 OrElse CInt(l("LinkType")) = 9).
+        GroupBy(Function(l) CLng(l("SourceLedgerID"))).
+        ToDictionary(Function(g) g.Key, Function(g) g.ToList())
 
-        For Each src In linksBySource.Keys
+        For Each sourceID In outputsBySource.Keys
 
-            Dim srcRow As DataRow = getLedgerRow(src)
+            Dim sourceRow As DataRow = getLedgerRow(sourceID)
+            If sourceRow Is Nothing Then Continue For
 
-            ' Determine the cost pool to distribute
-            Dim poolCost As Decimal = 0D
+            Dim outQty As Decimal = ToDec(sourceRow("CorrectOutQty"))
+            If outQty <= 0D Then outQty = ToDec(sourceRow("OutQty"))
 
-            If srcRow IsNot Nothing AndAlso ToDec(srcRow("CorrectOutQty")) > 0D Then
-                poolCost = ToDec(srcRow("CorrectOutQty")) * getOutUnitCost(srcRow)
-            ElseIf consumeTotalCostByTarget.ContainsKey(src) Then
-                poolCost = consumeTotalCostByTarget(src)
-            ElseIf srcRow IsNot Nothing Then
-                ' fallback: if nothing else, use OUT cost * OutQty (could be 0)
-                poolCost = ToDec(srcRow("OutQty")) * getOutUnitCost(srcRow)
-            End If
+            Dim outCost As Decimal = getSourceOutUnitCost(sourceRow)
 
+            Dim poolCost As Decimal = outQty * outCost
             If poolCost <= 0D Then Continue For
 
-            ' Sum FlowQty for LinkType=3 only (exclude scrap type=9)
+            ' Sum FlowQty for LinkType=3 only (exclude scrap 9 from cost distribution)
             Dim sumFlowQty As Decimal = 0D
-            For Each l As DataRow In linksBySource(src)
+            For Each l As DataRow In outputsBySource(sourceID)
                 If CInt(l("LinkType")) = 3 Then
                     sumFlowQty += ToDec(l("FlowQty"))
                 End If
             Next
             If sumFlowQty <= 0D Then Continue For
 
-            ' Allocate to each output target of type=3
-            For Each l As DataRow In linksBySource(src)
+            For Each l As DataRow In outputsBySource(sourceID)
 
                 Dim linkType As Integer = CInt(l("LinkType"))
                 Dim targetID As Long = CLng(l("TargetLedgerID"))
-                Dim flowQty As Decimal = ToDec(l("FlowQty"))
+
+                Dim targetRow As DataRow = getLedgerRow(targetID)
+                If targetRow Is Nothing Then Continue For
 
                 If linkType = 9 Then
-                    ' SCRAP / trace-only: keep as-is (cost 0)
+                    ' Scrap: force zero cost if it's an IN movement
+                    If ToDec(targetRow("CorrectInQty")) > 0D Then
+                        targetRow("CorrectInUnitCost") = 0D
+                    End If
                     Continue For
                 End If
 
                 If linkType <> 3 Then Continue For
 
-                Dim targetRow As DataRow = getLedgerRow(targetID)
-                If targetRow Is Nothing Then Continue For
-
+                Dim flowQty As Decimal = ToDec(l("FlowQty"))
                 Dim allocatedCost As Decimal = poolCost * (flowQty / sumFlowQty)
 
                 Dim targetInQty As Decimal = ToDec(targetRow("CorrectInQty"))
-                If targetInQty <= 0D Then
-                    ' fallback: use flow qty if ledger in qty not available
-                    targetInQty = flowQty
-                End If
+                If targetInQty <= 0D Then targetInQty = ToDec(targetRow("InQty"))
+                If targetInQty <= 0D Then targetInQty = flowQty
 
                 If targetInQty > 0D Then
                     targetRow("CorrectInUnitCost") = allocatedCost / targetInQty
@@ -1557,6 +1555,140 @@ ORDER BY p.PartnerName
         Next
 
     End Sub
+    Private Sub dgvMain_CellBeginEdit(sender As Object, e As DataGridViewCellCancelEventArgs) Handles dgvMain.CellBeginEdit
 
+        If IsLoading Then Return
+        If IsCancelMode Then
+            e.Cancel = True
+            Return
+        End If
+
+        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then
+            e.Cancel = True
+            Return
+        End If
+
+        Dim col As DataGridViewColumn = dgvMain.Columns(e.ColumnIndex)
+        Dim prop As String = col.DataPropertyName
+        Dim name As String = col.Name
+
+        Dim allowed As Boolean =
+    _allowedEditProps.Contains(prop) OrElse _allowedEditColumnNames.Contains(name)
+
+        If Not allowed Then
+            e.Cancel = True
+            MessageBox.Show("غير مسموح تعديل هذا الحقل. المسموح فقط: الكمية أو السعر.", "تنبيه",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            Return
+        End If
+        ' 2) منع تعديل أكثر من صف
+        If _editedRowIndex <> -1 AndAlso e.RowIndex <> _editedRowIndex Then
+
+            Dim msg As String =
+        "لا يمكن تعديل أكثر من صنف في نفس العملية." & vbCrLf &
+        "هل تريد تعديل الصف الحالي؟" & vbCrLf &
+        "إذا اخترت نعم سيتم إلغاء تعديل الصف السابق وإرجاعه كما كان، وسيتم مسح نتائج العمليات المتأثرة/المحاكاة."
+
+            Dim res = MessageBox.Show(msg, "تأكيد", MessageBoxButtons.YesNo, MessageBoxIcon.Question)
+
+            If res = DialogResult.Yes Then
+                RestoreEditedRowSnapshot()
+                ResetSingleRowEditGuard()
+
+                ' مهم: النتائج القديمة لم تعد صالحة لأن الصف المعدّل تغيّر
+                ClearDependentResults()
+
+            Else
+                e.Cancel = True
+                Return
+            End If
+
+        End If
+        ' 3) أول مرة نلمس صف للتعديل: نسجل أنه هو الصف المعتمد + نلتقط Snapshot قبل أي تغيير
+        If _editedRowIndex = -1 Then
+            _editedRowIndex = e.RowIndex
+        End If
+
+        If _editedRowIndex = e.RowIndex AndAlso _snapshotCapturedForRowIndex <> e.RowIndex Then
+            _editedRowSnapshot = CaptureRowSnapshot(e.RowIndex)
+            _snapshotCapturedForRowIndex = e.RowIndex
+        End If
+
+    End Sub
+
+
+    Private Sub ResetSingleRowEditGuard()
+        _editedRowIndex = -1
+        _editedRowSnapshot = Nothing
+        _snapshotCapturedForRowIndex = -1
+    End Sub
+
+
+    Private ReadOnly _allowedEditProps As HashSet(Of String) =
+    New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
+        "NewQty",
+        "NewUnitPrice"
+    }
+
+    Private ReadOnly _allowedEditColumnNames As HashSet(Of String) =
+        New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
+            "colQty",        ' عمود الكمية في designer
+            "colUnitPrice"   ' عمود السعر في designer
+        }
+
+    Private Function CaptureRowSnapshot(rowIndex As Integer) As Dictionary(Of String, Object)
+        Dim result As New Dictionary(Of String, Object)(StringComparer.OrdinalIgnoreCase)
+
+        If rowIndex < 0 OrElse rowIndex >= dgvMain.Rows.Count Then Return result
+
+        Dim drv As DataRowView = TryCast(dgvMain.Rows(rowIndex).DataBoundItem, DataRowView)
+        If drv Is Nothing Then Return result
+
+        Dim r As DataRow = drv.Row
+        For Each c As DataColumn In r.Table.Columns
+            result(c.ColumnName) = If(IsDBNull(r(c.ColumnName)), DBNull.Value, r(c.ColumnName))
+        Next
+
+        Return result
+    End Function
+
+    Private Sub RestoreEditedRowSnapshot()
+        If _editedRowIndex < 0 Then Return
+        If _editedRowSnapshot Is Nothing Then Return
+        If _editedRowIndex >= dgvMain.Rows.Count Then Return
+
+        Dim drv As DataRowView = TryCast(dgvMain.Rows(_editedRowIndex).DataBoundItem, DataRowView)
+        If drv Is Nothing Then Return
+
+        Dim r As DataRow = drv.Row
+        For Each kvp In _editedRowSnapshot
+            If r.Table.Columns.Contains(kvp.Key) Then
+                r(kvp.Key) = kvp.Value
+            End If
+        Next
+
+        RefreshAdjustmentDeltaView()
+        RefreshDisplayedTotals()
+        dgvMain.Refresh()
+    End Sub
+
+
+    Private Sub ClearDependentResults()
+        ' Affected Operations
+        Dim dtAffected As DataTable = TryCast(dgvAffectedOperations.DataSource, DataTable)
+        If dtAffected IsNot Nothing Then
+            dtAffected.Rows.Clear()
+        End If
+
+        ' Simulation
+        Dim dtSim As DataTable = TryCast(dgvSimulation.DataSource, DataTable)
+        If dtSim IsNot Nothing Then
+            dtSim.Rows.Clear()
+        End If
+
+        ' (اختياري) لو عندك جريد روابط/نتائج أخرى امسحها هنا أيضًا
+        _lastSimulationLedger = Nothing
+        _lastSimulationLinks = Nothing
+    End Sub
 
 End Class

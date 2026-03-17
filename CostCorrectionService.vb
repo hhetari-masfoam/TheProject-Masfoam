@@ -222,6 +222,8 @@ ORDER BY d.DetailID
 
 
     ' Purchase
+    ' Purchase
+    ' Purchase
     Public Function GetAffectedPurchaseOperationsForPreview(
     details As DataTable,
     documentID As Integer
@@ -260,13 +262,60 @@ ORDER BY d.DetailID
         result.Columns.Add("RootTransactionID", GetType(Long))
         result.Columns.Add("SupersededByLedgerID", GetType(Long))
 
+        ' -----------------------------
+        ' 1) استخراج DetailIDs التي تغيّرت فعلاً (بدون أي تكرار دوال في الفورم)
+        ' -----------------------------
+        Dim changedIds As New List(Of Integer)()
+
+        If details IsNot Nothing AndAlso details.Rows.Count > 0 Then
+
+            Dim hasDetailID As Boolean = details.Columns.Contains("DetailID")
+            Dim hasOldQty As Boolean = details.Columns.Contains("OldQty")
+            Dim hasNewQty As Boolean = details.Columns.Contains("NewQty")
+            Dim hasOldPrice As Boolean = details.Columns.Contains("OldUnitPrice")
+            Dim hasNewPrice As Boolean = details.Columns.Contains("NewUnitPrice")
+
+            If hasDetailID AndAlso hasOldQty AndAlso hasNewQty AndAlso hasOldPrice AndAlso hasNewPrice Then
+
+                For Each r As DataRow In details.Rows
+                    If r.RowState = DataRowState.Deleted Then Continue For
+
+                    Dim oldQty As Decimal = ToDec(r("OldQty"))
+                    Dim newQty As Decimal = ToDec(r("NewQty"))
+                    Dim oldPrice As Decimal = ToDec(r("OldUnitPrice"))
+                    Dim newPrice As Decimal = ToDec(r("NewUnitPrice"))
+
+                    If oldQty <> newQty OrElse oldPrice <> newPrice Then
+                        changedIds.Add(CInt(r("DetailID")))
+                    End If
+                Next
+
+            End If
+
+        End If
+
+        ' لو لا يوجد أي تعديل فعلي -> رجّع فاضي (بدل ما نجيب كل الليدجرات)
+        If changedIds.Count = 0 Then
+            Return result
+        End If
+
+        changedIds = changedIds.Distinct().ToList()
+        Dim changedIdsCsv As String = String.Join(",", changedIds)
+
         Using con As New SqlConnection(_connectionString)
 
             con.Open()
 
-            Using cmd As New SqlCommand("
+            Dim sql As String = "
 
-;WITH StartLedgers AS
+;WITH ChangedDetails AS
+(
+    SELECT TRY_CONVERT(INT, value) AS DetailID
+    FROM string_split(@ChangedDetailIDs, ',')
+    WHERE TRY_CONVERT(INT, value) IS NOT NULL
+),
+
+StartLedgers AS
 (
     SELECT cl.*
     FROM Inventory_CostLedger cl
@@ -274,12 +323,7 @@ ORDER BY d.DetailID
     (
         SELECT td.DetailID
         FROM Inventory_TransactionDetails td
-        WHERE td.SourceDocumentDetailID IN
-        (
-            SELECT DetailID
-            FROM Inventory_DocumentDetails
-            WHERE DocumentID = @DocumentID
-        )
+        WHERE td.SourceDocumentDetailID IN (SELECT DetailID FROM ChangedDetails)
     )
 ),
 
@@ -350,9 +394,11 @@ ORDER BY
     PostingDate,
     LedgerSequence,
     LedgerID
-", con)
+"
 
-                cmd.Parameters.AddWithValue("@DocumentID", documentID)
+            Using cmd As New SqlCommand(sql, con)
+
+                cmd.Parameters.AddWithValue("@ChangedDetailIDs", changedIdsCsv)
 
                 Using reader = cmd.ExecuteReader()
 
@@ -372,7 +418,6 @@ ORDER BY
                         row("StoreID") = reader("StoreID")
 
                         row("OperationTypeID") = reader("OperationTypeID")
-
                         row("PostingDate") = reader("PostingDate")
 
                         row("OldQty") = reader("OldQty")
@@ -394,16 +439,17 @@ ORDER BY
                         row("LedgerSequence") = reader("LedgerSequence")
 
                         row("SourceLedgerID") =
-If(IsDBNull(reader("SourceLedgerID")), DBNull.Value, reader("SourceLedgerID"))
+                        If(IsDBNull(reader("SourceLedgerID")), DBNull.Value, reader("SourceLedgerID"))
 
                         row("RootLedgerID") =
-If(IsDBNull(reader("RootLedgerID")), DBNull.Value, reader("RootLedgerID"))
+                        If(IsDBNull(reader("RootLedgerID")), DBNull.Value, reader("RootLedgerID"))
 
                         row("SupersededByLedgerID") =
-If(IsDBNull(reader("SupersededByLedgerID")), DBNull.Value, reader("SupersededByLedgerID"))
+                        If(IsDBNull(reader("SupersededByLedgerID")), DBNull.Value, reader("SupersededByLedgerID"))
 
                         row("RootTransactionID") =
-If(IsDBNull(reader("RootTransactionID")), DBNull.Value, reader("RootTransactionID"))
+                        If(IsDBNull(reader("RootTransactionID")), DBNull.Value, reader("RootTransactionID"))
+
                         result.Rows.Add(row)
 
                     End While
@@ -417,6 +463,8 @@ If(IsDBNull(reader("RootTransactionID")), DBNull.Value, reader("RootTransactionI
         Return result
 
     End Function
+
+
     Private Function D(val As Object) As Decimal
         If IsDBNull(val) OrElse val Is Nothing Then
             Return 0D

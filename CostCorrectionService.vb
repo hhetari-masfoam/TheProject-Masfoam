@@ -909,5 +909,195 @@ WHERE ProductionID=@P
 
     End Function
 
+    Public Function GetProductionChangedDetailIDs(
+    productionID As Integer,
+    transactionID As Integer,
+    inputs As DataTable,
+    newFgQty As Decimal,
+    newFgCost As Decimal
+) As List(Of Integer)
+
+        Dim result As New List(Of Integer)
+
+        Using con As New SqlConnection(_connectionString)
+            con.Open()
+
+            '========================================
+            ' 1) Get TransactionDetails
+            '========================================
+            Dim dtDetails As New DataTable()
+
+            Using cmd As New SqlCommand("
+            SELECT *
+            FROM Inventory_TransactionDetails
+            WHERE TransactionID = @T
+        ", con)
+
+                cmd.Parameters.AddWithValue("@T", transactionID)
+                dtDetails.Load(cmd.ExecuteReader())
+            End Using
+
+            '========================================
+            ' 2) Inputs (Consumption)
+            '========================================
+            For Each r As DataRow In inputs.Rows
+
+                Dim productID As Integer = CInt(r("ProductID"))
+                Dim oldQty As Decimal = ToDec(r("OriginalQuantity"))
+                Dim newQty As Decimal = ToDec(r("Quantity"))
+
+                If Math.Abs(oldQty - newQty) < 0.0001D Then Continue For
+
+                Dim match =
+                    dtDetails.AsEnumerable().
+                    FirstOrDefault(Function(x)
+                                       Return CInt(x("ProductID")) = productID AndAlso
+                                          Not IsDBNull(x("SourceStoreID"))
+                                   End Function)
+
+                If match IsNot Nothing Then
+                    result.Add(CInt(match("DetailID")))
+                End If
+
+            Next
+
+            '========================================
+            ' 3) Output (FG)
+            '========================================
+            Dim fgRow =
+                dtDetails.AsEnumerable().
+                FirstOrDefault(Function(x)
+                                   Return IsDBNull(x("SourceStoreID")) AndAlso
+                                      Not IsDBNull(x("TargetStoreID"))
+                               End Function)
+
+            If fgRow IsNot Nothing Then
+
+                Dim oldQty As Decimal = ToDec(fgRow("Quantity"))
+                Dim oldCost As Decimal = ToDec(fgRow("UnitCost"))
+
+                If Math.Abs(oldQty - newFgQty) > 0.0001D OrElse
+                   Math.Abs(oldCost - newFgCost) > 0.0001D Then
+
+                    result.Add(CInt(fgRow("DetailID")))
+                End If
+
+            End If
+
+        End Using
+
+        Return result
+
+    End Function
+    Public Function GetAffectedCostDependenciesForProduction(
+    detailIDs As List(Of Integer)
+) As DataTable
+
+        Dim result As New DataTable()
+
+        result.Columns.Add("LedgerID", GetType(Long))
+        result.Columns.Add("TransactionID", GetType(Long))
+        result.Columns.Add("SourceDetailID", GetType(Long))
+
+        result.Columns.Add("ProductID", GetType(Integer))
+        result.Columns.Add("BaseProductID", GetType(Integer))
+        result.Columns.Add("StoreID", GetType(Integer))
+        result.Columns.Add("OperationTypeID", GetType(Integer))
+
+        result.Columns.Add("LocalOldQty", GetType(Decimal))
+        result.Columns.Add("OldQty", GetType(Decimal))
+        result.Columns.Add("InQty", GetType(Decimal))
+        result.Columns.Add("OutQty", GetType(Decimal))
+        result.Columns.Add("NewQty", GetType(Decimal))
+        result.Columns.Add("LocalNewQty", GetType(Decimal))
+
+        result.Columns.Add("OldAvgCost", GetType(Decimal))
+        result.Columns.Add("InUnitCost", GetType(Decimal))
+        result.Columns.Add("OutUnitCost", GetType(Decimal))
+        result.Columns.Add("NewAvgCost", GetType(Decimal))
+
+        result.Columns.Add("LedgerSequence", GetType(Integer))
+        result.Columns.Add("SourceLedgerID", GetType(Long))
+        result.Columns.Add("RootLedgerID", GetType(Long))
+        result.Columns.Add("SupersededByLedgerID", GetType(Long))
+        result.Columns.Add("RootTransactionID", GetType(Long))
+
+        result.Columns.Add("PostingDate", GetType(Date))
+
+        If detailIDs Is Nothing OrElse detailIDs.Count = 0 Then
+            Return result
+        End If
+
+        Using con As New SqlConnection(_connectionString)
+            con.Open()
+
+            Dim idsCsv As String = String.Join(",", detailIDs)
+
+            Dim sql As String = "
+;WITH StartLedgers AS
+(
+    SELECT *
+    FROM Inventory_CostLedger
+    WHERE SourceDetailID IN (" & idsCsv & ")
+),
+AffectedLedgers AS
+(
+    SELECT * FROM StartLedgers
+
+    UNION ALL
+
+    SELECT l.*
+    FROM Inventory_CostLedger l
+    JOIN AffectedLedgers a
+        ON l.DependsOnLedgerID = a.LedgerID
+    WHERE l.IsActive = 1
+      AND l.IsReversed = 0
+
+    UNION ALL
+
+    SELECT l.*
+    FROM Inventory_CostLedgerLink link
+    JOIN AffectedLedgers a
+        ON link.SourceLedgerID = a.LedgerID
+    JOIN Inventory_CostLedger l
+        ON l.LedgerID = link.TargetLedgerID
+    WHERE link.IsActive = 1
+      AND link.LinkDirection = 2
+)
+
+SELECT *
+FROM AffectedLedgers
+ORDER BY PostingDate, LedgerSequence, LedgerID
+"
+
+            Using cmd As New SqlCommand(sql, con)
+
+                Using r = cmd.ExecuteReader()
+
+                    While r.Read()
+
+                        Dim row = result.NewRow()
+
+                        For i = 0 To r.FieldCount - 1
+                            Dim colName = r.GetName(i)
+
+                            If result.Columns.Contains(colName) Then
+                                row(colName) = If(IsDBNull(r(colName)), DBNull.Value, r(colName))
+                            End If
+                        Next
+
+                        result.Rows.Add(row)
+
+                    End While
+
+                End Using
+
+            End Using
+
+        End Using
+
+        Return result
+
+    End Function
 
 End Class

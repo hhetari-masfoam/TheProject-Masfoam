@@ -289,7 +289,7 @@ ByRef city As String
                     LoadProductionForRevaluation(f.SelectedProductionID)
 
                     SetModeUI()
-                    SetProductionReadOnly()
+                    '                SetProductionReadOnly()
                 End Using
 
             Case "tabCUT", "tabCut"
@@ -408,10 +408,15 @@ ORDER BY p.PartnerName
 
         End If
 
-        ' 🔥 تصفير القيم (كما عندك)
+        ' 🔥 تصفير القيم
         ResetProductionValuesForCancel()
         If CurrentOperationType = "CUT" Then
             ResetCuttingValuesForCancel()
+        End If
+
+        ' فقط في حالة PRO، اجعل الإنتاج للقراءة فقط
+        If CurrentOperationType = "PRO" Then
+            SetProductionReadOnly()
         End If
 
         SetModeUI()
@@ -856,7 +861,9 @@ Sum(Function(x) ToDec(x("CostDelta")))
         txtVATTotal.ReadOnly = True
         txtGrandTotal.ReadOnly = True
 
-
+        If CurrentOperationType = "PRO" Then
+            ApplyProductionEditRules()
+        End If
         If IsCancelMode Then
 
             dgvMain.ReadOnly = True
@@ -1174,14 +1181,26 @@ Sum(Function(x) ToDec(x("CostDelta")))
                 )
 
             Case "PRO"
-                Dim previewInputs = ExtractAffectedPreviewInputsFromUI()
+                Dim productionData = _revaluationService.GetProductionForRevaluation(CurrentDocumentID)
 
-                Dim reval = _revaluationService.BuildAffectedPreviewReval(previewInputs)
+                Dim changedDetailIDs = _revaluationService.GetProductionChangedDetailIDs(
+    CurrentDocumentID,
+    productionData.TransactionID,
+    dgvProductionCalculations.DataSource,
+    ToDec(txtTotalProductionQTY.Text),
+    ToDec(txtProductUnitCost.Text)
+)
 
-                result = _revaluationService.GetAffectedCostDependenciesForPreview(
-                    reval,
-                    CurrentDocumentID
-                )
+                If changedDetailIDs.Count = 0 Then
+                    MessageBox.Show("لا يوجد تغيير فعلي.")
+                    Exit Sub
+                End If
+
+                result = _revaluationService.GetAffectedCostDependenciesForProduction(
+    changedDetailIDs
+)
+
+                FillAffectedOperations(result)
 
             Case "CUT"
                 MessageBox.Show("استخراج العمليات المتأثرة للإنتاج لم يُبن بعد.")
@@ -2245,9 +2264,16 @@ Sum(Function(x) ToDec(x("CostDelta")))
         Dim q = ToDec(r("Quantity"))
 
         r("VolumeM3") = l * w * h * q / 1000000D
+        If CurrentOperationType <> "PRO" Then Exit Sub
+        If IsLoading Then Exit Sub
+        If IsCancelMode Then Exit Sub
 
+        If CurrentSubCategoryID = 9 OrElse CurrentSubCategoryID = 10 Then
+
+
+        End If
         dgvProduced.Refresh()
-
+        ApplyProductionAmountToProducedGrid()
         RecalculateProductionTotals()
         RefreshAdjustmentDeltaView()
     End Sub
@@ -2256,8 +2282,8 @@ Sum(Function(x) ToDec(x("CostDelta")))
     e As EventArgs
 ) Handles txtProductionAmount.TextChanged
 
-        If IsLoading Then Return
-        If IsCancelMode Then Return
+        If IsLoading Then Exit Sub
+        If IsCancelMode Then Exit Sub
 
         ' 🔥 الحل هنا
         dgvProductionCalculations.EndEdit()
@@ -2833,4 +2859,67 @@ WHERE o.CutID = @ID
         Return list
 
     End Function
+
+    Private Sub ApplyProductionEditRules()
+
+        If CurrentOperationType <> "PRO" Then Exit Sub
+        If Not IsCancelMode Then
+            dgvProduced.ReadOnly = False
+            For Each col As DataGridViewColumn In dgvProduced.Columns
+                If col.Name = "colVolume" Then
+                    col.ReadOnly = True ' لا يمكن التعديل على الحجم المحسوب
+                Else
+                    col.ReadOnly = False
+                End If
+            Next
+            txtProductionAmount.ReadOnly = False
+        Else
+            dgvProduced.ReadOnly = True
+            txtProductionAmount.ReadOnly = True
+            ' إذا أردت تصفير القيم في الإلغاء: مرر على الصفوف وضع Quantity و VolumeM3 = 0
+        End If
+
+        Select Case CurrentSubCategoryID
+
+        '========================================
+        ' CASE 9
+        '========================================
+            Case 9
+                ' مسموح الاثنين
+                dgvProduced.ReadOnly = False
+                txtProductionAmount.ReadOnly = False
+
+        '========================================
+        ' CASE 10
+        '========================================
+            Case 10
+                ' الجريد فقط
+                dgvProduced.ReadOnly = False
+                txtProductionAmount.ReadOnly = True
+
+        '========================================
+        ' CASE 11
+        '========================================
+            Case 11
+                ' التكست فقط
+                dgvProduced.ReadOnly = True
+                txtProductionAmount.ReadOnly = False
+
+        End Select
+
+    End Sub
+    Private Sub ApplyProductionAmountToProducedGrid()
+
+        Dim dt As DataTable = TryCast(dgvProduced.DataSource, DataTable)
+        If dt Is Nothing OrElse dt.Rows.Count = 0 Then
+            txtProductionAmount.Text = "0.00"
+            Exit Sub
+        End If
+
+        Dim totalVolume As Decimal =
+            dt.AsEnumerable().Sum(Function(r) ToDec(r("VolumeM3")))
+
+        txtProductionAmount.Text = totalVolume.ToString("N2")
+
+    End Sub
 End Class

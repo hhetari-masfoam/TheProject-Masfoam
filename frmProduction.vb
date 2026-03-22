@@ -354,9 +354,9 @@ Public Class frmProduction
     End Sub
     Private Sub ClearProductionTotals()
 
-        txtTotalProductionValue.Text = "0"
+        txtTotalProductionVolume.Text = "0"
         txtTotalProductionQTY.Text = "0"
-        txtTotalChemicalAmount.Text = "0"
+        txtTotalChemicalConsumption.Text = "0"
         txtTotalProductionCost.Text = "0"
         txtProductUnitCost.Text = "0"
         txtDeviation.Text = "0"
@@ -2126,7 +2126,7 @@ ORDER BY
                 isValidProduction = (GetDec(txtProductionAmount.Text) > 0D)
 
             Case 10      ' مضغوط
-                isValidProduction = (GetDec(txtTotalProductionValue.Text) > 0D)
+                isValidProduction = (GetDec(txtTotalProductionVolume.Text) > 0D)
 
         End Select
 
@@ -2143,7 +2143,7 @@ ORDER BY
                 baseValue = GetDec(txtProductionAmount.Text)
 
             Case 10      ' مضغوط
-                baseValue = GetDec(txtTotalProductionValue.Text)
+                baseValue = GetDec(txtTotalProductionVolume.Text)
         End Select
 
         ' =========================
@@ -2826,9 +2826,9 @@ ORDER BY
             totalProductionCost += GetDec(r.Cells("colCalCost").Value)
         Next
 
-        txtTotalProductionValue.Text = totalProductionVolume.ToString("N1")
+        txtTotalProductionVolume.Text = totalProductionVolume.ToString("N1")
         txtTotalProductionQTY.Text = totalProductionQty.ToString("N1")
-        txtTotalChemicalAmount.Text = totalChemicalQty.ToString("N1")
+        txtTotalChemicalConsumption.Text = totalChemicalQty.ToString("N1")
         txtTotalProductionCost.Text = totalProductionCost.ToString("N1")
 
 
@@ -2883,7 +2883,7 @@ ORDER BY
             totalVolume = 0D
         End If
 
-        txtTotalProductionValue.Text = totalVolume.ToString("N6")
+        txtTotalProductionVolume.Text = totalVolume.ToString("N2")
 
     End Sub
 

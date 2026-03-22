@@ -23,6 +23,90 @@ Partial Class frmCostCorrection
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
         Me.tabMain = New System.Windows.Forms.TabControl()
+        Me.tabPRO = New System.Windows.Forms.TabPage()
+        Me.Panel4 = New System.Windows.Forms.Panel()
+        Me.SplitContainer3 = New System.Windows.Forms.SplitContainer()
+        Me.dgvProduced = New System.Windows.Forms.DataGridView()
+        Me.dgvProductionCalculations = New System.Windows.Forms.DataGridView()
+        Me.Panel2 = New System.Windows.Forms.Panel()
+        Me.txtProductionCode = New System.Windows.Forms.TextBox()
+        Me.txtProductID = New System.Windows.Forms.TextBox()
+        Me.txtProductionAmount = New System.Windows.Forms.TextBox()
+        Me.Label20 = New System.Windows.Forms.Label()
+        Me.txtProductionUnit = New System.Windows.Forms.TextBox()
+        Me.txtTotalChemicalQty = New System.Windows.Forms.TextBox()
+        Me.Label25 = New System.Windows.Forms.Label()
+        Me.txtTotalProductionVolume = New System.Windows.Forms.TextBox()
+        Me.Label11 = New System.Windows.Forms.Label()
+        Me.Label1 = New System.Windows.Forms.Label()
+        Me.Label4 = New System.Windows.Forms.Label()
+        Me.Label16 = New System.Windows.Forms.Label()
+        Me.txtTotalProductionCost = New System.Windows.Forms.TextBox()
+        Me.Label9 = New System.Windows.Forms.Label()
+        Me.txtTotalProductionQTY = New System.Windows.Forms.TextBox()
+        Me.Label6 = New System.Windows.Forms.Label()
+        Me.txtProductUnitCost = New System.Windows.Forms.TextBox()
+        Me.txtPastProductAverageCost = New System.Windows.Forms.TextBox()
+        Me.Label19 = New System.Windows.Forms.Label()
+        Me.tabSRT = New System.Windows.Forms.TabPage()
+        Me.dgvWasteCorrection = New System.Windows.Forms.DataGridView()
+        Me.DataGridViewTextBoxColumn1 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn2 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn3 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn4 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn5 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn6 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn7 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn8 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn9 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn10 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.DataGridViewTextBoxColumn11 = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.Panel7 = New System.Windows.Forms.Panel()
+        Me.TextBox1 = New System.Windows.Forms.TextBox()
+        Me.ComboBox1 = New System.Windows.Forms.ComboBox()
+        Me.ComboBox2 = New System.Windows.Forms.ComboBox()
+        Me.Label28 = New System.Windows.Forms.Label()
+        Me.DateTimePicker1 = New System.Windows.Forms.DateTimePicker()
+        Me.Label29 = New System.Windows.Forms.Label()
+        Me.Label30 = New System.Windows.Forms.Label()
+        Me.ComboBox3 = New System.Windows.Forms.ComboBox()
+        Me.Label31 = New System.Windows.Forms.Label()
+        Me.TextBox2 = New System.Windows.Forms.TextBox()
+        Me.TextBox3 = New System.Windows.Forms.TextBox()
+        Me.ComboBox4 = New System.Windows.Forms.ComboBox()
+        Me.CheckBox1 = New System.Windows.Forms.CheckBox()
+        Me.TextBox4 = New System.Windows.Forms.TextBox()
+        Me.ComboBox5 = New System.Windows.Forms.ComboBox()
+        Me.Label32 = New System.Windows.Forms.Label()
+        Me.Label33 = New System.Windows.Forms.Label()
+        Me.Label34 = New System.Windows.Forms.Label()
+        Me.Label35 = New System.Windows.Forms.Label()
+        Me.Label36 = New System.Windows.Forms.Label()
+        Me.Label37 = New System.Windows.Forms.Label()
+        Me.Label38 = New System.Windows.Forms.Label()
+        Me.TextBox5 = New System.Windows.Forms.TextBox()
+        Me.TextBox6 = New System.Windows.Forms.TextBox()
+        Me.TextBox7 = New System.Windows.Forms.TextBox()
+        Me.tabCUT = New System.Windows.Forms.TabPage()
+        Me.Panel6 = New System.Windows.Forms.Panel()
+        Me.dgvOutPut = New System.Windows.Forms.DataGridView()
+        Me.Panel5 = New System.Windows.Forms.Panel()
+        Me.txtSourceStore = New System.Windows.Forms.TextBox()
+        Me.txtStoreID = New System.Windows.Forms.Label()
+        Me.txtAvailableQTY = New System.Windows.Forms.TextBox()
+        Me.Label26 = New System.Windows.Forms.Label()
+        Me.dtpDate = New System.Windows.Forms.DateTimePicker()
+        Me.dtpCuttingDate = New System.Windows.Forms.DateTimePicker()
+        Me.Label27 = New System.Windows.Forms.Label()
+        Me.Label24 = New System.Windows.Forms.Label()
+        Me.Label23 = New System.Windows.Forms.Label()
+        Me.txtProductCode = New System.Windows.Forms.TextBox()
+        Me.txtTotalVolumeOutPut = New System.Windows.Forms.TextBox()
+        Me.txtCuttingCode = New System.Windows.Forms.TextBox()
+        Me.TotalPcsOutPut = New System.Windows.Forms.TextBox()
+        Me.Label12 = New System.Windows.Forms.Label()
+        Me.Label22 = New System.Windows.Forms.Label()
+        Me.Label21 = New System.Windows.Forms.Label()
         Me.tabPUR = New System.Windows.Forms.TabPage()
         Me.dgvMain = New System.Windows.Forms.DataGridView()
         Me.colProductCode = New System.Windows.Forms.DataGridViewTextBoxColumn()
@@ -62,8 +146,6 @@ Partial Class frmCostCorrection
         Me.txtGrandTotal = New System.Windows.Forms.TextBox()
         Me.txtExchangeRate = New System.Windows.Forms.TextBox()
         Me.txtCurrencyID = New System.Windows.Forms.TextBox()
-        Me.tabPRO = New System.Windows.Forms.TabPage()
-        Me.tabCUT = New System.Windows.Forms.TabPage()
         Me.tabSCR = New System.Windows.Forms.TabPage()
         Me.tabCOR = New System.Windows.Forms.TabPage()
         Me.tabAdvancedAnalysis = New System.Windows.Forms.TabPage()
@@ -82,19 +164,35 @@ Partial Class frmCostCorrection
         Me.btnSearch = New System.Windows.Forms.Button()
         Me.btnPrint = New System.Windows.Forms.Button()
         Me.btnClose = New System.Windows.Forms.Button()
-        Me.Panel1 = New System.Windows.Forms.Panel()
+        Me.pnlOperations = New System.Windows.Forms.Panel()
         Me.dgvAffectedOperations = New System.Windows.Forms.DataGridView()
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.dgvAdjustResult = New System.Windows.Forms.DataGridView()
         Me.SplitContainer2 = New System.Windows.Forms.SplitContainer()
         Me.dgvSimulation = New System.Windows.Forms.DataGridView()
         Me.tabMain.SuspendLayout()
+        Me.tabPRO.SuspendLayout()
+        Me.Panel4.SuspendLayout()
+        CType(Me.SplitContainer3, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.SplitContainer3.Panel1.SuspendLayout()
+        Me.SplitContainer3.Panel2.SuspendLayout()
+        Me.SplitContainer3.SuspendLayout()
+        CType(Me.dgvProduced, System.ComponentModel.ISupportInitialize).BeginInit()
+        CType(Me.dgvProductionCalculations, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.Panel2.SuspendLayout()
+        Me.tabSRT.SuspendLayout()
+        CType(Me.dgvWasteCorrection, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.Panel7.SuspendLayout()
+        Me.tabCUT.SuspendLayout()
+        Me.Panel6.SuspendLayout()
+        CType(Me.dgvOutPut, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.Panel5.SuspendLayout()
         Me.tabPUR.SuspendLayout()
         CType(Me.dgvMain, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.Panel3.SuspendLayout()
         Me.pnlControls.SuspendLayout()
         Me.pnlMode.SuspendLayout()
-        Me.Panel1.SuspendLayout()
+        Me.pnlOperations.SuspendLayout()
         CType(Me.dgvAffectedOperations, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer1.Panel1.SuspendLayout()
@@ -110,9 +208,10 @@ Partial Class frmCostCorrection
         '
         'tabMain
         '
-        Me.tabMain.Controls.Add(Me.tabPUR)
         Me.tabMain.Controls.Add(Me.tabPRO)
+        Me.tabMain.Controls.Add(Me.tabPUR)
         Me.tabMain.Controls.Add(Me.tabCUT)
+        Me.tabMain.Controls.Add(Me.tabSRT)
         Me.tabMain.Controls.Add(Me.tabSCR)
         Me.tabMain.Controls.Add(Me.tabCOR)
         Me.tabMain.Controls.Add(Me.tabAdvancedAnalysis)
@@ -124,6 +223,837 @@ Partial Class frmCostCorrection
         Me.tabMain.SelectedIndex = 0
         Me.tabMain.Size = New System.Drawing.Size(1448, 285)
         Me.tabMain.TabIndex = 0
+        '
+        'tabPRO
+        '
+        Me.tabPRO.Controls.Add(Me.Panel4)
+        Me.tabPRO.Controls.Add(Me.Panel2)
+        Me.tabPRO.Location = New System.Drawing.Point(4, 25)
+        Me.tabPRO.Name = "tabPRO"
+        Me.tabPRO.Padding = New System.Windows.Forms.Padding(3)
+        Me.tabPRO.Size = New System.Drawing.Size(1440, 256)
+        Me.tabPRO.TabIndex = 1
+        Me.tabPRO.Text = "الانتاج"
+        Me.tabPRO.UseVisualStyleBackColor = True
+        '
+        'Panel4
+        '
+        Me.Panel4.Controls.Add(Me.SplitContainer3)
+        Me.Panel4.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.Panel4.Location = New System.Drawing.Point(3, 3)
+        Me.Panel4.Name = "Panel4"
+        Me.Panel4.Size = New System.Drawing.Size(1049, 250)
+        Me.Panel4.TabIndex = 117
+        '
+        'SplitContainer3
+        '
+        Me.SplitContainer3.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.SplitContainer3.Location = New System.Drawing.Point(0, 0)
+        Me.SplitContainer3.Name = "SplitContainer3"
+        '
+        'SplitContainer3.Panel1
+        '
+        Me.SplitContainer3.Panel1.Controls.Add(Me.dgvProduced)
+        Me.SplitContainer3.Panel1.RightToLeft = System.Windows.Forms.RightToLeft.Yes
+        '
+        'SplitContainer3.Panel2
+        '
+        Me.SplitContainer3.Panel2.Controls.Add(Me.dgvProductionCalculations)
+        Me.SplitContainer3.Panel2.RightToLeft = System.Windows.Forms.RightToLeft.Yes
+        Me.SplitContainer3.Size = New System.Drawing.Size(1049, 250)
+        Me.SplitContainer3.SplitterDistance = 522
+        Me.SplitContainer3.TabIndex = 95
+        '
+        'dgvProduced
+        '
+        Me.dgvProduced.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
+        Me.dgvProduced.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        Me.dgvProduced.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.dgvProduced.Location = New System.Drawing.Point(0, 0)
+        Me.dgvProduced.Name = "dgvProduced"
+        Me.dgvProduced.RightToLeft = System.Windows.Forms.RightToLeft.Yes
+        Me.dgvProduced.RowHeadersWidth = 51
+        Me.dgvProduced.RowTemplate.Height = 26
+        Me.dgvProduced.Size = New System.Drawing.Size(522, 250)
+        Me.dgvProduced.TabIndex = 1
+        '
+        'dgvProductionCalculations
+        '
+        Me.dgvProductionCalculations.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
+        Me.dgvProductionCalculations.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        Me.dgvProductionCalculations.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.dgvProductionCalculations.Location = New System.Drawing.Point(0, 0)
+        Me.dgvProductionCalculations.Name = "dgvProductionCalculations"
+        Me.dgvProductionCalculations.RightToLeft = System.Windows.Forms.RightToLeft.Yes
+        Me.dgvProductionCalculations.RowHeadersWidth = 51
+        Me.dgvProductionCalculations.RowTemplate.Height = 26
+        Me.dgvProductionCalculations.Size = New System.Drawing.Size(523, 250)
+        Me.dgvProductionCalculations.TabIndex = 94
+        Me.dgvProductionCalculations.TabStop = False
+        '
+        'Panel2
+        '
+        Me.Panel2.Controls.Add(Me.txtProductionCode)
+        Me.Panel2.Controls.Add(Me.txtProductID)
+        Me.Panel2.Controls.Add(Me.txtProductionAmount)
+        Me.Panel2.Controls.Add(Me.Label20)
+        Me.Panel2.Controls.Add(Me.txtProductionUnit)
+        Me.Panel2.Controls.Add(Me.txtTotalChemicalQty)
+        Me.Panel2.Controls.Add(Me.Label25)
+        Me.Panel2.Controls.Add(Me.txtTotalProductionVolume)
+        Me.Panel2.Controls.Add(Me.Label11)
+        Me.Panel2.Controls.Add(Me.Label1)
+        Me.Panel2.Controls.Add(Me.Label4)
+        Me.Panel2.Controls.Add(Me.Label16)
+        Me.Panel2.Controls.Add(Me.txtTotalProductionCost)
+        Me.Panel2.Controls.Add(Me.Label9)
+        Me.Panel2.Controls.Add(Me.txtTotalProductionQTY)
+        Me.Panel2.Controls.Add(Me.Label6)
+        Me.Panel2.Controls.Add(Me.txtProductUnitCost)
+        Me.Panel2.Controls.Add(Me.txtPastProductAverageCost)
+        Me.Panel2.Controls.Add(Me.Label19)
+        Me.Panel2.Dock = System.Windows.Forms.DockStyle.Right
+        Me.Panel2.Location = New System.Drawing.Point(1052, 3)
+        Me.Panel2.Name = "Panel2"
+        Me.Panel2.Size = New System.Drawing.Size(385, 250)
+        Me.Panel2.TabIndex = 116
+        '
+        'txtProductionCode
+        '
+        Me.txtProductionCode.Location = New System.Drawing.Point(9, 5)
+        Me.txtProductionCode.Name = "txtProductionCode"
+        Me.txtProductionCode.Size = New System.Drawing.Size(170, 24)
+        Me.txtProductionCode.TabIndex = 116
+        '
+        'txtProductID
+        '
+        Me.txtProductID.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtProductID.Enabled = False
+        Me.txtProductID.Location = New System.Drawing.Point(9, 32)
+        Me.txtProductID.Name = "txtProductID"
+        Me.txtProductID.Size = New System.Drawing.Size(170, 24)
+        Me.txtProductID.TabIndex = 115
+        '
+        'txtProductionAmount
+        '
+        Me.txtProductionAmount.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtProductionAmount.Location = New System.Drawing.Point(93, 59)
+        Me.txtProductionAmount.Name = "txtProductionAmount"
+        Me.txtProductionAmount.Size = New System.Drawing.Size(86, 24)
+        Me.txtProductionAmount.TabIndex = 97
+        '
+        'Label20
+        '
+        Me.Label20.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label20.AutoSize = True
+        Me.Label20.Location = New System.Drawing.Point(257, 225)
+        Me.Label20.Name = "Label20"
+        Me.Label20.Size = New System.Drawing.Size(109, 17)
+        Me.Label20.TabIndex = 110
+        Me.Label20.Text = "متوسط س.سابق"
+        '
+        'txtProductionUnit
+        '
+        Me.txtProductionUnit.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtProductionUnit.Enabled = False
+        Me.txtProductionUnit.Location = New System.Drawing.Point(9, 59)
+        Me.txtProductionUnit.Name = "txtProductionUnit"
+        Me.txtProductionUnit.Size = New System.Drawing.Size(78, 24)
+        Me.txtProductionUnit.TabIndex = 102
+        '
+        'txtTotalChemicalQty
+        '
+        Me.txtTotalChemicalQty.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtTotalChemicalQty.Enabled = False
+        Me.txtTotalChemicalQty.Location = New System.Drawing.Point(9, 113)
+        Me.txtTotalChemicalQty.Name = "txtTotalChemicalQty"
+        Me.txtTotalChemicalQty.Size = New System.Drawing.Size(170, 24)
+        Me.txtTotalChemicalQty.TabIndex = 108
+        '
+        'Label25
+        '
+        Me.Label25.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label25.AutoSize = True
+        Me.Label25.Location = New System.Drawing.Point(284, 63)
+        Me.Label25.Name = "Label25"
+        Me.Label25.Size = New System.Drawing.Size(82, 17)
+        Me.Label25.TabIndex = 98
+        Me.Label25.Text = "كمية التصنيع"
+        '
+        'txtTotalProductionVolume
+        '
+        Me.txtTotalProductionVolume.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtTotalProductionVolume.Enabled = False
+        Me.txtTotalProductionVolume.Location = New System.Drawing.Point(9, 86)
+        Me.txtTotalProductionVolume.Name = "txtTotalProductionVolume"
+        Me.txtTotalProductionVolume.Size = New System.Drawing.Size(170, 24)
+        Me.txtTotalProductionVolume.TabIndex = 107
+        '
+        'Label11
+        '
+        Me.Label11.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label11.AutoSize = True
+        Me.Label11.Location = New System.Drawing.Point(300, 9)
+        Me.Label11.Name = "Label11"
+        Me.Label11.Size = New System.Drawing.Size(66, 17)
+        Me.Label11.TabIndex = 99
+        Me.Label11.Text = "كود الانتاج"
+        '
+        'Label1
+        '
+        Me.Label1.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label1.AutoSize = True
+        Me.Label1.Location = New System.Drawing.Point(254, 36)
+        Me.Label1.Name = "Label1"
+        Me.Label1.Size = New System.Drawing.Size(112, 17)
+        Me.Label1.TabIndex = 99
+        Me.Label1.Text = "كود الصنف المصنع"
+        '
+        'Label4
+        '
+        Me.Label4.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label4.AutoSize = True
+        Me.Label4.Location = New System.Drawing.Point(265, 90)
+        Me.Label4.Name = "Label4"
+        Me.Label4.Size = New System.Drawing.Size(101, 17)
+        Me.Label4.TabIndex = 109
+        Me.Label4.Text = "الحجم الاجمالي"
+        '
+        'Label16
+        '
+        Me.Label16.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label16.AutoSize = True
+        Me.Label16.Location = New System.Drawing.Point(279, 117)
+        Me.Label16.Name = "Label16"
+        Me.Label16.Size = New System.Drawing.Size(87, 17)
+        Me.Label16.TabIndex = 114
+        Me.Label16.Text = "اجمالي المواد"
+        '
+        'txtTotalProductionCost
+        '
+        Me.txtTotalProductionCost.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtTotalProductionCost.Enabled = False
+        Me.txtTotalProductionCost.Location = New System.Drawing.Point(9, 140)
+        Me.txtTotalProductionCost.Name = "txtTotalProductionCost"
+        Me.txtTotalProductionCost.Size = New System.Drawing.Size(170, 24)
+        Me.txtTotalProductionCost.TabIndex = 106
+        '
+        'Label9
+        '
+        Me.Label9.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label9.AutoSize = True
+        Me.Label9.Location = New System.Drawing.Point(272, 144)
+        Me.Label9.Name = "Label9"
+        Me.Label9.Size = New System.Drawing.Size(94, 17)
+        Me.Label9.TabIndex = 113
+        Me.Label9.Text = "اجمالي التكلفة"
+        '
+        'txtTotalProductionQTY
+        '
+        Me.txtTotalProductionQTY.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtTotalProductionQTY.Enabled = False
+        Me.txtTotalProductionQTY.Location = New System.Drawing.Point(9, 167)
+        Me.txtTotalProductionQTY.Name = "txtTotalProductionQTY"
+        Me.txtTotalProductionQTY.Size = New System.Drawing.Size(170, 24)
+        Me.txtTotalProductionQTY.TabIndex = 105
+        '
+        'Label6
+        '
+        Me.Label6.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label6.AutoSize = True
+        Me.Label6.Location = New System.Drawing.Point(275, 171)
+        Me.Label6.Name = "Label6"
+        Me.Label6.Size = New System.Drawing.Size(91, 17)
+        Me.Label6.TabIndex = 112
+        Me.Label6.Text = "اجمالي المنتج"
+        '
+        'txtProductUnitCost
+        '
+        Me.txtProductUnitCost.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtProductUnitCost.Enabled = False
+        Me.txtProductUnitCost.Location = New System.Drawing.Point(9, 194)
+        Me.txtProductUnitCost.Name = "txtProductUnitCost"
+        Me.txtProductUnitCost.Size = New System.Drawing.Size(170, 24)
+        Me.txtProductUnitCost.TabIndex = 104
+        '
+        'txtPastProductAverageCost
+        '
+        Me.txtPastProductAverageCost.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.txtPastProductAverageCost.Enabled = False
+        Me.txtPastProductAverageCost.Location = New System.Drawing.Point(9, 221)
+        Me.txtPastProductAverageCost.Name = "txtPastProductAverageCost"
+        Me.txtPastProductAverageCost.Size = New System.Drawing.Size(170, 24)
+        Me.txtPastProductAverageCost.TabIndex = 103
+        '
+        'Label19
+        '
+        Me.Label19.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label19.AutoSize = True
+        Me.Label19.Location = New System.Drawing.Point(290, 198)
+        Me.Label19.Name = "Label19"
+        Me.Label19.Size = New System.Drawing.Size(76, 17)
+        Me.Label19.TabIndex = 111
+        Me.Label19.Text = "سعر الوحدة"
+        '
+        'tabSRT
+        '
+        Me.tabSRT.Controls.Add(Me.dgvWasteCorrection)
+        Me.tabSRT.Controls.Add(Me.Panel7)
+        Me.tabSRT.Controls.Add(Me.TextBox6)
+        Me.tabSRT.Controls.Add(Me.TextBox7)
+        Me.tabSRT.Location = New System.Drawing.Point(4, 25)
+        Me.tabSRT.Name = "tabSRT"
+        Me.tabSRT.Padding = New System.Windows.Forms.Padding(3)
+        Me.tabSRT.Size = New System.Drawing.Size(1440, 256)
+        Me.tabSRT.TabIndex = 7
+        Me.tabSRT.Text = "المرتجعات"
+        Me.tabSRT.UseVisualStyleBackColor = True
+        '
+        'dgvWasteCorrection
+        '
+        Me.dgvWasteCorrection.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
+        Me.dgvWasteCorrection.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        Me.dgvWasteCorrection.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.DataGridViewTextBoxColumn1, Me.DataGridViewTextBoxColumn2, Me.DataGridViewTextBoxColumn3, Me.DataGridViewTextBoxColumn4, Me.DataGridViewTextBoxColumn5, Me.DataGridViewTextBoxColumn6, Me.DataGridViewTextBoxColumn7, Me.DataGridViewTextBoxColumn8, Me.DataGridViewTextBoxColumn9, Me.DataGridViewTextBoxColumn10, Me.DataGridViewTextBoxColumn11})
+        Me.dgvWasteCorrection.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.dgvWasteCorrection.Location = New System.Drawing.Point(3, 85)
+        Me.dgvWasteCorrection.Margin = New System.Windows.Forms.Padding(4)
+        Me.dgvWasteCorrection.Name = "dgvWasteCorrection"
+        Me.dgvWasteCorrection.RowHeadersWidth = 51
+        Me.dgvWasteCorrection.RowTemplate.Height = 26
+        Me.dgvWasteCorrection.Size = New System.Drawing.Size(1434, 168)
+        Me.dgvWasteCorrection.TabIndex = 3
+        '
+        'DataGridViewTextBoxColumn1
+        '
+        Me.DataGridViewTextBoxColumn1.HeaderText = "كود الصنف"
+        Me.DataGridViewTextBoxColumn1.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn1.Name = "DataGridViewTextBoxColumn1"
+        Me.DataGridViewTextBoxColumn1.Resizable = System.Windows.Forms.DataGridViewTriState.[True]
+        Me.DataGridViewTextBoxColumn1.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable
+        '
+        'DataGridViewTextBoxColumn2
+        '
+        Me.DataGridViewTextBoxColumn2.HeaderText = "النوع"
+        Me.DataGridViewTextBoxColumn2.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn2.Name = "DataGridViewTextBoxColumn2"
+        Me.DataGridViewTextBoxColumn2.Resizable = System.Windows.Forms.DataGridViewTriState.[True]
+        '
+        'DataGridViewTextBoxColumn3
+        '
+        Me.DataGridViewTextBoxColumn3.HeaderText = "رقم الصنف"
+        Me.DataGridViewTextBoxColumn3.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn3.Name = "DataGridViewTextBoxColumn3"
+        Me.DataGridViewTextBoxColumn3.ReadOnly = True
+        Me.DataGridViewTextBoxColumn3.Visible = False
+        '
+        'DataGridViewTextBoxColumn4
+        '
+        Me.DataGridViewTextBoxColumn4.HeaderText = "اسم الصنف"
+        Me.DataGridViewTextBoxColumn4.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn4.Name = "DataGridViewTextBoxColumn4"
+        Me.DataGridViewTextBoxColumn4.ReadOnly = True
+        '
+        'DataGridViewTextBoxColumn5
+        '
+        Me.DataGridViewTextBoxColumn5.HeaderText = "السعر"
+        Me.DataGridViewTextBoxColumn5.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn5.Name = "DataGridViewTextBoxColumn5"
+        '
+        'DataGridViewTextBoxColumn6
+        '
+        Me.DataGridViewTextBoxColumn6.HeaderText = "الكمية"
+        Me.DataGridViewTextBoxColumn6.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn6.Name = "DataGridViewTextBoxColumn6"
+        '
+        'DataGridViewTextBoxColumn7
+        '
+        Me.DataGridViewTextBoxColumn7.HeaderText = "الوحدة"
+        Me.DataGridViewTextBoxColumn7.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn7.Name = "DataGridViewTextBoxColumn7"
+        Me.DataGridViewTextBoxColumn7.ReadOnly = True
+        Me.DataGridViewTextBoxColumn7.Resizable = System.Windows.Forms.DataGridViewTriState.[True]
+        Me.DataGridViewTextBoxColumn7.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable
+        '
+        'DataGridViewTextBoxColumn8
+        '
+        Me.DataGridViewTextBoxColumn8.HeaderText = "المبلغ"
+        Me.DataGridViewTextBoxColumn8.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn8.Name = "DataGridViewTextBoxColumn8"
+        Me.DataGridViewTextBoxColumn8.ReadOnly = True
+        '
+        'DataGridViewTextBoxColumn9
+        '
+        Me.DataGridViewTextBoxColumn9.DataPropertyName = "TaxRate"
+        Me.DataGridViewTextBoxColumn9.HeaderText = "الضريبة"
+        Me.DataGridViewTextBoxColumn9.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn9.Name = "DataGridViewTextBoxColumn9"
+        Me.DataGridViewTextBoxColumn9.ReadOnly = True
+        '
+        'DataGridViewTextBoxColumn10
+        '
+        Me.DataGridViewTextBoxColumn10.HeaderText = "مبلغ الضريبة"
+        Me.DataGridViewTextBoxColumn10.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn10.Name = "DataGridViewTextBoxColumn10"
+        Me.DataGridViewTextBoxColumn10.ReadOnly = True
+        '
+        'DataGridViewTextBoxColumn11
+        '
+        Me.DataGridViewTextBoxColumn11.HeaderText = "الاجمالي"
+        Me.DataGridViewTextBoxColumn11.MinimumWidth = 6
+        Me.DataGridViewTextBoxColumn11.Name = "DataGridViewTextBoxColumn11"
+        Me.DataGridViewTextBoxColumn11.ReadOnly = True
+        '
+        'Panel7
+        '
+        Me.Panel7.BackColor = System.Drawing.Color.FromArgb(CType(CType(255, Byte), Integer), CType(CType(192, Byte), Integer), CType(CType(192, Byte), Integer))
+        Me.Panel7.Controls.Add(Me.TextBox1)
+        Me.Panel7.Controls.Add(Me.ComboBox1)
+        Me.Panel7.Controls.Add(Me.ComboBox2)
+        Me.Panel7.Controls.Add(Me.Label28)
+        Me.Panel7.Controls.Add(Me.DateTimePicker1)
+        Me.Panel7.Controls.Add(Me.Label29)
+        Me.Panel7.Controls.Add(Me.Label30)
+        Me.Panel7.Controls.Add(Me.ComboBox3)
+        Me.Panel7.Controls.Add(Me.Label31)
+        Me.Panel7.Controls.Add(Me.TextBox2)
+        Me.Panel7.Controls.Add(Me.TextBox3)
+        Me.Panel7.Controls.Add(Me.ComboBox4)
+        Me.Panel7.Controls.Add(Me.CheckBox1)
+        Me.Panel7.Controls.Add(Me.TextBox4)
+        Me.Panel7.Controls.Add(Me.ComboBox5)
+        Me.Panel7.Controls.Add(Me.Label32)
+        Me.Panel7.Controls.Add(Me.Label33)
+        Me.Panel7.Controls.Add(Me.Label34)
+        Me.Panel7.Controls.Add(Me.Label35)
+        Me.Panel7.Controls.Add(Me.Label36)
+        Me.Panel7.Controls.Add(Me.Label37)
+        Me.Panel7.Controls.Add(Me.Label38)
+        Me.Panel7.Controls.Add(Me.TextBox5)
+        Me.Panel7.Dock = System.Windows.Forms.DockStyle.Top
+        Me.Panel7.Location = New System.Drawing.Point(3, 3)
+        Me.Panel7.Margin = New System.Windows.Forms.Padding(4)
+        Me.Panel7.Name = "Panel7"
+        Me.Panel7.Size = New System.Drawing.Size(1434, 82)
+        Me.Panel7.TabIndex = 4
+        '
+        'TextBox1
+        '
+        Me.TextBox1.Location = New System.Drawing.Point(711, 27)
+        Me.TextBox1.Name = "TextBox1"
+        Me.TextBox1.Size = New System.Drawing.Size(267, 24)
+        Me.TextBox1.TabIndex = 27
+        '
+        'ComboBox1
+        '
+        Me.ComboBox1.FormattingEnabled = True
+        Me.ComboBox1.Location = New System.Drawing.Point(360, 27)
+        Me.ComboBox1.Name = "ComboBox1"
+        Me.ComboBox1.Size = New System.Drawing.Size(189, 24)
+        Me.ComboBox1.TabIndex = 26
+        '
+        'ComboBox2
+        '
+        Me.ComboBox2.FormattingEnabled = True
+        Me.ComboBox2.Location = New System.Drawing.Point(1122, 3)
+        Me.ComboBox2.Name = "ComboBox2"
+        Me.ComboBox2.Size = New System.Drawing.Size(172, 24)
+        Me.ComboBox2.TabIndex = 24
+        '
+        'Label28
+        '
+        Me.Label28.AutoSize = True
+        Me.Label28.Location = New System.Drawing.Point(1336, 58)
+        Me.Label28.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label28.Name = "Label28"
+        Me.Label28.Size = New System.Drawing.Size(75, 17)
+        Me.Label28.TabIndex = 1
+        Me.Label28.Text = "طبيعة الدفع"
+        '
+        'DateTimePicker1
+        '
+        Me.DateTimePicker1.Location = New System.Drawing.Point(1122, 27)
+        Me.DateTimePicker1.Name = "DateTimePicker1"
+        Me.DateTimePicker1.Size = New System.Drawing.Size(172, 24)
+        Me.DateTimePicker1.TabIndex = 9
+        '
+        'Label29
+        '
+        Me.Label29.AutoSize = True
+        Me.Label29.Location = New System.Drawing.Point(1328, 34)
+        Me.Label29.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label29.Name = "Label29"
+        Me.Label29.Size = New System.Drawing.Size(83, 17)
+        Me.Label29.TabIndex = 1
+        Me.Label29.Text = "تاريخ الفاتورة "
+        '
+        'Label30
+        '
+        Me.Label30.AutoSize = True
+        Me.Label30.Location = New System.Drawing.Point(237, 58)
+        Me.Label30.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label30.Name = "Label30"
+        Me.Label30.Size = New System.Drawing.Size(98, 17)
+        Me.Label30.TabIndex = 1
+        Me.Label30.Text = "المبلغ الاجمالي"
+        '
+        'ComboBox3
+        '
+        Me.ComboBox3.FormattingEnabled = True
+        Me.ComboBox3.Location = New System.Drawing.Point(1122, 51)
+        Me.ComboBox3.Name = "ComboBox3"
+        Me.ComboBox3.Size = New System.Drawing.Size(172, 24)
+        Me.ComboBox3.TabIndex = 11
+        '
+        'Label31
+        '
+        Me.Label31.AutoSize = True
+        Me.Label31.Location = New System.Drawing.Point(1338, 10)
+        Me.Label31.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label31.Name = "Label31"
+        Me.Label31.Size = New System.Drawing.Size(73, 17)
+        Me.Label31.TabIndex = 1
+        Me.Label31.Text = "رقم الفاتورة"
+        '
+        'TextBox2
+        '
+        Me.TextBox2.Enabled = False
+        Me.TextBox2.Location = New System.Drawing.Point(6, 27)
+        Me.TextBox2.Margin = New System.Windows.Forms.Padding(4)
+        Me.TextBox2.Name = "TextBox2"
+        Me.TextBox2.Size = New System.Drawing.Size(189, 24)
+        Me.TextBox2.TabIndex = 7
+        '
+        'TextBox3
+        '
+        Me.TextBox3.Enabled = False
+        Me.TextBox3.Location = New System.Drawing.Point(711, 51)
+        Me.TextBox3.Margin = New System.Windows.Forms.Padding(4)
+        Me.TextBox3.Name = "TextBox3"
+        Me.TextBox3.Size = New System.Drawing.Size(267, 24)
+        Me.TextBox3.TabIndex = 0
+        '
+        'ComboBox4
+        '
+        Me.ComboBox4.FormattingEnabled = True
+        Me.ComboBox4.Location = New System.Drawing.Point(360, 3)
+        Me.ComboBox4.Name = "ComboBox4"
+        Me.ComboBox4.Size = New System.Drawing.Size(189, 24)
+        Me.ComboBox4.TabIndex = 17
+        '
+        'CheckBox1
+        '
+        Me.CheckBox1.AutoSize = True
+        Me.CheckBox1.Location = New System.Drawing.Point(569, 36)
+        Me.CheckBox1.Name = "CheckBox1"
+        Me.CheckBox1.Size = New System.Drawing.Size(18, 17)
+        Me.CheckBox1.TabIndex = 18
+        Me.CheckBox1.UseVisualStyleBackColor = True
+        '
+        'TextBox4
+        '
+        Me.TextBox4.Enabled = False
+        Me.TextBox4.Location = New System.Drawing.Point(6, 3)
+        Me.TextBox4.Margin = New System.Windows.Forms.Padding(4)
+        Me.TextBox4.Name = "TextBox4"
+        Me.TextBox4.Size = New System.Drawing.Size(189, 24)
+        Me.TextBox4.TabIndex = 7
+        '
+        'ComboBox5
+        '
+        Me.ComboBox5.FormattingEnabled = True
+        Me.ComboBox5.Location = New System.Drawing.Point(711, 3)
+        Me.ComboBox5.Margin = New System.Windows.Forms.Padding(4)
+        Me.ComboBox5.Name = "ComboBox5"
+        Me.ComboBox5.Size = New System.Drawing.Size(267, 24)
+        Me.ComboBox5.TabIndex = 6
+        '
+        'Label32
+        '
+        Me.Label32.AutoSize = True
+        Me.Label32.Location = New System.Drawing.Point(1014, 34)
+        Me.Label32.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label32.Name = "Label32"
+        Me.Label32.Size = New System.Drawing.Size(73, 17)
+        Me.Label32.TabIndex = 1
+        Me.Label32.Text = "إسم المورد"
+        '
+        'Label33
+        '
+        Me.Label33.AutoSize = True
+        Me.Label33.Location = New System.Drawing.Point(214, 10)
+        Me.Label33.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label33.Name = "Label33"
+        Me.Label33.Size = New System.Drawing.Size(121, 17)
+        Me.Label33.TabIndex = 1
+        Me.Label33.Text = "اجمالي قبل الضريبة"
+        '
+        'Label34
+        '
+        Me.Label34.AutoSize = True
+        Me.Label34.Location = New System.Drawing.Point(1018, 58)
+        Me.Label34.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label34.Name = "Label34"
+        Me.Label34.Size = New System.Drawing.Size(69, 17)
+        Me.Label34.TabIndex = 1
+        Me.Label34.Text = "رقم الهاتف"
+        '
+        'Label35
+        '
+        Me.Label35.AutoSize = True
+        Me.Label35.Location = New System.Drawing.Point(601, 35)
+        Me.Label35.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label35.Name = "Label35"
+        Me.Label35.Size = New System.Drawing.Size(88, 17)
+        Me.Label35.TabIndex = 1
+        Me.Label35.Text = "شامل الضريبة"
+        '
+        'Label36
+        '
+        Me.Label36.AutoSize = True
+        Me.Label36.Location = New System.Drawing.Point(569, 10)
+        Me.Label36.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label36.Name = "Label36"
+        Me.Label36.Size = New System.Drawing.Size(120, 17)
+        Me.Label36.TabIndex = 1
+        Me.Label36.Text = "المستودع المستلم"
+        '
+        'Label37
+        '
+        Me.Label37.AutoSize = True
+        Me.Label37.Location = New System.Drawing.Point(1018, 10)
+        Me.Label37.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label37.Name = "Label37"
+        Me.Label37.Size = New System.Drawing.Size(66, 17)
+        Me.Label37.TabIndex = 1
+        Me.Label37.Text = "كود المورد"
+        '
+        'Label38
+        '
+        Me.Label38.AutoSize = True
+        Me.Label38.Location = New System.Drawing.Point(239, 34)
+        Me.Label38.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label38.Name = "Label38"
+        Me.Label38.Size = New System.Drawing.Size(96, 17)
+        Me.Label38.TabIndex = 1
+        Me.Label38.Text = "اجمالي الضريبة"
+        '
+        'TextBox5
+        '
+        Me.TextBox5.Enabled = False
+        Me.TextBox5.Location = New System.Drawing.Point(6, 51)
+        Me.TextBox5.Margin = New System.Windows.Forms.Padding(4)
+        Me.TextBox5.Name = "TextBox5"
+        Me.TextBox5.Size = New System.Drawing.Size(189, 24)
+        Me.TextBox5.TabIndex = 7
+        '
+        'TextBox6
+        '
+        Me.TextBox6.Location = New System.Drawing.Point(3, 194)
+        Me.TextBox6.Name = "TextBox6"
+        Me.TextBox6.Size = New System.Drawing.Size(23, 24)
+        Me.TextBox6.TabIndex = 21
+        Me.TextBox6.Visible = False
+        '
+        'TextBox7
+        '
+        Me.TextBox7.Location = New System.Drawing.Point(3, 187)
+        Me.TextBox7.Name = "TextBox7"
+        Me.TextBox7.Size = New System.Drawing.Size(23, 24)
+        Me.TextBox7.TabIndex = 21
+        Me.TextBox7.Visible = False
+        '
+        'tabCUT
+        '
+        Me.tabCUT.Controls.Add(Me.Panel6)
+        Me.tabCUT.Controls.Add(Me.Panel5)
+        Me.tabCUT.Location = New System.Drawing.Point(4, 25)
+        Me.tabCUT.Name = "tabCUT"
+        Me.tabCUT.Padding = New System.Windows.Forms.Padding(3)
+        Me.tabCUT.Size = New System.Drawing.Size(1440, 256)
+        Me.tabCUT.TabIndex = 2
+        Me.tabCUT.Text = "القص"
+        Me.tabCUT.UseVisualStyleBackColor = True
+        '
+        'Panel6
+        '
+        Me.Panel6.Controls.Add(Me.dgvOutPut)
+        Me.Panel6.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.Panel6.Location = New System.Drawing.Point(3, 3)
+        Me.Panel6.Name = "Panel6"
+        Me.Panel6.Size = New System.Drawing.Size(1085, 250)
+        Me.Panel6.TabIndex = 1
+        '
+        'dgvOutPut
+        '
+        Me.dgvOutPut.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
+        Me.dgvOutPut.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        Me.dgvOutPut.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.dgvOutPut.Location = New System.Drawing.Point(0, 0)
+        Me.dgvOutPut.Name = "dgvOutPut"
+        Me.dgvOutPut.RowHeadersWidth = 51
+        Me.dgvOutPut.RowTemplate.Height = 26
+        Me.dgvOutPut.Size = New System.Drawing.Size(1085, 250)
+        Me.dgvOutPut.TabIndex = 3
+        '
+        'Panel5
+        '
+        Me.Panel5.Controls.Add(Me.txtSourceStore)
+        Me.Panel5.Controls.Add(Me.txtStoreID)
+        Me.Panel5.Controls.Add(Me.txtAvailableQTY)
+        Me.Panel5.Controls.Add(Me.Label26)
+        Me.Panel5.Controls.Add(Me.dtpDate)
+        Me.Panel5.Controls.Add(Me.dtpCuttingDate)
+        Me.Panel5.Controls.Add(Me.Label27)
+        Me.Panel5.Controls.Add(Me.Label24)
+        Me.Panel5.Controls.Add(Me.Label23)
+        Me.Panel5.Controls.Add(Me.txtProductCode)
+        Me.Panel5.Controls.Add(Me.txtTotalVolumeOutPut)
+        Me.Panel5.Controls.Add(Me.txtCuttingCode)
+        Me.Panel5.Controls.Add(Me.TotalPcsOutPut)
+        Me.Panel5.Controls.Add(Me.Label12)
+        Me.Panel5.Controls.Add(Me.Label22)
+        Me.Panel5.Controls.Add(Me.Label21)
+        Me.Panel5.Dock = System.Windows.Forms.DockStyle.Right
+        Me.Panel5.Location = New System.Drawing.Point(1088, 3)
+        Me.Panel5.Name = "Panel5"
+        Me.Panel5.Size = New System.Drawing.Size(349, 250)
+        Me.Panel5.TabIndex = 0
+        '
+        'txtSourceStore
+        '
+        Me.txtSourceStore.Enabled = False
+        Me.txtSourceStore.Location = New System.Drawing.Point(5, 95)
+        Me.txtSourceStore.Name = "txtSourceStore"
+        Me.txtSourceStore.Size = New System.Drawing.Size(155, 24)
+        Me.txtSourceStore.TabIndex = 21
+        '
+        'txtStoreID
+        '
+        Me.txtStoreID.AutoSize = True
+        Me.txtStoreID.Location = New System.Drawing.Point(261, 98)
+        Me.txtStoreID.Name = "txtStoreID"
+        Me.txtStoreID.Size = New System.Drawing.Size(74, 17)
+        Me.txtStoreID.TabIndex = 19
+        Me.txtStoreID.Text = "مخزن القص"
+        '
+        'txtAvailableQTY
+        '
+        Me.txtAvailableQTY.Enabled = False
+        Me.txtAvailableQTY.Location = New System.Drawing.Point(5, 211)
+        Me.txtAvailableQTY.Name = "txtAvailableQTY"
+        Me.txtAvailableQTY.Size = New System.Drawing.Size(155, 24)
+        Me.txtAvailableQTY.TabIndex = 18
+        '
+        'Label26
+        '
+        Me.Label26.AutoSize = True
+        Me.Label26.Location = New System.Drawing.Point(241, 210)
+        Me.Label26.Name = "Label26"
+        Me.Label26.Size = New System.Drawing.Size(94, 17)
+        Me.Label26.TabIndex = 17
+        Me.Label26.Text = "الكمية المتوفرة"
+        '
+        'dtpDate
+        '
+        Me.dtpDate.Enabled = False
+        Me.dtpDate.Location = New System.Drawing.Point(5, 8)
+        Me.dtpDate.Name = "dtpDate"
+        Me.dtpDate.Size = New System.Drawing.Size(155, 24)
+        Me.dtpDate.TabIndex = 16
+        '
+        'dtpCuttingDate
+        '
+        Me.dtpCuttingDate.Enabled = False
+        Me.dtpCuttingDate.Location = New System.Drawing.Point(5, 37)
+        Me.dtpCuttingDate.Name = "dtpCuttingDate"
+        Me.dtpCuttingDate.Size = New System.Drawing.Size(155, 24)
+        Me.dtpCuttingDate.TabIndex = 16
+        '
+        'Label27
+        '
+        Me.Label27.AutoSize = True
+        Me.Label27.Location = New System.Drawing.Point(227, 42)
+        Me.Label27.Name = "Label27"
+        Me.Label27.Size = New System.Drawing.Size(108, 17)
+        Me.Label27.TabIndex = 15
+        Me.Label27.Text = "تاريخ عملية القص"
+        '
+        'Label24
+        '
+        Me.Label24.AutoSize = True
+        Me.Label24.Location = New System.Drawing.Point(292, 14)
+        Me.Label24.Name = "Label24"
+        Me.Label24.Size = New System.Drawing.Size(43, 17)
+        Me.Label24.TabIndex = 15
+        Me.Label24.Text = "التاريخ"
+        '
+        'Label23
+        '
+        Me.Label23.AutoSize = True
+        Me.Label23.Location = New System.Drawing.Point(209, 182)
+        Me.Label23.Name = "Label23"
+        Me.Label23.Size = New System.Drawing.Size(126, 17)
+        Me.Label23.TabIndex = 9
+        Me.Label23.Text = "اجمالي الحجم الناتج"
+        '
+        'txtProductCode
+        '
+        Me.txtProductCode.Enabled = False
+        Me.txtProductCode.Location = New System.Drawing.Point(5, 124)
+        Me.txtProductCode.Name = "txtProductCode"
+        Me.txtProductCode.Size = New System.Drawing.Size(155, 24)
+        Me.txtProductCode.TabIndex = 14
+        '
+        'txtTotalVolumeOutPut
+        '
+        Me.txtTotalVolumeOutPut.Enabled = False
+        Me.txtTotalVolumeOutPut.Location = New System.Drawing.Point(5, 182)
+        Me.txtTotalVolumeOutPut.Name = "txtTotalVolumeOutPut"
+        Me.txtTotalVolumeOutPut.Size = New System.Drawing.Size(155, 24)
+        Me.txtTotalVolumeOutPut.TabIndex = 12
+        '
+        'txtCuttingCode
+        '
+        Me.txtCuttingCode.Enabled = False
+        Me.txtCuttingCode.Location = New System.Drawing.Point(5, 66)
+        Me.txtCuttingCode.Name = "txtCuttingCode"
+        Me.txtCuttingCode.Size = New System.Drawing.Size(155, 24)
+        Me.txtCuttingCode.TabIndex = 14
+        '
+        'TotalPcsOutPut
+        '
+        Me.TotalPcsOutPut.Enabled = False
+        Me.TotalPcsOutPut.Location = New System.Drawing.Point(5, 153)
+        Me.TotalPcsOutPut.Name = "TotalPcsOutPut"
+        Me.TotalPcsOutPut.Size = New System.Drawing.Size(155, 24)
+        Me.TotalPcsOutPut.TabIndex = 11
+        '
+        'Label12
+        '
+        Me.Label12.AutoSize = True
+        Me.Label12.Location = New System.Drawing.Point(234, 70)
+        Me.Label12.Name = "Label12"
+        Me.Label12.Size = New System.Drawing.Size(101, 17)
+        Me.Label12.TabIndex = 6
+        Me.Label12.Text = "كود عملية القص"
+        '
+        'Label22
+        '
+        Me.Label22.AutoSize = True
+        Me.Label22.Location = New System.Drawing.Point(179, 154)
+        Me.Label22.Name = "Label22"
+        Me.Label22.Size = New System.Drawing.Size(156, 17)
+        Me.Label22.TabIndex = 8
+        Me.Label22.Text = "اجمالي عدد القطع الناتجة"
+        '
+        'Label21
+        '
+        Me.Label21.AutoSize = True
+        Me.Label21.Location = New System.Drawing.Point(267, 126)
+        Me.Label21.Name = "Label21"
+        Me.Label21.Size = New System.Drawing.Size(68, 17)
+        Me.Label21.TabIndex = 7
+        Me.Label21.Text = "كود الصنف"
         '
         'tabPUR
         '
@@ -492,26 +1422,6 @@ Partial Class frmCostCorrection
         Me.txtCurrencyID.TabIndex = 21
         Me.txtCurrencyID.Visible = False
         '
-        'tabPRO
-        '
-        Me.tabPRO.Location = New System.Drawing.Point(4, 25)
-        Me.tabPRO.Name = "tabPRO"
-        Me.tabPRO.Padding = New System.Windows.Forms.Padding(3)
-        Me.tabPRO.Size = New System.Drawing.Size(1440, 256)
-        Me.tabPRO.TabIndex = 1
-        Me.tabPRO.Text = "الانتاج"
-        Me.tabPRO.UseVisualStyleBackColor = True
-        '
-        'tabCUT
-        '
-        Me.tabCUT.Location = New System.Drawing.Point(4, 25)
-        Me.tabCUT.Name = "tabCUT"
-        Me.tabCUT.Padding = New System.Windows.Forms.Padding(3)
-        Me.tabCUT.Size = New System.Drawing.Size(1440, 256)
-        Me.tabCUT.TabIndex = 2
-        Me.tabCUT.Text = "القص"
-        Me.tabCUT.UseVisualStyleBackColor = True
-        '
         'tabSCR
         '
         Me.tabSCR.Location = New System.Drawing.Point(4, 25)
@@ -712,14 +1622,14 @@ Partial Class frmCostCorrection
         Me.btnClose.Text = "Close"
         Me.btnClose.UseVisualStyleBackColor = False
         '
-        'Panel1
+        'pnlOperations
         '
-        Me.Panel1.Controls.Add(Me.tabMain)
-        Me.Panel1.Dock = System.Windows.Forms.DockStyle.Top
-        Me.Panel1.Location = New System.Drawing.Point(0, 0)
-        Me.Panel1.Name = "Panel1"
-        Me.Panel1.Size = New System.Drawing.Size(1448, 285)
-        Me.Panel1.TabIndex = 8
+        Me.pnlOperations.Controls.Add(Me.tabMain)
+        Me.pnlOperations.Dock = System.Windows.Forms.DockStyle.Top
+        Me.pnlOperations.Location = New System.Drawing.Point(0, 0)
+        Me.pnlOperations.Name = "pnlOperations"
+        Me.pnlOperations.Size = New System.Drawing.Size(1448, 285)
+        Me.pnlOperations.TabIndex = 8
         '
         'dgvAffectedOperations
         '
@@ -731,7 +1641,7 @@ Partial Class frmCostCorrection
         Me.dgvAffectedOperations.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvAffectedOperations.RowHeadersWidth = 51
         Me.dgvAffectedOperations.RowTemplate.Height = 26
-        Me.dgvAffectedOperations.Size = New System.Drawing.Size(1448, 225)
+        Me.dgvAffectedOperations.Size = New System.Drawing.Size(1448, 239)
         Me.dgvAffectedOperations.TabIndex = 0
         '
         'SplitContainer1
@@ -749,7 +1659,7 @@ Partial Class frmCostCorrection
         '
         Me.SplitContainer1.Panel2.Controls.Add(Me.SplitContainer2)
         Me.SplitContainer1.Size = New System.Drawing.Size(1448, 770)
-        Me.SplitContainer1.SplitterDistance = 87
+        Me.SplitContainer1.SplitterDistance = 234
         Me.SplitContainer1.TabIndex = 9
         '
         'dgvAdjustResult
@@ -763,7 +1673,7 @@ Partial Class frmCostCorrection
         Me.dgvAdjustResult.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvAdjustResult.RowHeadersWidth = 51
         Me.dgvAdjustResult.RowTemplate.Height = 26
-        Me.dgvAdjustResult.Size = New System.Drawing.Size(1448, 87)
+        Me.dgvAdjustResult.Size = New System.Drawing.Size(1448, 234)
         Me.dgvAdjustResult.TabIndex = 6
         '
         'SplitContainer2
@@ -780,8 +1690,8 @@ Partial Class frmCostCorrection
         'SplitContainer2.Panel2
         '
         Me.SplitContainer2.Panel2.Controls.Add(Me.dgvSimulation)
-        Me.SplitContainer2.Size = New System.Drawing.Size(1448, 679)
-        Me.SplitContainer2.SplitterDistance = 225
+        Me.SplitContainer2.Size = New System.Drawing.Size(1448, 532)
+        Me.SplitContainer2.SplitterDistance = 239
         Me.SplitContainer2.TabIndex = 1
         '
         'dgvSimulation
@@ -794,7 +1704,7 @@ Partial Class frmCostCorrection
         Me.dgvSimulation.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvSimulation.RowHeadersWidth = 51
         Me.dgvSimulation.RowTemplate.Height = 26
-        Me.dgvSimulation.Size = New System.Drawing.Size(1448, 450)
+        Me.dgvSimulation.Size = New System.Drawing.Size(1448, 289)
         Me.dgvSimulation.TabIndex = 0
         '
         'frmCostCorrection
@@ -803,12 +1713,32 @@ Partial Class frmCostCorrection
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.ClientSize = New System.Drawing.Size(1582, 1055)
         Me.Controls.Add(Me.SplitContainer1)
-        Me.Controls.Add(Me.Panel1)
+        Me.Controls.Add(Me.pnlOperations)
         Me.Controls.Add(Me.pnlControls)
         Me.Name = "frmCostCorrection"
         Me.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
         Me.Text = "frmRevaluation"
         Me.tabMain.ResumeLayout(False)
+        Me.tabPRO.ResumeLayout(False)
+        Me.Panel4.ResumeLayout(False)
+        Me.SplitContainer3.Panel1.ResumeLayout(False)
+        Me.SplitContainer3.Panel2.ResumeLayout(False)
+        CType(Me.SplitContainer3, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.SplitContainer3.ResumeLayout(False)
+        CType(Me.dgvProduced, System.ComponentModel.ISupportInitialize).EndInit()
+        CType(Me.dgvProductionCalculations, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.Panel2.ResumeLayout(False)
+        Me.Panel2.PerformLayout()
+        Me.tabSRT.ResumeLayout(False)
+        Me.tabSRT.PerformLayout()
+        CType(Me.dgvWasteCorrection, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.Panel7.ResumeLayout(False)
+        Me.Panel7.PerformLayout()
+        Me.tabCUT.ResumeLayout(False)
+        Me.Panel6.ResumeLayout(False)
+        CType(Me.dgvOutPut, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.Panel5.ResumeLayout(False)
+        Me.Panel5.PerformLayout()
         Me.tabPUR.ResumeLayout(False)
         Me.tabPUR.PerformLayout()
         CType(Me.dgvMain, System.ComponentModel.ISupportInitialize).EndInit()
@@ -818,7 +1748,7 @@ Partial Class frmCostCorrection
         Me.pnlControls.PerformLayout()
         Me.pnlMode.ResumeLayout(False)
         Me.pnlMode.PerformLayout()
-        Me.Panel1.ResumeLayout(False)
+        Me.pnlOperations.ResumeLayout(False)
         CType(Me.dgvAffectedOperations, System.ComponentModel.ISupportInitialize).EndInit()
         Me.SplitContainer1.Panel1.ResumeLayout(False)
         Me.SplitContainer1.Panel2.ResumeLayout(False)
@@ -877,7 +1807,6 @@ Partial Class frmCostCorrection
     Friend WithEvents cboVATRate As ComboBox
     Friend WithEvents cboPartnerCode As ComboBox
     Friend WithEvents txtPartnerName As TextBox
-    Friend WithEvents Panel1 As Panel
     Friend WithEvents dgvAffectedOperations As DataGridView
     Friend WithEvents btnAffectedOperations As Button
     Friend WithEvents SplitContainer1 As SplitContainer
@@ -900,4 +1829,87 @@ Partial Class frmCostCorrection
     Friend WithEvents SplitContainer2 As SplitContainer
     Friend WithEvents tabAdvancedAnalysis As TabPage
     Friend WithEvents btnAdvanceAnalysis As Button
+    Friend WithEvents dgvProductionCalculations As DataGridView
+    Friend WithEvents SplitContainer3 As SplitContainer
+    Friend WithEvents dgvProduced As DataGridView
+    Friend WithEvents Label1 As Label
+    Friend WithEvents Label25 As Label
+    Friend WithEvents txtProductionUnit As TextBox
+    Friend WithEvents txtProductionAmount As TextBox
+    Friend WithEvents Label20 As Label
+    Friend WithEvents txtTotalChemicalQty As TextBox
+    Friend WithEvents txtTotalProductionVolume As TextBox
+    Friend WithEvents Label4 As Label
+    Friend WithEvents txtTotalProductionCost As TextBox
+    Friend WithEvents txtTotalProductionQTY As TextBox
+    Friend WithEvents txtProductUnitCost As TextBox
+    Friend WithEvents Label19 As Label
+    Friend WithEvents txtPastProductAverageCost As TextBox
+    Friend WithEvents Label6 As Label
+    Friend WithEvents Label9 As Label
+    Friend WithEvents Label16 As Label
+    Friend WithEvents txtProductID As TextBox
+    Friend WithEvents Panel4 As Panel
+    Friend WithEvents Panel5 As Panel
+    Friend WithEvents txtProductionCode As TextBox
+    Friend WithEvents Label11 As Label
+    Friend WithEvents Panel6 As Panel
+    Friend WithEvents Label23 As Label
+    Friend WithEvents txtProductCode As TextBox
+    Friend WithEvents txtTotalVolumeOutPut As TextBox
+    Friend WithEvents txtCuttingCode As TextBox
+    Friend WithEvents TotalPcsOutPut As TextBox
+    Friend WithEvents Label12 As Label
+    Friend WithEvents Label22 As Label
+    Friend WithEvents Label21 As Label
+    Friend WithEvents dgvOutPut As DataGridView
+    Friend WithEvents dtpCuttingDate As DateTimePicker
+    Friend WithEvents Label24 As Label
+    Friend WithEvents txtAvailableQTY As TextBox
+    Friend WithEvents Label26 As Label
+    Friend WithEvents txtSourceStore As TextBox
+    Friend WithEvents txtStoreID As Label
+    Friend WithEvents dtpDate As DateTimePicker
+    Friend WithEvents Label27 As Label
+    Friend WithEvents Panel2 As Panel
+    Friend WithEvents tabSRT As TabPage
+    Friend WithEvents dgvWasteCorrection As DataGridView
+    Friend WithEvents DataGridViewTextBoxColumn1 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn2 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn3 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn4 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn5 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn6 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn7 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn8 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn9 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn10 As DataGridViewTextBoxColumn
+    Friend WithEvents DataGridViewTextBoxColumn11 As DataGridViewTextBoxColumn
+    Friend WithEvents Panel7 As Panel
+    Friend WithEvents TextBox1 As TextBox
+    Friend WithEvents ComboBox1 As ComboBox
+    Friend WithEvents ComboBox2 As ComboBox
+    Friend WithEvents Label28 As Label
+    Friend WithEvents DateTimePicker1 As DateTimePicker
+    Friend WithEvents Label29 As Label
+    Friend WithEvents Label30 As Label
+    Friend WithEvents ComboBox3 As ComboBox
+    Friend WithEvents Label31 As Label
+    Friend WithEvents TextBox2 As TextBox
+    Friend WithEvents TextBox3 As TextBox
+    Friend WithEvents ComboBox4 As ComboBox
+    Friend WithEvents CheckBox1 As CheckBox
+    Friend WithEvents TextBox4 As TextBox
+    Friend WithEvents ComboBox5 As ComboBox
+    Friend WithEvents Label32 As Label
+    Friend WithEvents Label33 As Label
+    Friend WithEvents Label34 As Label
+    Friend WithEvents Label35 As Label
+    Friend WithEvents Label36 As Label
+    Friend WithEvents Label37 As Label
+    Friend WithEvents Label38 As Label
+    Friend WithEvents TextBox5 As TextBox
+    Friend WithEvents TextBox6 As TextBox
+    Friend WithEvents TextBox7 As TextBox
+    Friend WithEvents pnlOperations As Panel
 End Class

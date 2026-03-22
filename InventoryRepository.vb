@@ -4230,7 +4230,7 @@ WHERE cl.TransactionID = @T
     tran As SqlTransaction
 )
 
-        Dim linkDirection As Integer = If(storeSource = storeTarget, 1, 2)
+        Dim linkDirection As Integer = If(storeSource = storeTarget, 2, 2)
 
         Dim linkHash As Byte() =
         CalculateLinkHash(
@@ -6010,7 +6010,7 @@ AND x.LastLedgerID = cl.LedgerID
             Dim rootLedgerID As Object
             Dim oldAvgCost As Decimal
 
-            GetCostChainContext(
+            GetCostChainContextCut(
                 prodID,
                 baseProdID,
                 operationGroupID,
@@ -6321,7 +6321,7 @@ AND x.LastLedgerID = cl.LedgerID
             Dim rootLedgerID As Object
             Dim oldAvgCost As Decimal
 
-            GetCostChainContext(
+            GetCostChainContextCut(
                                         prodID,
                                         baseProdID,
                                         operationGroupID,
@@ -6959,7 +6959,63 @@ WHEN NOT MATCHED THEN
             cmd.ExecuteNonQuery()
         End Using
     End Sub
+    Public Sub GetCostChainContextCut(
+    productID As Integer,
+    baseProductID As Object,
+    operationGroupID As Guid,
+    con As SqlConnection,
+    tran As SqlTransaction,
+    ByRef prevLedgerID As Object,
+    ByRef rootLedgerID As Object,
+    ByRef oldAvgCost As Decimal
+)
 
+        prevLedgerID = DBNull.Value
+        rootLedgerID = DBNull.Value
+        oldAvgCost = 0D
+
+        Dim dt As New DataTable()
+
+        '========================================
+        ' الاستعلام
+        '========================================
+        Using cmd As New SqlCommand("
+SELECT TOP 1
+    LedgerID,
+    RootLedgerID,
+    NewAvgCost
+FROM Inventory_CostLedger
+WHERE ProductID = @ProductID
+  AND IsActive = 1
+  AND IsReversed = 0
+  AND OperationGroupID <> @G
+ORDER BY LedgerID DESC
+", con, tran)
+
+            cmd.Parameters.AddWithValue("@ProductID", productID)
+            cmd.Parameters.AddWithValue("@G", operationGroupID)
+
+            Using da As New SqlDataAdapter(cmd)
+                da.Fill(dt)
+            End Using
+
+        End Using
+
+        If dt.Rows.Count > 0 Then
+
+            prevLedgerID = CLng(dt.Rows(0)("LedgerID"))
+
+            If IsDBNull(dt.Rows(0)("RootLedgerID")) Then
+                rootLedgerID = prevLedgerID
+            Else
+                rootLedgerID = CLng(dt.Rows(0)("RootLedgerID"))
+            End If
+
+            oldAvgCost = If(IsDBNull(dt.Rows(0)("NewAvgCost")), 0D, Convert.ToDecimal(dt.Rows(0)("NewAvgCost")))
+
+        End If
+
+    End Sub
 
 
     ''' Return

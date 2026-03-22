@@ -57,7 +57,7 @@ Partial Class frmProduction
         Me.txtProductUnitCost = New System.Windows.Forms.TextBox()
         Me.txtTotalProductionQTY = New System.Windows.Forms.TextBox()
         Me.txtTotalProductionCost = New System.Windows.Forms.TextBox()
-        Me.txtTotalProductionValue = New System.Windows.Forms.TextBox()
+        Me.txtTotalProductionVolume = New System.Windows.Forms.TextBox()
         Me.Label11 = New System.Windows.Forms.Label()
         Me.Label8 = New System.Windows.Forms.Label()
         Me.Label9 = New System.Windows.Forms.Label()
@@ -90,7 +90,7 @@ Partial Class frmProduction
         Me.txtBaseUnitID = New System.Windows.Forms.TextBox()
         Me.txtCategoryID = New System.Windows.Forms.TextBox()
         Me.txtCustomerID = New System.Windows.Forms.TextBox()
-        Me.txtTotalChemicalAmount = New System.Windows.Forms.TextBox()
+        Me.txtTotalChemicalConsumption = New System.Windows.Forms.TextBox()
         Me.Panel3 = New System.Windows.Forms.Panel()
         Me.pnlTotals = New System.Windows.Forms.Panel()
         Me.sctDetails = New System.Windows.Forms.SplitContainer()
@@ -426,12 +426,12 @@ Partial Class frmProduction
         Me.txtTotalProductionCost.Size = New System.Drawing.Size(112, 24)
         Me.txtTotalProductionCost.TabIndex = 81
         '
-        'txtTotalProductionValue
+        'txtTotalProductionVolume
         '
-        Me.txtTotalProductionValue.Location = New System.Drawing.Point(943, 35)
-        Me.txtTotalProductionValue.Name = "txtTotalProductionValue"
-        Me.txtTotalProductionValue.Size = New System.Drawing.Size(112, 24)
-        Me.txtTotalProductionValue.TabIndex = 82
+        Me.txtTotalProductionVolume.Location = New System.Drawing.Point(943, 35)
+        Me.txtTotalProductionVolume.Name = "txtTotalProductionVolume"
+        Me.txtTotalProductionVolume.Size = New System.Drawing.Size(112, 24)
+        Me.txtTotalProductionVolume.TabIndex = 82
         '
         'Label11
         '
@@ -742,12 +742,12 @@ Partial Class frmProduction
         Me.txtCustomerID.TabIndex = 53
         Me.txtCustomerID.TextAlign = System.Windows.Forms.HorizontalAlignment.Center
         '
-        'txtTotalChemicalAmount
+        'txtTotalChemicalConsumption
         '
-        Me.txtTotalChemicalAmount.Location = New System.Drawing.Point(825, 35)
-        Me.txtTotalChemicalAmount.Name = "txtTotalChemicalAmount"
-        Me.txtTotalChemicalAmount.Size = New System.Drawing.Size(112, 24)
-        Me.txtTotalChemicalAmount.TabIndex = 83
+        Me.txtTotalChemicalConsumption.Location = New System.Drawing.Point(825, 35)
+        Me.txtTotalChemicalConsumption.Name = "txtTotalChemicalConsumption"
+        Me.txtTotalChemicalConsumption.Size = New System.Drawing.Size(112, 24)
+        Me.txtTotalChemicalConsumption.TabIndex = 83
         '
         'Panel3
         '
@@ -762,8 +762,8 @@ Partial Class frmProduction
         'pnlTotals
         '
         Me.pnlTotals.Controls.Add(Me.Label20)
-        Me.pnlTotals.Controls.Add(Me.txtTotalChemicalAmount)
-        Me.pnlTotals.Controls.Add(Me.txtTotalProductionValue)
+        Me.pnlTotals.Controls.Add(Me.txtTotalChemicalConsumption)
+        Me.pnlTotals.Controls.Add(Me.txtTotalProductionVolume)
         Me.pnlTotals.Controls.Add(Me.Label14)
         Me.pnlTotals.Controls.Add(Me.txtTotalProductionCost)
         Me.pnlTotals.Controls.Add(Me.Label21)
@@ -1036,7 +1036,7 @@ Partial Class frmProduction
     Friend WithEvents txtProductUnitCost As TextBox
     Friend WithEvents txtTotalProductionQTY As TextBox
     Friend WithEvents txtTotalProductionCost As TextBox
-    Friend WithEvents txtTotalProductionValue As TextBox
+    Friend WithEvents txtTotalProductionVolume As TextBox
     Friend WithEvents Label11 As Label
     Friend WithEvents Label8 As Label
     Friend WithEvents Label9 As Label
@@ -1063,7 +1063,7 @@ Partial Class frmProduction
     Friend WithEvents txtBaseUnitID As TextBox
     Friend WithEvents txtCategoryID As TextBox
     Friend WithEvents txtCustomerID As TextBox
-    Friend WithEvents txtTotalChemicalAmount As TextBox
+    Friend WithEvents txtTotalChemicalConsumption As TextBox
     Friend WithEvents Panel3 As Panel
     Friend WithEvents dgvProduced As DataGridView
     Friend WithEvents txtProductGroupID As TextBox

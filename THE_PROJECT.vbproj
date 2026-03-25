@@ -158,6 +158,18 @@
     <Compile Include="frmCostCorrection.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="frmPurchaseReturn.Designer.vb">
+      <DependentUpon>frmPurchaseReturn.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmPurchaseReturn.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmPurchaseReturnsearch.Designer.vb">
+      <DependentUpon>frmPurchaseReturnsearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmPurchaseReturnsearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="frmSalesReturnsearch.Designer.vb">
       <DependentUpon>frmSalesReturnsearch.vb</DependentUpon>
     </Compile>
@@ -373,6 +385,12 @@
     </EmbeddedResource>
     <EmbeddedResource Include="frmCostCorrection.resx">
       <DependentUpon>frmCostCorrection.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmPurchaseReturn.resx">
+      <DependentUpon>frmPurchaseReturn.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmPurchaseReturnsearch.resx">
+      <DependentUpon>frmPurchaseReturnsearch.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmSalesReturnsearch.resx">
       <DependentUpon>frmSalesReturnsearch.vb</DependentUpon>

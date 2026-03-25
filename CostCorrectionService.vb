@@ -13,10 +13,461 @@ Public Class CostCorrectionService
     End Sub
 
 
-    '====================================================
-    ' HEADER
-    '====================================================
 
+    'GENERAL
+    Private Function D(val As Object) As Decimal
+        If IsDBNull(val) OrElse val Is Nothing Then
+            Return 0D
+        End If
+        Return CDec(val)
+    End Function
+
+
+
+
+    'SIMULATION
+    Public Function GetSimulationLinks(affected As DataTable) As DataTable
+
+        Dim links As New DataTable()
+
+        links.Columns.Add("LinkID", GetType(Long))
+        links.Columns.Add("TargetLedgerID", GetType(Long))
+        links.Columns.Add("SourceLedgerID", GetType(Long))
+        links.Columns.Add("LinkType", GetType(Integer))
+
+        links.Columns.Add("FlowQty", GetType(Decimal))
+        links.Columns.Add("FlowUnitCost", GetType(Decimal))
+        links.Columns.Add("FlowTotalCost", GetType(Decimal))
+
+        links.Columns.Add("ProductID", GetType(Integer))
+        links.Columns.Add("BaseProductID", GetType(Integer))
+
+        links.Columns.Add("PostingDate", GetType(DateTime))
+        links.Columns.Add("OperationGroupID", GetType(String))
+        links.Columns.Add("GroupSeq", GetType(Integer))
+        links.Columns.Add("LinkDirection", GetType(Integer))
+
+        If affected Is Nothing OrElse affected.Rows.Count = 0 Then
+            Return links
+        End If
+
+        Dim ids As String =
+        String.Join(",", affected.AsEnumerable().
+        Select(Function(r) r("LedgerID").ToString()))
+
+        Using con As New SqlConnection(_connectionString)
+
+            Using cmd As New SqlCommand("
+SELECT
+    LinkID,
+    TargetLedgerID,
+    SourceLedgerID,
+    LinkType,
+    FlowQty,
+    FlowUnitCost,
+    FlowTotalCost,
+    ProductID,
+    BaseProductID,
+    PostingDate,
+    OperationGroupID,
+    GroupSeq,
+    LinkDirection
+FROM Inventory_CostLedgerLink
+WHERE SourceLedgerID IN (" & ids & ")
+   OR TargetLedgerID IN (" & ids & ")
+", con)
+
+                con.Open()
+
+                Using r = cmd.ExecuteReader()
+
+                    While r.Read()
+
+                        Dim row = links.NewRow()
+
+                        row("LinkID") = r("LinkID")
+                        row("SourceLedgerID") = r("SourceLedgerID")
+                        row("TargetLedgerID") = r("TargetLedgerID")
+                        row("LinkType") = r("LinkType")
+
+                        row("FlowQty") = r("FlowQty")
+                        row("FlowUnitCost") = r("FlowUnitCost")
+
+                        ' FlowTotalCost قد يكون NULL
+                        row("FlowTotalCost") = If(IsDBNull(r("FlowTotalCost")), 0D, r("FlowTotalCost"))
+
+                        ' Product / BaseProduct قد تكون NULL
+                        row("ProductID") = If(IsDBNull(r("ProductID")), 0, r("ProductID"))
+                        row("BaseProductID") = If(IsDBNull(r("BaseProductID")), 0, r("BaseProductID"))
+
+                        row("PostingDate") = If(IsDBNull(r("PostingDate")), DateTime.MinValue, r("PostingDate"))
+
+                        ' OperationGroupID غالبًا UNIQUEIDENTIFIER -> نخليه String لتفادي مشاكل النوع
+                        row("OperationGroupID") = If(IsDBNull(r("OperationGroupID")), "", r("OperationGroupID").ToString())
+
+                        row("GroupSeq") = If(IsDBNull(r("GroupSeq")), 0, CInt(r("GroupSeq")))
+                        row("LinkDirection") = If(IsDBNull(r("LinkDirection")), 0, CInt(r("LinkDirection")))
+
+                        links.Rows.Add(row)
+
+                    End While
+
+                End Using
+
+            End Using
+
+        End Using
+
+        Return links
+
+    End Function
+    Public Sub RecalculateSimulationFlows(
+    simLedgers As DataTable,
+    links As DataTable
+)
+
+        For Each link As DataRow In links.Rows
+
+            Dim sourceID As Long = CLng(link("SourceLedgerID"))
+            Dim targetID As Long = CLng(link("TargetLedgerID"))
+
+            Dim sourceRow =
+            simLedgers.Select("LedgerID=" & sourceID).FirstOrDefault()
+
+            If sourceRow Is Nothing Then Continue For
+
+            Dim avgCost As Decimal = CDec(sourceRow("SimAvgCost"))
+
+            link("FlowUnitCost") = avgCost
+
+        Next
+
+    End Sub
+
+
+
+    'GENERAL OPERATION
+    Private Function BuildEditMap(edits As DataTable) As Dictionary(Of Integer, (NewQty As Decimal, NewPrice As Decimal))
+
+        Dim map As New Dictionary(Of Integer, (Decimal, Decimal))
+
+        For Each r As DataRow In edits.Rows
+
+            Dim detailID As Integer = CInt(r("DetailID"))
+
+            Dim newQty As Decimal = CDec(r("NewQty"))
+            Dim newPrice As Decimal = CDec(r("NewUnitPrice"))
+
+            map(detailID) = (newQty, newPrice)
+
+        Next
+
+        Return map
+
+    End Function
+    Public Function GetAffectedCostDependencies(
+    detailIDs As List(Of Integer)
+) As DataTable
+
+        Dim result As New DataTable()
+
+        result.Columns.Add("LedgerID", GetType(Long))
+        result.Columns.Add("TransactionID", GetType(Long))
+        result.Columns.Add("SourceDetailID", GetType(Long))
+
+        result.Columns.Add("ProductID", GetType(Integer))
+        result.Columns.Add("BaseProductID", GetType(Integer))
+        result.Columns.Add("StoreID", GetType(Integer))
+        result.Columns.Add("OperationTypeID", GetType(Integer))
+
+        result.Columns.Add("LocalOldQty", GetType(Decimal))
+        result.Columns.Add("OldQty", GetType(Decimal))
+        result.Columns.Add("InQty", GetType(Decimal))
+        result.Columns.Add("OutQty", GetType(Decimal))
+        result.Columns.Add("NewQty", GetType(Decimal))
+        result.Columns.Add("LocalNewQty", GetType(Decimal))
+
+        result.Columns.Add("OldAvgCost", GetType(Decimal))
+        result.Columns.Add("InUnitCost", GetType(Decimal))
+        result.Columns.Add("OutUnitCost", GetType(Decimal))
+        result.Columns.Add("NewAvgCost", GetType(Decimal))
+
+        result.Columns.Add("LedgerSequence", GetType(Long))
+        result.Columns.Add("SourceLedgerID", GetType(Long))
+        result.Columns.Add("RootLedgerID", GetType(Long))
+        result.Columns.Add("SupersededByLedgerID", GetType(Long))
+        result.Columns.Add("RootTransactionID", GetType(Long))
+
+        result.Columns.Add("PostingDate", GetType(DateTime))
+
+        If detailIDs Is Nothing OrElse detailIDs.Count = 0 Then
+            Return result
+        End If
+
+        Dim cleanIds As List(Of Integer) =
+        detailIDs.
+        Where(Function(x) x > 0).
+        Distinct().
+        ToList()
+
+        If cleanIds.Count = 0 Then
+            Return result
+        End If
+
+        Dim idsCsv As String = String.Join(",", cleanIds)
+
+        Using con As New SqlConnection(_connectionString)
+            con.Open()
+
+            Dim sql As String = "
+;WITH ChangedDetails AS
+(
+    SELECT TRY_CONVERT(INT, value) AS DetailID
+    FROM STRING_SPLIT(@DetailIDs, ',')
+    WHERE TRY_CONVERT(INT, value) IS NOT NULL
+),
+
+StartLedgers AS
+(
+    SELECT cl.*
+    FROM Inventory_CostLedger cl
+    WHERE cl.SourceDetailID IN (SELECT DetailID FROM ChangedDetails)
+      AND cl.IsActive = 1
+      AND cl.IsReversed = 0
+),
+
+AffectedLedgers AS
+(
+    -- البداية
+    SELECT *
+    FROM StartLedgers
+
+    UNION ALL
+
+    -- 1) أي Ledger يعتمد مباشرة على Ledger سابق
+    SELECT l.*
+    FROM Inventory_CostLedger l
+    INNER JOIN AffectedLedgers a
+        ON l.DependsOnLedgerID = a.LedgerID
+    WHERE l.IsActive = 1
+      AND l.IsReversed = 0
+
+    UNION ALL
+
+    -- 2) التمدد عبر الروابط الفعلية للجراف
+    -- مهم: في تصميمك الحالي الاتجاه المؤثر للأمام هو LinkDirection = 2
+    SELECT l.*
+    FROM Inventory_CostLedgerLink link
+    INNER JOIN AffectedLedgers a
+        ON link.SourceLedgerID = a.LedgerID
+    INNER JOIN Inventory_CostLedger l
+        ON l.LedgerID = link.TargetLedgerID
+    WHERE link.IsActive = 1
+      AND link.LinkDirection = 2
+      AND l.IsActive = 1
+      AND l.IsReversed = 0
+)
+
+SELECT
+    LedgerID,
+    TransactionID,
+    SourceDetailID,
+    ProductID,
+    BaseProductID,
+    StoreID,
+    OperationTypeID,
+    LocalOldQty,
+    OldQty,
+    InQty,
+    OutQty,
+    NewQty,
+    LocalNewQty,
+    OldAvgCost,
+    InUnitCost,
+    OutUnitCost,
+    NewAvgCost,
+    LedgerSequence,
+    SourceLedgerID,
+    RootLedgerID,
+    SupersededByLedgerID,
+    RootTransactionID,
+    PostingDate
+FROM
+(
+    SELECT
+        cl.LedgerID,
+        cl.TransactionID,
+        cl.SourceDetailID,
+        cl.ProductID,
+        cl.BaseProductID,
+        cl.StoreID,
+        cl.OperationTypeID,
+        cl.LocalOldQty,
+        cl.OldQty,
+        cl.InQty,
+        cl.OutQty,
+        cl.NewQty,
+        cl.LocalNewQty,
+        cl.OldAvgCost,
+        cl.InUnitCost,
+        cl.OutUnitCost,
+        cl.NewAvgCost,
+        cl.LedgerSequence,
+        cl.SourceLedgerID,
+        cl.RootLedgerID,
+        cl.SupersededByLedgerID,
+        cl.RootTransactionID,
+        cl.PostingDate,
+        ROW_NUMBER() OVER
+        (
+            PARTITION BY cl.LedgerID
+            ORDER BY
+                cl.PostingDate,
+                cl.LedgerSequence,
+                cl.LedgerID
+        ) AS rn
+    FROM AffectedLedgers cl
+) x
+WHERE rn = 1
+ORDER BY
+    PostingDate,
+    LedgerSequence,
+    LedgerID
+OPTION (MAXRECURSION 32767);
+"
+
+            Using cmd As New SqlCommand(sql, con)
+                cmd.Parameters.AddWithValue("@DetailIDs", idsCsv)
+
+                Using r = cmd.ExecuteReader()
+
+                    While r.Read()
+
+                        Dim row = result.NewRow()
+
+                        row("LedgerID") = r("LedgerID")
+                        row("TransactionID") = r("TransactionID")
+
+                        row("SourceDetailID") =
+                        If(IsDBNull(r("SourceDetailID")),
+                           DBNull.Value,
+                           r("SourceDetailID"))
+
+                        row("ProductID") = r("ProductID")
+
+                        row("BaseProductID") =
+                        If(IsDBNull(r("BaseProductID")),
+                           DBNull.Value,
+                           r("BaseProductID"))
+
+                        row("StoreID") = r("StoreID")
+                        row("OperationTypeID") = r("OperationTypeID")
+
+                        row("LocalOldQty") = r("LocalOldQty")
+                        row("OldQty") = r("OldQty")
+                        row("InQty") = r("InQty")
+                        row("OutQty") = r("OutQty")
+                        row("NewQty") = r("NewQty")
+                        row("LocalNewQty") = r("LocalNewQty")
+
+                        row("OldAvgCost") = r("OldAvgCost")
+
+                        row("InUnitCost") =
+                        If(IsDBNull(r("InUnitCost")), 0D, r("InUnitCost"))
+
+                        row("OutUnitCost") =
+                        If(IsDBNull(r("OutUnitCost")), 0D, r("OutUnitCost"))
+
+                        row("NewAvgCost") = r("NewAvgCost")
+                        row("LedgerSequence") = r("LedgerSequence")
+
+                        row("SourceLedgerID") =
+                        If(IsDBNull(r("SourceLedgerID")),
+                           DBNull.Value,
+                           r("SourceLedgerID"))
+
+                        row("RootLedgerID") =
+                        If(IsDBNull(r("RootLedgerID")),
+                           DBNull.Value,
+                           r("RootLedgerID"))
+
+                        row("SupersededByLedgerID") =
+                        If(IsDBNull(r("SupersededByLedgerID")),
+                           DBNull.Value,
+                           r("SupersededByLedgerID"))
+
+                        row("RootTransactionID") =
+                        If(IsDBNull(r("RootTransactionID")),
+                           DBNull.Value,
+                           r("RootTransactionID"))
+
+                        row("PostingDate") = r("PostingDate")
+
+                        result.Rows.Add(row)
+
+                    End While
+
+                End Using
+            End Using
+
+        End Using
+
+        Return result
+
+    End Function
+    Public Function CreateAffectedPreviewRevalTable() As DataTable
+
+        Dim dt As New DataTable()
+
+        dt.Columns.Add("DetailID", GetType(Integer))
+        dt.Columns.Add("ProductID", GetType(Integer))
+        dt.Columns.Add("OldQty", GetType(Decimal))
+        dt.Columns.Add("NewQty", GetType(Decimal))
+        dt.Columns.Add("OldUnitPrice", GetType(Decimal))
+        dt.Columns.Add("NewUnitPrice", GetType(Decimal))
+
+        Return dt
+
+    End Function
+    Public Function GetTransactionDetailsByDetailIDs(detailIDs As List(Of Long)) As DataTable
+
+        Dim dt As New DataTable()
+
+        If detailIDs Is Nothing OrElse detailIDs.Count = 0 Then Return dt
+
+        Using con As New SqlConnection(_connectionString)
+
+            Dim ids As String = String.Join(",", detailIDs)
+
+            Dim sql As String = "
+      SELECT 
+    d.DetailID,
+    d.ProductID,
+    p.ProductCode,
+    p.ProductName,
+    d.Quantity,
+    d.UnitCost,
+    d.CostAmount,
+    d.SourceDocumentDetailID
+FROM Inventory_TransactionDetails d
+INNER JOIN Master_Product p
+    ON p.ProductID = d.ProductID
+WHERE d.SourceDocumentDetailID IN (" & ids & ")
+        "
+
+            Using cmd As New SqlCommand(sql, con)
+                con.Open()
+                dt.Load(cmd.ExecuteReader())
+            End Using
+
+        End Using
+
+        Return dt
+
+    End Function
+
+
+    'PUR,SRT
     Public Function GetDocumentHeaderForRevaluation(documentID As Integer) _
         As RevaluationDocumentHeaderDto
 
@@ -81,12 +532,7 @@ WHERE DocumentID=@ID
         End Using
 
     End Function
-
-
-    '====================================================
-    ' DETAILS
-    '====================================================
-
+    ' COLUMNS FOR GRID PUR,SRT
     Public Function GetDocumentDetailsForRevaluation(documentID As Integer) As DataTable
 
 
@@ -219,611 +665,6 @@ ORDER BY d.DetailID
 
 
     End Function
-
-
-
-    Public Function GetAffectedCostDependenciesForPreview(
-    details As DataTable,
-    documentID As Integer
-) As DataTable
-
-        Dim result As New DataTable()
-
-        result.Columns.Add("LedgerID", GetType(Long))
-        result.Columns.Add("TransactionID", GetType(Integer))
-        result.Columns.Add("SourceDetailID", GetType(Integer))
-
-        result.Columns.Add("ProductID", GetType(Integer))
-        result.Columns.Add("BaseProductID", GetType(Integer))
-        result.Columns.Add("StoreID", GetType(Integer))
-        result.Columns.Add("OperationTypeID", GetType(Integer))
-
-        result.Columns.Add("PostingDate", GetType(DateTime))
-
-        result.Columns.Add("OldQty", GetType(Decimal))
-        result.Columns.Add("NewQty", GetType(Decimal))
-
-        result.Columns.Add("LocalOldQty", GetType(Decimal))
-        result.Columns.Add("LocalNewQty", GetType(Decimal))
-
-        result.Columns.Add("InQty", GetType(Decimal))
-        result.Columns.Add("OutQty", GetType(Decimal))
-
-        result.Columns.Add("OldAvgCost", GetType(Decimal))
-        result.Columns.Add("NewAvgCost", GetType(Decimal))
-
-        result.Columns.Add("InUnitCost", GetType(Decimal))
-        result.Columns.Add("OutUnitCost", GetType(Decimal))
-        result.Columns.Add("LedgerSequence", GetType(Long))
-        result.Columns.Add("SourceLedgerID", GetType(Long))
-        result.Columns.Add("RootLedgerID", GetType(Long))
-        result.Columns.Add("RootTransactionID", GetType(Long))
-        result.Columns.Add("SupersededByLedgerID", GetType(Long))
-
-        ' -----------------------------
-        ' 1) Extract actually-changed DetailIDs
-        ' -----------------------------
-        Dim changedIds As New List(Of Integer)()
-
-        If details IsNot Nothing AndAlso details.Rows.Count > 0 Then
-
-            Dim hasDetailID As Boolean = details.Columns.Contains("DetailID")
-            Dim hasOldQty As Boolean = details.Columns.Contains("OldQty")
-            Dim hasNewQty As Boolean = details.Columns.Contains("NewQty")
-            Dim hasOldPrice As Boolean = details.Columns.Contains("OldUnitPrice")
-            Dim hasNewPrice As Boolean = details.Columns.Contains("NewUnitPrice")
-
-            If hasDetailID AndAlso hasOldQty AndAlso hasNewQty AndAlso hasOldPrice AndAlso hasNewPrice Then
-                For Each r As DataRow In details.Rows
-                    If r.RowState = DataRowState.Deleted Then Continue For
-
-                    Dim oldQty As Decimal = ToDec(r("OldQty"))
-                    Dim newQty As Decimal = ToDec(r("NewQty"))
-                    Dim oldPrice As Decimal = ToDec(r("OldUnitPrice"))
-                    Dim newPrice As Decimal = ToDec(r("NewUnitPrice"))
-
-                    If oldQty <> newQty OrElse oldPrice <> newPrice Then
-                        changedIds.Add(CInt(r("DetailID")))
-                    End If
-                Next
-            End If
-        End If
-
-        If changedIds.Count = 0 Then
-            Return result
-        End If
-
-        changedIds = changedIds.Distinct().ToList()
-        Dim changedIdsCsv As String = String.Join(",", changedIds)
-
-        Using con As New SqlConnection(_connectionString)
-
-            con.Open()
-
-            Dim sql As String = "
-;WITH ChangedDetails AS
-(
-    SELECT TRY_CONVERT(INT, value) AS DetailID
-    FROM string_split(@ChangedDetailIDs, ',')
-    WHERE TRY_CONVERT(INT, value) IS NOT NULL
-),
-
-StartLedgers AS
-(
-    -- same start logic you had (document -> transaction details -> cost ledger)
-    SELECT cl.*
-    FROM Inventory_CostLedger cl
-    WHERE cl.SourceDetailID IN
-    (
-        SELECT td.DetailID
-        FROM Inventory_TransactionDetails td
-        WHERE td.SourceDocumentDetailID IN (SELECT DetailID FROM ChangedDetails)
-    )
-),
-
-AffectedLedgers AS
-(
-    -- seed
-    SELECT *
-    FROM StartLedgers
-
-    UNION ALL
-
-    -- 1) Dependency expansion: anything whose cost depends on a previous ledger
-    SELECT l.*
-    FROM Inventory_CostLedger l
-    JOIN AffectedLedgers a
-        ON l.DependsOnLedgerID = a.LedgerID
-    WHERE l.IsActive = 1
-      AND l.IsReversed = 0
-
-    UNION ALL
-
-    -- 2) Dependency expansion via links, but ONLY by BACKWARD direction (depends-on)
-    -- LinkDirectionID = 2 (BACKWARD) based on your table Inventory_CostLinkDirection
-    SELECT l.*
-    FROM Inventory_CostLedgerLink link
-    JOIN AffectedLedgers a
-        ON link.SourceLedgerID = a.LedgerID
-    JOIN Inventory_CostLedger l
-        ON l.LedgerID = link.TargetLedgerID
-    WHERE link.IsActive = 1
-      AND l.IsActive = 1
-      AND l.IsReversed = 0
-      AND link.LinkDirection = 2
-)
-
-SELECT *
-FROM
-(
-    SELECT
-        cl.LedgerID,
-        cl.TransactionID,
-        cl.SourceDetailID,
-        cl.ProductID,
-        cl.BaseProductID,
-        cl.StoreID,
-        cl.OperationTypeID,
-
-        cl.LocalOldQty,
-        cl.OldQty,
-        cl.InQty,
-        cl.OutQty,
-        cl.NewQty,
-        cl.LocalNewQty,
-
-        cl.OldAvgCost,
-        cl.InUnitCost,
-        cl.OutUnitCost,
-        cl.NewAvgCost,
-
-        cl.LedgerSequence,
-        cl.SourceLedgerID,
-        cl.RootLedgerID,
-        cl.SupersededByLedgerID,
-        cl.RootTransactionID,
-        cl.PostingDate,
-
-        ROW_NUMBER() OVER
-        (
-            PARTITION BY cl.LedgerID
-            ORDER BY cl.LedgerID
-        ) AS rn
-
-    FROM AffectedLedgers cl
-) x
-WHERE rn = 1
-ORDER BY
-    PostingDate,
-    LedgerSequence,
-    LedgerID
-"
-
-            Using cmd As New SqlCommand(sql, con)
-
-                cmd.Parameters.AddWithValue("@ChangedDetailIDs", changedIdsCsv)
-
-                Using reader = cmd.ExecuteReader()
-
-                    While reader.Read()
-
-                        Dim row = result.NewRow()
-
-                        row("LedgerID") = reader("LedgerID")
-                        row("TransactionID") = reader("TransactionID")
-
-                        row("SourceDetailID") =
-                        If(IsDBNull(reader("SourceDetailID")),
-                           DBNull.Value,
-                           reader("SourceDetailID"))
-
-                        row("ProductID") = reader("ProductID")
-                        row("StoreID") = reader("StoreID")
-
-                        row("OperationTypeID") = reader("OperationTypeID")
-                        row("PostingDate") = reader("PostingDate")
-
-                        row("OldQty") = reader("OldQty")
-                        row("NewQty") = reader("NewQty")
-
-                        row("LocalOldQty") = reader("LocalOldQty")
-                        row("LocalNewQty") = reader("LocalNewQty")
-
-                        row("InQty") = reader("InQty")
-                        row("OutQty") = reader("OutQty")
-
-                        row("OldAvgCost") = reader("OldAvgCost")
-                        row("NewAvgCost") = reader("NewAvgCost")
-
-                        row("InUnitCost") = reader("InUnitCost")
-                        row("OutUnitCost") = reader("OutUnitCost")
-                        row("BaseProductID") = reader("BaseProductID")
-
-                        row("LedgerSequence") = reader("LedgerSequence")
-
-                        row("SourceLedgerID") =
-                        If(IsDBNull(reader("SourceLedgerID")), DBNull.Value, reader("SourceLedgerID"))
-
-                        row("RootLedgerID") =
-                        If(IsDBNull(reader("RootLedgerID")), DBNull.Value, reader("RootLedgerID"))
-
-                        row("SupersededByLedgerID") =
-                        If(IsDBNull(reader("SupersededByLedgerID")), DBNull.Value, reader("SupersededByLedgerID"))
-
-                        row("RootTransactionID") =
-                        If(IsDBNull(reader("RootTransactionID")), DBNull.Value, reader("RootTransactionID"))
-
-                        result.Rows.Add(row)
-
-                    End While
-
-                End Using
-
-            End Using
-
-        End Using
-
-        Return result
-
-    End Function
-
-
-    Private Function D(val As Object) As Decimal
-        If IsDBNull(val) OrElse val Is Nothing Then
-            Return 0D
-        End If
-        Return CDec(val)
-    End Function
-
-
-    Public Function GetSimulationLinks(affected As DataTable) As DataTable
-
-        Dim links As New DataTable()
-
-        links.Columns.Add("LinkID", GetType(Long))
-        links.Columns.Add("TargetLedgerID", GetType(Long))
-        links.Columns.Add("SourceLedgerID", GetType(Long))
-        links.Columns.Add("LinkType", GetType(Integer))
-
-        links.Columns.Add("FlowQty", GetType(Decimal))
-        links.Columns.Add("FlowUnitCost", GetType(Decimal))
-        links.Columns.Add("FlowTotalCost", GetType(Decimal))
-
-        links.Columns.Add("ProductID", GetType(Integer))
-        links.Columns.Add("BaseProductID", GetType(Integer))
-
-        links.Columns.Add("PostingDate", GetType(DateTime))
-        links.Columns.Add("OperationGroupID", GetType(String))
-        links.Columns.Add("GroupSeq", GetType(Integer))
-        links.Columns.Add("LinkDirection", GetType(Integer))
-
-        If affected Is Nothing OrElse affected.Rows.Count = 0 Then
-            Return links
-        End If
-
-        Dim ids As String =
-        String.Join(",", affected.AsEnumerable().
-        Select(Function(r) r("LedgerID").ToString()))
-
-        Using con As New SqlConnection(_connectionString)
-
-            Using cmd As New SqlCommand("
-SELECT
-    LinkID,
-    TargetLedgerID,
-    SourceLedgerID,
-    LinkType,
-    FlowQty,
-    FlowUnitCost,
-    FlowTotalCost,
-    ProductID,
-    BaseProductID,
-    PostingDate,
-    OperationGroupID,
-    GroupSeq,
-    LinkDirection
-FROM Inventory_CostLedgerLink
-WHERE SourceLedgerID IN (" & ids & ")
-   OR TargetLedgerID IN (" & ids & ")
-", con)
-
-                con.Open()
-
-                Using r = cmd.ExecuteReader()
-
-                    While r.Read()
-
-                        Dim row = links.NewRow()
-
-                        row("LinkID") = r("LinkID")
-                        row("SourceLedgerID") = r("SourceLedgerID")
-                        row("TargetLedgerID") = r("TargetLedgerID")
-                        row("LinkType") = r("LinkType")
-
-                        row("FlowQty") = r("FlowQty")
-                        row("FlowUnitCost") = r("FlowUnitCost")
-
-                        ' FlowTotalCost قد يكون NULL
-                        row("FlowTotalCost") = If(IsDBNull(r("FlowTotalCost")), 0D, r("FlowTotalCost"))
-
-                        ' Product / BaseProduct قد تكون NULL
-                        row("ProductID") = If(IsDBNull(r("ProductID")), 0, r("ProductID"))
-                        row("BaseProductID") = If(IsDBNull(r("BaseProductID")), 0, r("BaseProductID"))
-
-                        row("PostingDate") = If(IsDBNull(r("PostingDate")), DateTime.MinValue, r("PostingDate"))
-
-                        ' OperationGroupID غالبًا UNIQUEIDENTIFIER -> نخليه String لتفادي مشاكل النوع
-                        row("OperationGroupID") = If(IsDBNull(r("OperationGroupID")), "", r("OperationGroupID").ToString())
-
-                        row("GroupSeq") = If(IsDBNull(r("GroupSeq")), 0, CInt(r("GroupSeq")))
-                        row("LinkDirection") = If(IsDBNull(r("LinkDirection")), 0, CInt(r("LinkDirection")))
-
-                        links.Rows.Add(row)
-
-                    End While
-
-                End Using
-
-            End Using
-
-        End Using
-
-        Return links
-
-    End Function
-
-    Public Sub RecalculateSimulationFlows(
-    simLedgers As DataTable,
-    links As DataTable
-)
-
-        For Each link As DataRow In links.Rows
-
-            Dim sourceID As Long = CLng(link("SourceLedgerID"))
-            Dim targetID As Long = CLng(link("TargetLedgerID"))
-
-            Dim sourceRow =
-            simLedgers.Select("LedgerID=" & sourceID).FirstOrDefault()
-
-            If sourceRow Is Nothing Then Continue For
-
-            Dim avgCost As Decimal = CDec(sourceRow("SimAvgCost"))
-
-            link("FlowUnitCost") = avgCost
-
-        Next
-
-    End Sub
-
-
-
-
-
-
-
-    Private Function BuildEditMap(edits As DataTable) As Dictionary(Of Integer, (NewQty As Decimal, NewPrice As Decimal))
-
-        Dim map As New Dictionary(Of Integer, (Decimal, Decimal))
-
-        For Each r As DataRow In edits.Rows
-
-            Dim detailID As Integer = CInt(r("DetailID"))
-
-            Dim newQty As Decimal = CDec(r("NewQty"))
-            Dim newPrice As Decimal = CDec(r("NewUnitPrice"))
-
-            map(detailID) = (newQty, newPrice)
-
-        Next
-
-        Return map
-
-    End Function
-
-    Public Function GetProductionForRevaluation(productionID As Integer) As ProductionRevaluationDto
-
-        Dim result As New ProductionRevaluationDto()
-
-        Using con As New SqlConnection(_connectionString)
-            con.Open()
-
-            '========================================
-            ' 1) Header
-            '========================================
-            Using cmd As New SqlCommand("
-    SELECT 
-         h.ProductionCode,
-        h.ProductionBaseValue,
-        h.StockTransactionID,
-        h.ProductID,
-        p.ProductCode,
-        u.UnitName,
-        p.ProductSubCategoryID
-    FROM Production_Header h
-    INNER JOIN Master_Product p 
-        ON p.ProductID = h.ProductID
-    INNER JOIN Master_Unit u 
-        ON u.UnitID = p.StorageUnitID
-    WHERE h.ProductionID = @ID
-", con)
-
-                cmd.Parameters.AddWithValue("@ID", productionID)
-
-                Using r = cmd.ExecuteReader()
-
-                    If r.Read() Then
-                        result.ProductionCode =
-            If(IsDBNull(r("ProductionCode")), "", r("ProductionCode").ToString())
-                        result.ProductionBaseValue =
-                If(IsDBNull(r("ProductionBaseValue")), 0D, Convert.ToDecimal(r("ProductionBaseValue")))
-
-                        result.TransactionID =
-                If(IsDBNull(r("StockTransactionID")), 0, Convert.ToInt32(r("StockTransactionID")))
-
-                        result.ProductID =
-                If(IsDBNull(r("ProductID")), 0, Convert.ToInt32(r("ProductID")))
-
-                        result.ProductCode =
-                If(IsDBNull(r("ProductCode")), "", r("ProductCode").ToString())
-
-                        result.UnitName =
-                If(IsDBNull(r("UnitName")), "", r("UnitName").ToString())
-                        result.SubCategoryID =
-                            If(IsDBNull(r("ProductSubCategoryID")), 0, Convert.ToInt32(r("ProductSubCategoryID")))
-                    End If
-
-                End Using
-            End Using
-
-            '========================================
-            ' 2) Posting Date
-            '========================================
-            Using cmd As New SqlCommand("
-        SELECT PostingDate
-        FROM Inventory_TransactionHeader
-        WHERE TransactionID=@T
-        ", con)
-
-                cmd.Parameters.AddWithValue("@T", result.TransactionID)
-                result.PostingDate = Convert.ToDateTime(cmd.ExecuteScalar())
-            End Using
-
-            '========================================
-            ' 3) Inputs
-            '========================================
-            Dim dtInputs As New DataTable()
-
-            Using cmd As New SqlCommand("
-        SELECT 
-    d.ProductID,
-    p.ProductCode,
-    p.ProductName,
-    d.Quantity,
-    d.UnitCost,
-    (d.Quantity * d.UnitCost) AS TotalCost
-FROM Inventory_TransactionDetails d
-INNER JOIN Master_Product p
-    ON p.ProductID = d.ProductID
-WHERE d.TransactionID=@T
-  AND d.SourceStoreID IS NOT NULL
-        ", con)
-
-                cmd.Parameters.AddWithValue("@T", result.TransactionID)
-                dtInputs.Load(cmd.ExecuteReader())
-            End Using
-
-            result.Inputs = dtInputs
-
-            '========================================
-            ' 4) Outputs
-            '========================================
-            Dim dtOutputs As New DataTable()
-
-            Using cmd As New SqlCommand("
-SELECT 
-    ProductID,
-    Quantity,
-    Length,
-    Width,
-    Height,
-    VolumeM3
-FROM Production_Output
-WHERE ProductionID=@P
-        ", con)
-
-                cmd.Parameters.AddWithValue("@P", productionID)
-                dtOutputs.Load(cmd.ExecuteReader())
-            End Using
-            If dtOutputs.Columns.Contains("VolumeM3") Then
-                dtOutputs.Columns("VolumeM3").ReadOnly = False
-            End If
-            result.Outputs = dtOutputs
-            For Each r As DataRow In dtOutputs.Rows
-
-                Dim l = ToDec(r("Length"))
-                Dim w = ToDec(r("Width"))
-                Dim h = ToDec(r("Height"))
-                Dim q = ToDec(r("Quantity"))
-
-                r("VolumeM3") = (l * w * h * q) / 1000000D
-
-            Next
-            '========================================
-            ' 5) Calculations
-            '========================================
-            result.TotalChemicalCost =
-                dtInputs.AsEnumerable().
-                Sum(Function(r) ToDec(r("TotalCost")))
-
-            result.TotalChemicalQty =
-    dtInputs.AsEnumerable().
-    Sum(Function(r) ToDec(r("Quantity")))
-
-            result.TotalProductionVolume =
-                dtOutputs.AsEnumerable().
-                Sum(Function(r) ToDec(r("VolumeM3")))
-            result.TotalProductionQty =
-    dtOutputs.AsEnumerable().
-    Sum(Function(r) ToDec(r("Quantity")))
-
-            result.TotalChemicalQty =
-                result.TotalChemicalQty
-
-            Dim totalCost As Decimal = result.TotalChemicalCost
-            Select Case result.SubCategoryID
-
-                Case 9, 10
-                    If result.TotalProductionVolume > 0 Then
-                        result.UnitCost = totalCost / result.TotalProductionVolume
-                    End If
-
-                Case 11
-                    If result.TotalProductionQty > 0 Then
-                        result.UnitCost = totalCost / result.TotalProductionQty
-                    End If
-            End Select
-            '========================================
-            ' 6) Past Avg Cost
-            '========================================
-            Using cmd As New SqlCommand("
-        SELECT TOP 1 NewAvgCost
-        FROM Inventory_CostLedger
-        WHERE ProductID=@P
-          AND PostingDate < @D
-        ORDER BY PostingDate DESC, LedgerID DESC
-        ", con)
-
-                cmd.Parameters.AddWithValue("@P", result.ProductID)
-                cmd.Parameters.AddWithValue("@D", result.PostingDate)
-
-                Dim v = cmd.ExecuteScalar()
-
-                If v IsNot Nothing AndAlso Not IsDBNull(v) Then
-                    result.PastAvgCost = Convert.ToDecimal(v)
-                Else
-                    result.PastAvgCost = 0D
-                End If
-            End Using
-
-        End Using
-
-        Return result
-
-    End Function
-    Public Function CreateAffectedPreviewRevalTable() As DataTable
-
-        Dim dt As New DataTable()
-
-        dt.Columns.Add("DetailID", GetType(Integer))
-        dt.Columns.Add("ProductID", GetType(Integer))
-        dt.Columns.Add("OldQty", GetType(Decimal))
-        dt.Columns.Add("NewQty", GetType(Decimal))
-        dt.Columns.Add("OldUnitPrice", GetType(Decimal))
-        dt.Columns.Add("NewUnitPrice", GetType(Decimal))
-
-        Return dt
-
-    End Function
     Public Function BuildAffectedPreviewReval(
         items As List(Of RevalAffectedInputDto)
     ) As DataTable
@@ -909,6 +750,256 @@ WHERE ProductionID=@P
 
     End Function
 
+    Public Function GetChangedDetails_PUR_SRT(documentID As Integer) As DataTable
+
+        Dim dt As New DataTable()
+
+        Using con As New SqlConnection(_connectionString)
+
+            Using cmd As New SqlCommand("
+            SELECT t.DetailID
+            FROM Inventory_TransactionDetails t
+            INNER JOIN Inventory_DocumentDetails d
+                ON t.SourceDocumentDetailID = d.DetailID
+            WHERE d.DocumentID = @ID
+        ", con)
+
+                cmd.Parameters.AddWithValue("@ID", documentID)
+
+                con.Open()
+                dt.Load(cmd.ExecuteReader())
+
+            End Using
+
+        End Using
+
+        Return dt
+
+    End Function
+
+
+    'PRODUCTION
+
+    Public Function GetProductionForRevaluation(productionID As Integer) As ProductionRevaluationDto
+
+        Dim result As New ProductionRevaluationDto()
+
+        Using con As New SqlConnection(_connectionString)
+            con.Open()
+
+            '========================================
+            ' 1) Header
+            '========================================
+            Using cmd As New SqlCommand("
+    SELECT 
+
+         h.ProductionCode,
+        h.ProductionBaseValue,
+        h.StockTransactionID,
+        h.ProductID,
+        p.ProductCode,
+        u.UnitName,
+        p.ProductSubCategoryID
+    FROM Production_Header h
+    INNER JOIN Master_Product p 
+        ON p.ProductID = h.ProductID
+    INNER JOIN Master_Unit u 
+        ON u.UnitID = p.ProductionUnitID
+    WHERE h.ProductionID = @ID
+", con)
+
+                cmd.Parameters.AddWithValue("@ID", productionID)
+
+                Using r = cmd.ExecuteReader()
+
+                    If r.Read() Then
+                        result.ProductionCode =
+            If(IsDBNull(r("ProductionCode")), "", r("ProductionCode").ToString())
+                        result.ProductionBaseValue =
+                If(IsDBNull(r("ProductionBaseValue")), 0D, Convert.ToDecimal(r("ProductionBaseValue")))
+
+                        result.TransactionID =
+                If(IsDBNull(r("StockTransactionID")), 0, Convert.ToInt32(r("StockTransactionID")))
+
+                        result.ProductID =
+                If(IsDBNull(r("ProductID")), 0, Convert.ToInt32(r("ProductID")))
+
+                        result.ProductCode =
+                If(IsDBNull(r("ProductCode")), "", r("ProductCode").ToString())
+
+                        result.UnitName =
+                If(IsDBNull(r("UnitName")), "", r("UnitName").ToString())
+                        result.SubCategoryID =
+                            If(IsDBNull(r("ProductSubCategoryID")), 0, Convert.ToInt32(r("ProductSubCategoryID")))
+                    End If
+
+                End Using
+            End Using
+
+            '========================================
+            ' 2) Posting Date
+            '========================================
+            Using cmd As New SqlCommand("
+        SELECT PostingDate
+        FROM Inventory_TransactionHeader
+        WHERE TransactionID=@T
+        ", con)
+
+                cmd.Parameters.AddWithValue("@T", result.TransactionID)
+                result.PostingDate = Convert.ToDateTime(cmd.ExecuteScalar())
+            End Using
+
+            '========================================
+            ' 3) Inputs
+            '========================================
+            Dim dtInputs As New DataTable()
+
+            Using cmd As New SqlCommand("
+SELECT 
+    d.SourceDocumentDetailID,   -- 🔥 هذا هو المفتاح الحقيقي
+
+    d.ProductID,
+    p.ProductCode,
+    p.ProductName,
+
+    d.Quantity,
+    d.UnitCost,
+    (d.Quantity * d.UnitCost) AS TotalCost
+
+FROM Inventory_TransactionDetails d
+
+INNER JOIN Production_Consumption c
+    ON c.ConsumptionID = d.SourceDocumentDetailID   -- 🔥 الربط الصحيح
+
+INNER JOIN Master_Product p
+    ON p.ProductID = d.ProductID
+
+WHERE d.TransactionID = @T
+  AND d.SourceStoreID IS NOT NULL
+
+        ", con)
+
+                cmd.Parameters.AddWithValue("@T", result.TransactionID)
+                dtInputs.Load(cmd.ExecuteReader())
+            End Using
+
+            result.Inputs = dtInputs
+
+            '========================================
+            ' 4) Outputs
+            '========================================
+
+            Dim dtOutputs As New DataTable()
+
+            Using cmd As New SqlCommand("
+SELECT 
+    d.SourceDocumentDetailID,   -- 🔥 مهم
+
+    d.ProductID,
+    p.ProductCode,
+    p.ProductName,
+
+    o.Quantity,
+    o.Length,
+    o.Width,
+    o.Height,
+    o.VolumeM3
+
+FROM Inventory_TransactionDetails d
+
+INNER JOIN Production_Output o
+    ON o.OutputID = d.SourceDocumentDetailID   -- 🔥 الربط الصحيح
+
+INNER JOIN Master_Product p
+    ON p.ProductID = d.ProductID
+
+WHERE d.TransactionID = @T
+  AND d.TargetStoreID IS NOT NULL
+", con)
+
+                cmd.Parameters.AddWithValue("@T", result.TransactionID)
+
+                dtOutputs.Load(cmd.ExecuteReader())
+
+            End Using
+
+
+            If dtOutputs.Columns.Contains("VolumeM3") Then
+                dtOutputs.Columns("VolumeM3").ReadOnly = False
+            End If
+            result.Outputs = dtOutputs
+            For Each r As DataRow In dtOutputs.Rows
+
+                Dim l = ToDec(r("Length"))
+                Dim w = ToDec(r("Width"))
+                Dim h = ToDec(r("Height"))
+                Dim q = ToDec(r("Quantity"))
+
+                r("VolumeM3") = (l * w * h * q) / 1000000D
+
+            Next
+            '========================================
+            ' 5) Calculations
+            '========================================
+            result.TotalChemicalCost =
+                dtInputs.AsEnumerable().
+                Sum(Function(r) ToDec(r("TotalCost")))
+
+            result.TotalChemicalQty =
+    dtInputs.AsEnumerable().
+    Sum(Function(r) ToDec(r("Quantity")))
+
+            result.TotalProductionVolume =
+                dtOutputs.AsEnumerable().
+                Sum(Function(r) ToDec(r("VolumeM3")))
+            result.TotalProductionQty =
+    dtOutputs.AsEnumerable().
+    Sum(Function(r) ToDec(r("Quantity")))
+
+            result.TotalChemicalQty =
+                result.TotalChemicalQty
+
+            Dim totalCost As Decimal = result.TotalChemicalCost
+            Select Case result.SubCategoryID
+
+                Case 9, 10
+                    If result.TotalProductionVolume > 0 Then
+                        result.UnitCost = totalCost / result.TotalProductionVolume
+                    End If
+
+                Case 11
+                    If result.TotalProductionQty > 0 Then
+                        result.UnitCost = totalCost / result.TotalProductionQty
+                    End If
+            End Select
+            '========================================
+            ' 6) Past Avg Cost
+            '========================================
+            Using cmd As New SqlCommand("
+        SELECT TOP 1 NewAvgCost
+        FROM Inventory_CostLedger
+        WHERE ProductID=@P
+          AND PostingDate < @D
+        ORDER BY PostingDate DESC, LedgerID DESC
+        ", con)
+
+                cmd.Parameters.AddWithValue("@P", result.ProductID)
+                cmd.Parameters.AddWithValue("@D", result.PostingDate)
+
+                Dim v = cmd.ExecuteScalar()
+
+                If v IsNot Nothing AndAlso Not IsDBNull(v) Then
+                    result.PastAvgCost = Convert.ToDecimal(v)
+                Else
+                    result.PastAvgCost = 0D
+                End If
+            End Using
+
+        End Using
+
+        Return result
+
+    End Function
     Public Function GetProductionChangedDetailIDs(
     productionID As Integer,
     transactionID As Integer,
@@ -989,115 +1080,177 @@ WHERE ProductionID=@P
         Return result
 
     End Function
-    Public Function GetAffectedCostDependenciesForProduction(
-    detailIDs As List(Of Integer)
-) As DataTable
+    Public Function GetChangedDetails_PRO(productionID As Integer) As DataTable
 
-        Dim result As New DataTable()
+        Dim dt As New DataTable()
 
-        result.Columns.Add("LedgerID", GetType(Long))
-        result.Columns.Add("TransactionID", GetType(Long))
-        result.Columns.Add("SourceDetailID", GetType(Long))
+        Using con As New SqlConnection(_connectionString)
 
-        result.Columns.Add("ProductID", GetType(Integer))
-        result.Columns.Add("BaseProductID", GetType(Integer))
-        result.Columns.Add("StoreID", GetType(Integer))
-        result.Columns.Add("OperationTypeID", GetType(Integer))
+            Using cmd As New SqlCommand("
+            SELECT DetailID
+            FROM Inventory_TransactionDetails
+            WHERE SourceDocumentDetailID = @ID
+        ", con)
 
-        result.Columns.Add("LocalOldQty", GetType(Decimal))
-        result.Columns.Add("OldQty", GetType(Decimal))
-        result.Columns.Add("InQty", GetType(Decimal))
-        result.Columns.Add("OutQty", GetType(Decimal))
-        result.Columns.Add("NewQty", GetType(Decimal))
-        result.Columns.Add("LocalNewQty", GetType(Decimal))
+                cmd.Parameters.AddWithValue("@ID", productionID)
 
-        result.Columns.Add("OldAvgCost", GetType(Decimal))
-        result.Columns.Add("InUnitCost", GetType(Decimal))
-        result.Columns.Add("OutUnitCost", GetType(Decimal))
-        result.Columns.Add("NewAvgCost", GetType(Decimal))
+                con.Open()
+                dt.Load(cmd.ExecuteReader())
 
-        result.Columns.Add("LedgerSequence", GetType(Integer))
-        result.Columns.Add("SourceLedgerID", GetType(Long))
-        result.Columns.Add("RootLedgerID", GetType(Long))
-        result.Columns.Add("SupersededByLedgerID", GetType(Long))
-        result.Columns.Add("RootTransactionID", GetType(Long))
+            End Using
 
-        result.Columns.Add("PostingDate", GetType(Date))
+        End Using
 
-        If detailIDs Is Nothing OrElse detailIDs.Count = 0 Then
-            Return result
-        End If
+        Return dt
+
+    End Function
+
+
+    'CUT
+    Public Function GetCuttingForRevaluation(cuttingID As Integer) As CuttingRevaluationDto
+
+        Dim result As New CuttingRevaluationDto()
 
         Using con As New SqlConnection(_connectionString)
             con.Open()
 
-            Dim idsCsv As String = String.Join(",", detailIDs)
+            '========================================
+            ' 1) Header
+            '========================================
+            Using cmd As New SqlCommand("
+SELECT 
+    h.CuttingCode,
+    bp.ProductCode AS BaseProductCode,
+    ISNULL(b.QtyOnHand, 0) AS AvailableQty
+FROM Production_CuttingHeader h
+LEFT JOIN Inventory_Balance b
+    ON b.BaseProductID = h.BaseProductID
+    AND b.StoreID = h.SourceStoreID
+LEFT JOIN Master_Product bp
+    ON bp.ProductID = h.BaseProductID
+WHERE h.CuttingID = @ID
+", con)
 
-            Dim sql As String = "
-;WITH StartLedgers AS
-(
-    SELECT *
-    FROM Inventory_CostLedger
-    WHERE SourceDetailID IN (" & idsCsv & ")
-),
-AffectedLedgers AS
-(
-    SELECT * FROM StartLedgers
-
-    UNION ALL
-
-    SELECT l.*
-    FROM Inventory_CostLedger l
-    JOIN AffectedLedgers a
-        ON l.DependsOnLedgerID = a.LedgerID
-    WHERE l.IsActive = 1
-      AND l.IsReversed = 0
-
-    UNION ALL
-
-    SELECT l.*
-    FROM Inventory_CostLedgerLink link
-    JOIN AffectedLedgers a
-        ON link.SourceLedgerID = a.LedgerID
-    JOIN Inventory_CostLedger l
-        ON l.LedgerID = link.TargetLedgerID
-    WHERE link.IsActive = 1
-      AND link.LinkDirection = 2
-)
-
-SELECT *
-FROM AffectedLedgers
-ORDER BY PostingDate, LedgerSequence, LedgerID
-"
-
-            Using cmd As New SqlCommand(sql, con)
+                cmd.Parameters.AddWithValue("@ID", cuttingID)
 
                 Using r = cmd.ExecuteReader()
-
-                    While r.Read()
-
-                        Dim row = result.NewRow()
-
-                        For i = 0 To r.FieldCount - 1
-                            Dim colName = r.GetName(i)
-
-                            If result.Columns.Contains(colName) Then
-                                row(colName) = If(IsDBNull(r(colName)), DBNull.Value, r(colName))
-                            End If
-                        Next
-
-                        result.Rows.Add(row)
-
-                    End While
-
+                    If r.Read() Then
+                        result.CuttingCode = r("CuttingCode").ToString()
+                        result.BaseProductCode = r("BaseProductCode").ToString()
+                        result.AvailableQty = ToDec(r("AvailableQty"))
+                    End If
                 End Using
-
             End Using
+
+            '========================================
+            ' 2) Outputs (🔥 مع DetailID)
+            '========================================
+            Dim dt As New DataTable()
+
+            Using cmd As New SqlCommand("
+SELECT 
+    o.CutOutputID AS SourceDocumentDetailID,   -- 🔥 أهم سطر
+    o.ProductID,
+    p.ProductCode,
+ p.ProductName,
+    t.TypeName AS ProductType,
+    o.Length_cm,
+    o.Width_cm,
+    o.Height_cm,
+    o.QtyPieces AS Quantity,
+    o.SourceStoreID,
+    s.StoreName,
+    o.IsMix,
+    ISNULL(td.UnitCost, 0) AS UnitCost
+
+FROM Production_CuttingOutput o
+
+INNER JOIN Master_Product p
+    ON p.ProductID = o.ProductID
+
+INNER JOIN Master_ProductType t
+    ON t.ProductTypeID = p.ProductTypeID
+
+LEFT JOIN Master_Store s
+    ON s.StoreID = o.SourceStoreID
+
+OUTER APPLY
+(
+    SELECT TOP 1 UnitCost
+    FROM Inventory_TransactionDetails td
+    WHERE td.SourceDocumentDetailID = o.CutOutputID
+    ORDER BY td.DetailID
+) td
+
+WHERE o.CutID = @ID
+", con)
+
+                cmd.Parameters.AddWithValue("@ID", cuttingID)
+                dt.Load(cmd.ExecuteReader())
+            End Using
+
+            '========================================
+            ' 3) حساب الأحجام
+            '========================================
+            If Not dt.Columns.Contains("PieceVolume") Then
+                dt.Columns.Add("PieceVolume", GetType(Decimal))
+            End If
+
+            If Not dt.Columns.Contains("TotalVolume") Then
+                dt.Columns.Add("TotalVolume", GetType(Decimal))
+            End If
+
+            For Each row As DataRow In dt.Rows
+
+                Dim l = ToDec(row("Length_cm"))
+                Dim w = ToDec(row("Width_cm"))
+                Dim h = ToDec(row("Height_cm"))
+                Dim q = ToDec(row("Quantity"))
+
+                Dim pieceVolume As Decimal = (l * w * h) / 1000000D
+                Dim totalVolume As Decimal = pieceVolume * q
+
+                row("PieceVolume") = pieceVolume
+                row("TotalVolume") = totalVolume
+
+            Next
+
+            result.Outputs = dt
 
         End Using
 
         Return result
 
     End Function
+    Public Function GetChangedDetails_CUT(cuttingID As Integer) As DataTable
+
+        Dim dt As New DataTable()
+
+        Using con As New SqlConnection(_connectionString)
+
+            Using cmd As New SqlCommand("
+            SELECT DetailID
+            FROM Inventory_TransactionDetails
+            WHERE SourceDocumentDetailID = @ID
+        ", con)
+
+                cmd.Parameters.AddWithValue("@ID", cuttingID)
+
+                con.Open()
+                dt.Load(cmd.ExecuteReader())
+
+            End Using
+
+        End Using
+
+        Return dt
+
+    End Function
+
+
+
+
+
+
 
 End Class

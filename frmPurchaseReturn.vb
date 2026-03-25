@@ -1,6 +1,6 @@
 ﻿Imports System.Data.SqlClient
 
-Public Class frmSalesReturn
+Public Class frmPurchaseReturn
     Inherits AABaseOperationForm
 
     ' =========================
@@ -12,7 +12,7 @@ Public Class frmSalesReturn
     Private IsLoadingInvoiceDetails As Boolean = False
 
     Private CurrentEmployeeID As Integer = 1
-    Private CurrentSRTDocumentID As Integer = 0      ' يمثل المرتجع فقط
+    Private CurrentPRTDocumentID As Integer = 0      ' يمثل المرتجع فقط
     Private CurrentSourceSALDocumentID As Integer = 0 ' يمثل فاتورة المبيعات المصدر
 
     ' =========================
@@ -28,8 +28,8 @@ Public Class frmSalesReturn
             ApplyDecimalFormatting()
 
             ' افتراضي
-            cboSourceStoreID.SelectedValue = 4
-            ChangeSourceStore(4)
+            cboTargetStoreID.SelectedValue = 1
+            ChangeTargetStore(1)
 
             InitNewDocument()
             ApplyInvoicePermission()
@@ -55,7 +55,7 @@ Public Class frmSalesReturn
 
     Private Sub LoadStores()
         LoadCombo(
-            cboSourceStoreID,
+            cboTargetStoreID,
             "
             SELECT StoreID, StoreName
             FROM Master_Store
@@ -224,7 +224,7 @@ Public Class frmSalesReturn
         InvoiceDetailsDT.Columns.Add("TaxAmount", GetType(Decimal))
         InvoiceDetailsDT.Columns.Add("Total", GetType(Decimal))
         InvoiceDetailsDT.Columns.Add("LineTotal", GetType(Decimal))
-        InvoiceDetailsDT.Columns.Add("SourceStoreID", GetType(Integer))
+        InvoiceDetailsDT.Columns.Add("TargetStoreID", GetType(Integer))
 
         InvoiceDetailsDT.Columns.Add("Note", GetType(String))
         InvoiceDetailsDT.Columns.Add("Length", GetType(Decimal))
@@ -336,11 +336,11 @@ Public Class frmSalesReturn
     ' =========================
     ' Store -> Products
     ' =========================
-    Private Sub cboSourceStoreID_SelectionChangeCommitted(sender As Object, e As EventArgs) Handles cboSourceStoreID.SelectionChangeCommitted
+    Private Sub cboTargetStoreID_SelectionChangeCommitted(sender As Object, e As EventArgs) Handles cboTargetStoreID.SelectionChangeCommitted
         If IsLoading Then Exit Sub
-        If cboSourceStoreID.SelectedValue Is Nothing OrElse Not IsNumeric(cboSourceStoreID.SelectedValue) Then Exit Sub
+        If cboTargetStoreID.SelectedValue Is Nothing OrElse Not IsNumeric(cboTargetStoreID.SelectedValue) Then Exit Sub
 
-        Dim storeID As Integer = CInt(cboSourceStoreID.SelectedValue)
+        Dim storeID As Integer = CInt(cboTargetStoreID.SelectedValue)
 
         ' مسح التفاصيل إن كان فيها بيانات
         Dim hasData =
@@ -364,41 +364,48 @@ Public Class frmSalesReturn
             RecalculateInvoiceTotals_FromGrid()
         End If
 
-        ChangeSourceStore(storeID)
+        ChangeTargetStore(storeID)
     End Sub
 
-    Private Sub ChangeSourceStore(storeID As Integer)
+    Private Sub ChangeTargetStore(storeID As Integer)
         LoadProductsForGrid(storeID)
         For Each r As DataRow In InvoiceDetailsDT.Rows
             If r.RowState = DataRowState.Deleted Then Continue For
-            r("SourceStoreID") = storeID
+            r("TargetStoreID") = storeID
         Next
     End Sub
 
     Private Sub LoadProductsForGrid(storeID As Integer)
+
         Dim sql As String = "
-            SELECT DISTINCT P.ProductCode
-            FROM Master_Product P
-            INNER JOIN Inventory_Balance IB ON IB.ProductID = P.ProductID
-            WHERE IB.StoreID = @StoreID
-              AND P.IsActive = 1
-            ORDER BY P.ProductCode
-        "
+        SELECT DISTINCT P.ProductCode
+        FROM Master_Product P
+        INNER JOIN Inventory_Balance IB ON IB.ProductID = P.ProductID
+        WHERE IB.StoreID = @StoreID
+          AND P.IsActive = 1
+        ORDER BY P.ProductCode
+    "
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(sql, con)
                 cmd.Parameters.AddWithValue("@StoreID", storeID)
+
                 Using da As New SqlDataAdapter(cmd)
                     Dim dt As New DataTable()
                     da.Fill(dt)
+
                     colDetProductCode.DataSource = dt
                     colDetProductCode.DisplayMember = "ProductCode"
                     colDetProductCode.ValueMember = "ProductCode"
+
+                    ' 🔥 هذا السطر هو الحل
+                    colDetProductCode.DataPropertyName = "ProductCode"
+
                 End Using
             End Using
         End Using
-    End Sub
 
+    End Sub
     ' =========================
     ' Product resolve
     ' =========================
@@ -518,7 +525,7 @@ SELECT ISNULL(SUM(D.Quantity),0)
 FROM Inventory_DocumentDetails D
 INNER JOIN Inventory_DocumentHeader H
     ON H.DocumentID = D.DocumentID
-WHERE H.DocumentType = 'SRT'
+WHERE H.DocumentType = 'PRT'
   AND H.StatusID <> 10
   AND D.SourceDocumentDetailID = @SourceDetailID
   AND H.DocumentID <> @ExcludeDocumentID
@@ -552,7 +559,7 @@ WHERE H.DocumentType = 'SRT'
             Dim sourceDetailID As Integer =
         Convert.ToInt32(row.Cells("colDetSourceDocumentDetailID").Value)
 
-            previousReturned = GetPreviousReturnedQty(sourceDetailID, CurrentSRTDocumentID)
+            previousReturned = GetPreviousReturnedQty(sourceDetailID, CurrentPRTDocumentID)
 
         End If
 
@@ -643,7 +650,7 @@ WHERE H.DocumentType = 'SRT'
             Return False
         End If
 
-        If cboSourceStoreID.SelectedValue Is Nothing Then
+        If cboTargetStoreID.SelectedValue Is Nothing Then
             MessageBox.Show("يرجى اختيار المستودع")
             Return False
         End If
@@ -668,13 +675,13 @@ WHERE H.DocumentType = 'SRT'
     ' =========================
     Private Sub ApplyInvoicePermission()
         Dim statusID As Integer
-        If CurrentSRTDocumentID <= 0 Then
-            statusID = Workflow_OperationPolicyHelper.GetInitialStatusByScope("SRT")
+        If CurrentPRTDocumentID <= 0 Then
+            statusID = Workflow_OperationPolicyHelper.GetInitialStatusByScope("PRT")
         Else
-            Workflow_OperationPolicyHelper.GetEntityStatusByScope("SRT", CurrentSRTDocumentID, statusID)
+            Workflow_OperationPolicyHelper.GetEntityStatusByScope("PRT", CurrentPRTDocumentID, statusID)
         End If
 
-        Dim opID = Workflow_OperationPolicyHelper.GetOperationTypeIDByCode("SRT")
+        Dim opID = Workflow_OperationPolicyHelper.GetOperationTypeIDByCode("PRT")
         Dim policy = Workflow_OperationPolicyHelper.GetEditPolicy(opID, statusID)
 
         btnSaveDraft.Enabled = (policy.Mode <> EditMode.None)
@@ -682,7 +689,7 @@ WHERE H.DocumentType = 'SRT'
         btnCancel.Enabled = policy.IsCancelable
 
         cboPartnerID.Enabled = policy.AllowEditData
-        cboSourceStoreID.Enabled = policy.AllowEditData
+        cboTargetStoreID.Enabled = policy.AllowEditData
         txtInvoiceNote.ReadOnly = Not policy.AllowEditData
 
         dgvInvoiceDetails.ReadOnly = (policy.Mode = EditMode.None)
@@ -726,8 +733,8 @@ WHERE H.DocumentType = 'SRT'
                 Try
 
                     Dim nowDate = DateTime.Now
-                    Dim isUpdate As Boolean = (CurrentSRTDocumentID > 0)
-                    Dim documentID As Integer = CurrentSRTDocumentID
+                    Dim isUpdate As Boolean = (CurrentPRTDocumentID > 0)
+                    Dim documentID As Integer = CurrentPRTDocumentID
                     Dim nextCode As String = ""
 
                     ' =====================================
@@ -767,11 +774,10 @@ IF EXISTS (
     INNER JOIN dbo.Inventory_DocumentHeader OH
         ON OH.DocumentID = OD.DocumentID
     WHERE OD.DetailID IN (" & inList & ")
-      AND OH.DocumentType = 'SAL'
-      AND OH.StatusID <> 18
-     AND OH.StatusID <> 20
+      AND OH.DocumentType = 'PUR'
+      AND OH.StatusID <> 6
 )
-    THROW 51010, N'لا يمكن عمل مرتجع إلا على فاتورة مبيعات مقبولة من الهيئة (ZATCA_CLEARED).', 1;
+    THROW 51010, N'لا يمكن عمل مرتجع إلا على فاتورة مشتريات مستلمة (ZATCA_CLEARED).', 1;
 ", con, tran)
                         cmdChk.ExecuteNonQuery()
                     End Using
@@ -782,7 +788,7 @@ IF EXISTS (
                     If Not isUpdate Then
                         Using cmdCode As New SqlCommand("cfg.GetNextCode", con, tran)
                             cmdCode.CommandType = CommandType.StoredProcedure
-                            cmdCode.Parameters.AddWithValue("@CodeType", "SRT")
+                            cmdCode.Parameters.AddWithValue("@CodeType", "PRT")
 
                             Dim pNextCode As New SqlParameter("@NextCode", SqlDbType.NVarChar, 50)
                             pNextCode.Direction = ParameterDirection.Output
@@ -874,7 +880,7 @@ INSERT INTO Inventory_DocumentHeader
 )
 VALUES
 (
-    'SRT',
+    'PRT',
     @DocumentNo,
     @DocumentDate,
     @PartnerID,
@@ -930,13 +936,13 @@ SELECT D.SourceDocumentDetailID,
 FROM Inventory_DocumentDetails D
 INNER JOIN Inventory_DocumentHeader H
     ON H.DocumentID = D.DocumentID
-WHERE H.DocumentType = 'SRT'
+WHERE H.DocumentType = 'PRT'
   AND H.StatusID <> 10
   AND H.DocumentID <> @CurrentID
 GROUP BY D.SourceDocumentDetailID
 ", con, tran)
 
-                        cmdPrev.Parameters.AddWithValue("@CurrentID", CurrentSRTDocumentID)
+                        cmdPrev.Parameters.AddWithValue("@CurrentID", CurrentPRTDocumentID)
 
                         Using rdPrev = cmdPrev.ExecuteReader()
                             While rdPrev.Read()
@@ -994,7 +1000,7 @@ INSERT INTO Inventory_DocumentDetails
     NetAmount,
     TaxableAmount,
     SourceDocumentDetailID,
-    TargetStoreID,
+    SourceStoreID,
     LineTotal,
     TaxTypeID
 )
@@ -1013,7 +1019,7 @@ VALUES
     @NetAmount,
     @TaxableAmount,
     @SourceDocumentDetailID,
-    @TargetStoreID,
+    @SourceStoreID,
     @LineTotal,
     @TaxTypeID
 )
@@ -1033,7 +1039,8 @@ VALUES
                             cmdDet.Parameters.AddWithValue("@NetAmount", CDec(row.Cells("colDetTaxableAmount").Value))
                             cmdDet.Parameters.AddWithValue("@TaxableAmount", CDec(row.Cells("colDetTaxableAmount").Value))
                             cmdDet.Parameters.AddWithValue("@SourceDocumentDetailID", sourceDetailID)
-                            cmdDet.Parameters.AddWithValue("@TargetStoreID", CInt(cboSourceStoreID.SelectedValue))
+                            Dim storeID As Integer = CInt(cboTargetStoreID.SelectedValue)
+                            cmdDet.Parameters.AddWithValue("@SourceStoreID", storeID)
                             cmdDet.Parameters.AddWithValue("@LineTotal", CDec(row.Cells("colTotal").Value))
                             cmdDet.Parameters.AddWithValue("@TaxTypeID", CInt(row.Cells("colDetTaxPercent").Value))
 
@@ -1044,7 +1051,7 @@ VALUES
 
                     tran.Commit()
 
-                    CurrentSRTDocumentID = documentID
+                    CurrentPRTDocumentID = documentID
                     MessageBox.Show("تم حفظ المرتجع بنجاح")
 
                     ApplyInvoicePermission()
@@ -1116,8 +1123,8 @@ VALUES
     Convert.ToInt32(drv("SourceDocumentDetailID"))
 
             ' مرتجع = دخول مخزون
-            dr("SourceStoreID") = DBNull.Value
-            dr("TargetStoreID") = CInt(cboSourceStoreID.SelectedValue)
+            dr("SourceStoreID") = CInt(cboTargetStoreID.SelectedValue)
+            dr("TargetStoreID") = DBNull.Value
 
             dr("TaxTypeID") = Convert.ToInt32(drv("TaxTypeID"))
 
@@ -1130,7 +1137,7 @@ VALUES
     End Function
     Private Sub btnPostReturnInvoice_Click(sender As Object, e As EventArgs) Handles btnPostReturnInvoice.Click
 
-        If CurrentSRTDocumentID <= 0 Then
+        If CurrentPRTDocumentID <= 0 Then
             MessageBox.Show("لا يوجد سند مرتجع لحفظه", "تنبيه", MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Exit Sub
         End If
@@ -1154,7 +1161,7 @@ FROM Inventory_DocumentHeader
 WHERE DocumentID = @ID
 ", con, tran)
 
-                        cmd.Parameters.AddWithValue("@ID", CurrentSRTDocumentID)
+                        cmd.Parameters.AddWithValue("@ID", CurrentPRTDocumentID)
 
                         Using rd = cmd.ExecuteReader()
                             If Not rd.Read() Then Throw New Exception("السند غير موجود")
@@ -1178,7 +1185,7 @@ IF NOT EXISTS (
     THROW 50060, N'لا توجد كميات مرتجعة للإرسال', 1;
 ", con, tran)
 
-                        cmd.Parameters.AddWithValue("@ID", CurrentSRTDocumentID)
+                        cmd.Parameters.AddWithValue("@ID", CurrentPRTDocumentID)
                         cmd.ExecuteNonQuery()
                     End Using
                     '=========================
@@ -1197,13 +1204,13 @@ IF EXISTS (
         FROM Inventory_DocumentDetails R
         INNER JOIN Inventory_DocumentDetails SD
             ON SD.DetailID = R.SourceDocumentDetailID
-        WHERE R.DocumentID = @SRT
+        WHERE R.DocumentID = @PRT
     ) X
     HAVING COUNT(*) > 1
 )
     THROW 50051, N'سند المرتجع مرتبط بأكثر من فاتورة أصلية، غير مسموح', 1;
 ", con, tran)
-                        cmd.Parameters.AddWithValue("@SRT", CurrentSRTDocumentID)
+                        cmd.Parameters.AddWithValue("@PRT", CurrentPRTDocumentID)
                         cmd.ExecuteNonQuery()
                     End Using
 
@@ -1213,9 +1220,9 @@ SELECT TOP 1 SD.DocumentID
 FROM Inventory_DocumentDetails R
 INNER JOIN Inventory_DocumentDetails SD
     ON SD.DetailID = R.SourceDocumentDetailID
-WHERE R.DocumentID = @SRT
+WHERE R.DocumentID = @PRT
 ", con, tran)
-                        cmd.Parameters.AddWithValue("@SRT", CurrentSRTDocumentID)
+                        cmd.Parameters.AddWithValue("@PRT", CurrentPRTDocumentID)
                         Dim r = cmd.ExecuteScalar()
                         If r Is Nothing OrElse IsDBNull(r) Then
                             Throw New Exception("لا يوجد سطر مرجعي لفاتورة أصلية داخل المرتجع (SourceDocumentDetailID).")
@@ -1223,26 +1230,6 @@ WHERE R.DocumentID = @SRT
                         sourceInvoiceID = CInt(r)
                     End Using
 
-                    ' (2.3) جلب UUID للفاتورة الأصلية + رقمها
-                    Using cmd As New SqlCommand("
-SELECT TOP 1 Z.UUID, H.DocumentNo
-FROM Inventory_DocumentHeader H
-LEFT JOIN Inventory_ZatcaDocument Z
-    ON Z.DocumentID = H.DocumentID
-WHERE H.DocumentID = @INV
-ORDER BY Z.CreatedAt DESC, Z.ZatcaID DESC
-", con, tran)
-                        cmd.Parameters.AddWithValue("@INV", sourceInvoiceID)
-                        Using rd = cmd.ExecuteReader()
-                            If Not rd.Read() Then Throw New Exception("الفاتورة الأصلية غير موجودة")
-                            sourceInvoiceUUID = If(IsDBNull(rd("UUID")), Nothing, rd("UUID").ToString())
-                            sourceInvoiceNo = rd("DocumentNo").ToString()
-                        End Using
-                    End Using
-
-                    If String.IsNullOrWhiteSpace(sourceInvoiceUUID) Then
-                        Throw New Exception("الفاتورة الأصلية غير مُسجلة في ZATCA (لا يوجد UUID) — لا يمكن إصدار مرتجع للهيئة.")
-                    End If
 
                     '=========================
                     ' 3) منع الإرجاع الزائد سطريًا
@@ -1252,7 +1239,7 @@ ORDER BY Z.CreatedAt DESC, Z.ZatcaID DESC
 IF EXISTS (
     SELECT 1
     FROM Inventory_DocumentDetails R
-    WHERE R.DocumentID = @SRT
+    WHERE R.DocumentID = @PRT
       AND R.SourceDocumentDetailID IS NOT NULL
       AND R.Quantity >
       (
@@ -1267,16 +1254,16 @@ IF EXISTS (
             FROM Inventory_DocumentDetails R2
             INNER JOIN Inventory_DocumentHeader H2
                 ON H2.DocumentID = R2.DocumentID
-            WHERE H2.DocumentType = 'SRT'
+            WHERE H2.DocumentType = 'PRT'
               AND H2.StatusID <> 10
               AND R2.SourceDocumentDetailID = R.SourceDocumentDetailID
-              AND H2.DocumentID <> @SRT
+              AND H2.DocumentID <> @PRT
         ),0)
       )
 )
     THROW 50052, N'لا يمكن إرجاع كمية أكبر من المتبقي في سطر الفاتورة', 1;
 ", con, tran)
-                        cmd.Parameters.AddWithValue("@SRT", CurrentSRTDocumentID)
+                        cmd.Parameters.AddWithValue("@PRT", CurrentPRTDocumentID)
                         cmd.ExecuteNonQuery()
                     End Using
 
@@ -1284,7 +1271,7 @@ IF EXISTS (
                     ' 4) إنشاء Transaction Header للمرتجع
                     '=========================
                     Dim transactionID As Integer
-                    Dim transactionCode As String = "SRT-" & CurrentSRTDocumentID.ToString().PadLeft(6, "0"c)
+                    Dim transactionCode As String = "PRT-" & CurrentPRTDocumentID.ToString().PadLeft(6, "0"c)
 
                     Dim periodID As Integer
 
@@ -1324,7 +1311,7 @@ VALUES
 (
     SYSDATETIME(),
     @DocumentID,
-    12,
+    14,
     @PeriodID,
     5,
     0,
@@ -1335,7 +1322,7 @@ VALUES
     0
 )", con, tran)
 
-                        cmd.Parameters.AddWithValue("@DocumentID", CurrentSRTDocumentID)
+                        cmd.Parameters.AddWithValue("@DocumentID", CurrentPRTDocumentID)
                         cmd.Parameters.AddWithValue("@UserID", CurrentEmployeeID)
                         cmd.Parameters.AddWithValue("@PeriodID", periodID)
 
@@ -1370,19 +1357,19 @@ SELECT
     R.UnitID,
     R.UnitPrice,
     R.Quantity * R.UnitPrice,
-    NULL,
-    R.TargetStoreID,
+    R.SourceStoreID,
+   NULL,
     R.DetailID,
     R.SourceDocumentDetailID,
     SYSDATETIME(),
     @UserID
 FROM Inventory_DocumentDetails R
-WHERE R.DocumentID = @SRT
+WHERE R.DocumentID = @PRT
   AND R.Quantity > 0;
 ", con, tran)
 
                         cmd.Parameters.AddWithValue("@TID", transactionID)
-                        cmd.Parameters.AddWithValue("@SRT", CurrentSRTDocumentID)
+                        cmd.Parameters.AddWithValue("@PRT", CurrentPRTDocumentID)
                         cmd.Parameters.AddWithValue("@UserID", CurrentEmployeeID)
 
                         cmd.ExecuteNonQuery()
@@ -1392,7 +1379,7 @@ WHERE R.DocumentID = @SRT
 
                     tran.Commit()
 
-                    MessageBox.Show("تم إرسال مرتجع المبيعات بنجاح", "نجاح", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                    MessageBox.Show("تم إرسال مرتجع المشتريات بنجاح", "نجاح", MessageBoxButtons.OK, MessageBoxIcon.Information)
 
                 Catch ex As Exception
                     tran.Rollback()
@@ -1407,7 +1394,7 @@ WHERE R.DocumentID = @SRT
     e As EventArgs
 ) Handles btnGetOriginalInvoice.Click
 
-        Dim f As New frmInvoiceSearch()
+        Dim f As New frmPurchaseSearch()
 
 
         f.ShowDialog()
@@ -1418,7 +1405,7 @@ WHERE R.DocumentID = @SRT
 
             ' هذا مرتجع جديد
             CurrentSourceSALDocumentID = f.SelectedDocumentID
-            CurrentSRTDocumentID = 0
+            CurrentPRTDocumentID = 0
 
             ApplyInvoicePermission()
 
@@ -1427,10 +1414,19 @@ WHERE R.DocumentID = @SRT
 
 
     End Sub
+    Private Sub dgvInvoiceDetails_DataError(
+    sender As Object,
+    e As DataGridViewDataErrorEventArgs
+) Handles dgvInvoiceDetails.DataError
+
+        e.ThrowException = False
+
+    End Sub
+
     Private Sub LoadInvoiceDocument(documentID As Integer)
 
         If documentID <= 0 Then Exit Sub
-
+        If IsLoading OrElse IsResolvingProduct Then Return
         IsLoadingInvoiceDetails = True
 
         Using con As New SqlConnection(ConnStr)
@@ -1476,7 +1472,7 @@ WHERE H.DocumentID = @DocumentID
                         cboPaymentMethodID.SelectedValue = rd("PaymentMethodID")
                         cboPaymentTerm.SelectedValue = rd("PaymentTermID")
                         Dim initialStatus As Integer =
-    Workflow_OperationPolicyHelper.GetInitialStatusByScope("SRT")
+    Workflow_OperationPolicyHelper.GetInitialStatusByScope("PRT")
 
                         cboStatusID.SelectedValue = initialStatus
 
@@ -1485,19 +1481,12 @@ WHERE H.DocumentID = @DocumentID
                         txtInvoiceNote.Text =
                         If(IsDBNull(rd("Notes")), "", rd("Notes").ToString())
 
-                        txtDriverName.Text =
-                        If(IsDBNull(rd("DriverName")), "", rd("DriverName").ToString())
                         txtPartnerName.Text =
                         If(IsDBNull(rd("PartnerName")), "", rd("PartnerName").ToString())
 
-                        txtVehicleCode.Text =
-                        If(IsDBNull(rd("VehicleNo")), "", rd("VehicleNo").ToString())
 
                         If Not IsDBNull(rd("TaxReasonID")) Then
                             cboTaxReason.SelectedValue = rd("TaxReasonID")
-                        End If
-                        If Not IsDBNull(rd("SRCode")) Then
-                            txtSRCode.Text = rd("SRCode").ToString()
                         End If
                         If Not IsDBNull(rd("TaxNumber")) Then
                             txtVATRegistrationNumber.Text = rd("TaxNumber").ToString()
@@ -1520,7 +1509,23 @@ WHERE H.DocumentID = @DocumentID
             ' 2️⃣ تحميل التفاصيل بالكامل بدون حساب
             ' ============================================
             InvoiceDetailsDT.Clear()
+            If InvoiceDetailsDT.Rows.Count > 0 Then
 
+                Dim firstRow As DataRow = InvoiceDetailsDT.Rows(0)
+
+                If Not IsDBNull(firstRow("TargetStoreID")) Then
+
+                    Dim storeID As Integer = CInt(firstRow("TargetStoreID"))
+
+                    cboTargetStoreID.SelectedValue = storeID
+
+                    ' تحميل منتجات هذا المخزن
+                    ChangeTargetStore(storeID)
+
+                End If
+
+            End If
+            dgvInvoiceDetails.SuspendLayout()
             Using cmd As New SqlCommand("
 SELECT
     D.DetailID,
@@ -1542,7 +1547,7 @@ SELECT
     D.DiscountRate,
     D.TaxRate,
     D.TaxTypeID,
-    D.TargetStoreID
+    D.SourceStoreID
 
 FROM Inventory_DocumentDetails D
 
@@ -1579,10 +1584,10 @@ WHERE D.DocumentID = @DocumentID
                         dr("DiscountRate") = rd("DiscountRate")
                         dr("TaxRate") = rd("TaxRate")
                         dr("TaxTypeID") = rd("TaxTypeID")
-                        If Not IsDBNull(rd("TargetStoreID")) Then
-                            dr("SourceStoreID") = rd("TargetStoreID")
+                        If Not IsDBNull(rd("SourceStoreID")) Then
+                            dr("TargetStoreID") = rd("SourceStoreID")
                         Else
-                            dr("SourceStoreID") = DBNull.Value
+                            dr("TargetStoreID") = DBNull.Value
                         End If
 
                         dr("SourceDocumentDetailID") = rd("DetailID")
@@ -1592,34 +1597,18 @@ WHERE D.DocumentID = @DocumentID
 
                 End Using
                 ' ✅ تحديد المخزن من التفاصيل
-                If InvoiceDetailsDT.Rows.Count > 0 Then
-
-                    Dim firstRow As DataRow = InvoiceDetailsDT.Rows(0)
-
-                    If Not IsDBNull(firstRow("SourceStoreID")) Then
-
-                        Dim storeID As Integer = CInt(firstRow("SourceStoreID"))
-
-                        cboSourceStoreID.SelectedValue = storeID
-
-                        ' تحميل منتجات هذا المخزن
-                        ChangeSourceStore(storeID)
-
-                    End If
-
-                End If
 
             End Using
 
         End Using
-
+        dgvInvoiceDetails.ResumeLayout()
         IsLoadingInvoiceDetails = False
 
         btnSaveDraft.Text = "حفظ"
         ApplyInvoicePermission()
     End Sub
 
-    Private Sub LoadSRTDocument(documentID As Integer)
+    Private Sub LoadPRTDocument(documentID As Integer)
 
         If documentID <= 0 Then Exit Sub
 
@@ -1635,21 +1624,10 @@ WHERE D.DocumentID = @DocumentID
 SELECT
     H.*,
     P.PartnerName,
-    P.VATRegistrationNumber AS TaxNumber,
-    LO.LOCode,
-    SR.SRCode
+    P.VATRegistrationNumber AS TaxNumber
 FROM Inventory_DocumentHeader H
 LEFT JOIN Master_Partner P
     ON P.PartnerID = H.PartnerID
-LEFT JOIN Document_Link L
-    ON L.TargetDocumentID = H.DocumentID
-    AND L.TargetType = 'SRT'
-LEFT JOIN Logistics_LoadingOrder LO
-    ON LO.LOID = L.SourceDocumentID
-LEFT JOIN Logistics_LoadingOrderSR LOSR
-    ON LOSR.LOID = LO.LOID
-LEFT JOIN Business_SR SR
-    ON SR.SRID = LOSR.SRID
 WHERE H.DocumentID = @DocumentID
 
 
@@ -1660,7 +1638,7 @@ WHERE H.DocumentID = @DocumentID
                 Using rd = cmd.ExecuteReader()
                     If rd.Read() Then
 
-                        CurrentSRTDocumentID = CInt(rd("DocumentID"))
+                        CurrentPRTDocumentID = CInt(rd("DocumentID"))
                         CurrentSourceSALDocumentID = 0
 
                         txtInvoicCode.Text = rd("DocumentNo").ToString()
@@ -1676,19 +1654,12 @@ WHERE H.DocumentID = @DocumentID
                         txtInvoiceNote.Text =
                         If(IsDBNull(rd("Notes")), "", rd("Notes").ToString())
 
-                        txtDriverName.Text =
-                        If(IsDBNull(rd("DriverName")), "", rd("DriverName").ToString())
                         txtPartnerName.Text =
                         If(IsDBNull(rd("PartnerName")), "", rd("PartnerName").ToString())
 
-                        txtVehicleCode.Text =
-                        If(IsDBNull(rd("VehicleNo")), "", rd("VehicleNo").ToString())
 
                         If Not IsDBNull(rd("TaxReasonID")) Then
                             cboTaxReason.SelectedValue = rd("TaxReasonID")
-                        End If
-                        If Not IsDBNull(rd("SRCode")) Then
-                            txtSRCode.Text = rd("SRCode").ToString()
                         End If
                         If Not IsDBNull(rd("TaxNumber")) Then
                             txtVATRegistrationNumber.Text = rd("TaxNumber").ToString()
@@ -1778,11 +1749,10 @@ WHERE D.DocumentID = @DocumentID
                         dr("TaxTypeID") = rd("TaxTypeID")
 
                         If Not IsDBNull(rd("TargetStoreID")) Then
-                            dr("SourceStoreID") = rd("TargetStoreID")
+                            dr("TargetStoreID") = rd("TargetStoreID")
                         Else
-                            dr("SourceStoreID") = DBNull.Value
+                            dr("TargetStoreID") = DBNull.Value
                         End If
-
                         dr("SourceDocumentDetailID") = rd("SourceDocumentDetailID")
 
                         ' 🔥 هذا كان ناقص
@@ -1796,14 +1766,13 @@ WHERE D.DocumentID = @DocumentID
 
                     Dim firstRow As DataRow = InvoiceDetailsDT.Rows(0)
 
-                    If Not IsDBNull(firstRow("SourceStoreID")) Then
+                    If Not IsDBNull(firstRow("TargetStoreID")) Then
+                        Dim storeID As Integer = CInt(firstRow("TargetStoreID"))
 
-                        Dim storeID As Integer = CInt(firstRow("SourceStoreID"))
-
-                        cboSourceStoreID.SelectedValue = storeID
+                        cboTargetStoreID.SelectedValue = storeID
 
                         ' تحميل منتجات هذا المخزن
-                        ChangeSourceStore(storeID)
+                        ChangeTargetStore(storeID)
 
                     End If
 
@@ -1824,12 +1793,12 @@ WHERE D.DocumentID = @DocumentID
     e As EventArgs
 ) Handles btnSearch.Click
 
-        Using frm As New frmSalesReturnsearch() ' 👈 اسم فورم البحث الجديد
+        Using frm As New frmPurchaseReturnsearch() ' 👈 اسم فورم البحث الجديد
 
             If frm.ShowDialog() = DialogResult.OK Then
 
                 If frm.SelectedDocumentID > 0 Then
-                    LoadSRTDocument(frm.SelectedDocumentID)
+                    LoadPRTDocument(frm.SelectedDocumentID)
                     '                   RefreshWorkflowUI()
                 End If
 
@@ -1841,7 +1810,7 @@ WHERE D.DocumentID = @DocumentID
 
     Private Sub btnCancel_Click(sender As Object, e As EventArgs) Handles btnCancel.Click
 
-        If CurrentSRTDocumentID <= 0 Then
+        If CurrentPRTDocumentID <= 0 Then
             MessageBox.Show("لا يوجد مرتجع لإلغائه", "تنبيه",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Exit Sub
@@ -1868,7 +1837,7 @@ FROM Inventory_DocumentHeader
 WHERE DocumentID = @ID
 ", con, tran)
 
-                        cmdGet.Parameters.AddWithValue("@ID", CurrentSRTDocumentID)
+                        cmdGet.Parameters.AddWithValue("@ID", CurrentPRTDocumentID)
 
                         Dim obj = cmdGet.ExecuteScalar()
                         If obj Is Nothing OrElse IsDBNull(obj) Then
@@ -1890,7 +1859,7 @@ SET StatusID = 10
 WHERE DocumentID = @ID
 ", con, tran)
 
-                        cmdUpd.Parameters.AddWithValue("@ID", CurrentSRTDocumentID)
+                        cmdUpd.Parameters.AddWithValue("@ID", CurrentPRTDocumentID)
                         cmdUpd.ExecuteNonQuery()
                     End Using
 
@@ -1902,7 +1871,7 @@ WHERE DocumentID = @ID
                                 MessageBoxIcon.Information)
 
                     ' 4) اختياري: إعادة تهيئة الفورم لمستند جديد
-                    CurrentSRTDocumentID = 0
+                    CurrentPRTDocumentID = 0
                     CurrentSourceSALDocumentID = 0
 
                     InitNewDocument()

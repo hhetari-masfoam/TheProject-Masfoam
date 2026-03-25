@@ -2,7 +2,7 @@
 Imports System.Data.SqlClient
 
 ' ✅ بحث فواتير المشتريات (PURCHASE) - فورم مستقل
-Public Class frmSalesReturnsearch
+Public Class frmPurchaseReturnsearch
     Inherits frmBaseSearch   ' 👈 نفس فكرة Product Base Search
     Public Property SelectedDocumentID As Integer = 0
 
@@ -88,25 +88,25 @@ Public Class frmSalesReturnsearch
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
        SELECT TOP 200
-    srt.DocumentID,
-    srt.DocumentNo,
-    srt.DocumentDate,
+    prt.DocumentID,
+    prt.DocumentNo,
+    prt.DocumentDate,
     p.PartnerName,
     ws.StatusName,
     (
-        SELECT TOP 1 sal.DocumentNo
+        SELECT TOP 1 pur.DocumentNo
         FROM Document_Link l
-        INNER JOIN Inventory_DocumentHeader sal
-            ON sal.DocumentID = l.SourceDocumentID
-        WHERE l.TargetDocumentID = srt.DocumentID
+        INNER JOIN Inventory_DocumentHeader pur
+            ON pur.DocumentID = l.SourceDocumentID
+        WHERE l.TargetDocumentID = prt.DocumentID
     ) AS OriginalInvoiceNo
-FROM Inventory_DocumentHeader srt
+FROM Inventory_DocumentHeader prt
 INNER JOIN Master_Partner p
-    ON p.PartnerID = srt.PartnerID
+    ON p.PartnerID = prt.PartnerID
 INNER JOIN Workflow_Status ws
-    ON ws.StatusID = srt.StatusID
-WHERE srt.DocumentType = 'SRT'
-ORDER BY srt.DocumentDate DESC
+    ON ws.StatusID = prt.StatusID
+WHERE prt.DocumentType = 'PRT'
+ORDER BY prt.DocumentDate DESC
 
         ", con)
 
@@ -136,7 +136,4 @@ ORDER BY srt.DocumentDate DESC
 
     End Sub
 
-    Private Sub frmSalesReturnsearch_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-
-    End Sub
 End Class

@@ -170,35 +170,42 @@ WHERE p.ProductID = @ProductID
 )
 
         For Each d In details
+
+            Dim newDetailID As Integer
+
+            '========================================
+            ' 1) INSERT + الحصول على DetailID
+            '========================================
             Using cmd As New SqlCommand("
-            INSERT INTO Inventory_TransactionDetails
-            (
-                TransactionID,
-                ProductID,
-                Quantity,
-                UnitID,
-                UnitCost,
-                CostAmount,
-                SourceStoreID,
-                TargetStoreID,
-                SourceDocumentDetailID,
-                CreatedAt,
-                CreatedBy
-            )
-            VALUES
-            (
-                @TransactionID,
-                @ProductID,
-                @Quantity,
-                @UnitID,
-                @UnitCost,
-                @CostAmount,
-                @SourceStoreID,
-                @TargetStoreID,
-                0,                          -- SourceDocumentDetailID
-                SYSDATETIME(),
-                @CreatedBy
-            )", con, tran)
+        INSERT INTO Inventory_TransactionDetails
+        (
+            TransactionID,
+            ProductID,
+            Quantity,
+            UnitID,
+            UnitCost,
+            CostAmount,
+            SourceStoreID,
+            TargetStoreID,
+            SourceDocumentDetailID,
+            CreatedAt,
+            CreatedBy
+        )
+        OUTPUT INSERTED.DetailID
+        VALUES
+        (
+            @TransactionID,
+            @ProductID,
+            @Quantity,
+            @UnitID,
+            @UnitCost,
+            @CostAmount,
+            @SourceStoreID,
+            @TargetStoreID,
+            0,  -- مؤقتًا
+            SYSDATETIME(),
+            @CreatedBy
+        )", con, tran)
 
                 cmd.Parameters.AddWithValue("@TransactionID", transactionID)
                 cmd.Parameters.AddWithValue("@ProductID", d.ProductID)
@@ -208,10 +215,25 @@ WHERE p.ProductID = @ProductID
                 cmd.Parameters.AddWithValue("@CostAmount", d.Quantity * d.UnitCost)
                 cmd.Parameters.AddWithValue("@SourceStoreID", If(d.SourceStoreID > 0, d.SourceStoreID, DBNull.Value))
                 cmd.Parameters.AddWithValue("@TargetStoreID", If(d.TargetStoreID > 0, d.TargetStoreID, DBNull.Value))
-                cmd.Parameters.AddWithValue("@CreatedBy", 1) ' CurrentUserID
+                cmd.Parameters.AddWithValue("@CreatedBy", 1)
 
-                cmd.ExecuteNonQuery()
+                newDetailID = CInt(cmd.ExecuteScalar())
             End Using
+
+            '========================================
+            ' 2) SELF LINK (🔥 المهم)
+            '========================================
+            Using cmdUpdate As New SqlCommand("
+        UPDATE Inventory_TransactionDetails
+        SET SourceDocumentDetailID = @DetailID
+        WHERE DetailID = @DetailID
+        ", con, tran)
+
+                cmdUpdate.Parameters.AddWithValue("@DetailID", newDetailID)
+                cmdUpdate.ExecuteNonQuery()
+
+            End Using
+
         Next
 
     End Sub

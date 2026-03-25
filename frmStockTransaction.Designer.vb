@@ -55,6 +55,7 @@ Partial Class frmStockTransaction
         Me.btnNew = New System.Windows.Forms.Button()
         Me.btnClose = New System.Windows.Forms.Button()
         Me.grpReceiveMode = New System.Windows.Forms.GroupBox()
+        Me.rdoPRTSend = New System.Windows.Forms.RadioButton()
         Me.rdoReceiveTransaction = New System.Windows.Forms.RadioButton()
         Me.rdoSendTransaction = New System.Windows.Forms.RadioButton()
         Me.rdoReturnReceive = New System.Windows.Forms.RadioButton()
@@ -62,6 +63,7 @@ Partial Class frmStockTransaction
         Me.Label1 = New System.Windows.Forms.Label()
         Me.rdoCuttingReceive = New System.Windows.Forms.RadioButton()
         Me.Label11 = New System.Windows.Forms.Label()
+        Me.Label3 = New System.Windows.Forms.Label()
         Me.Label10 = New System.Windows.Forms.Label()
         Me.Label8 = New System.Windows.Forms.Label()
         Me.Label2 = New System.Windows.Forms.Label()
@@ -373,6 +375,7 @@ Partial Class frmStockTransaction
         'grpReceiveMode
         '
         Me.grpReceiveMode.BackColor = System.Drawing.Color.FromArgb(CType(CType(255, Byte), Integer), CType(CType(255, Byte), Integer), CType(CType(192, Byte), Integer))
+        Me.grpReceiveMode.Controls.Add(Me.rdoPRTSend)
         Me.grpReceiveMode.Controls.Add(Me.rdoReceiveTransaction)
         Me.grpReceiveMode.Controls.Add(Me.rdoSendTransaction)
         Me.grpReceiveMode.Controls.Add(Me.rdoReturnReceive)
@@ -380,6 +383,7 @@ Partial Class frmStockTransaction
         Me.grpReceiveMode.Controls.Add(Me.Label1)
         Me.grpReceiveMode.Controls.Add(Me.rdoCuttingReceive)
         Me.grpReceiveMode.Controls.Add(Me.Label11)
+        Me.grpReceiveMode.Controls.Add(Me.Label3)
         Me.grpReceiveMode.Controls.Add(Me.Label10)
         Me.grpReceiveMode.Controls.Add(Me.Label8)
         Me.grpReceiveMode.Controls.Add(Me.Label2)
@@ -391,11 +395,21 @@ Partial Class frmStockTransaction
         Me.grpReceiveMode.TabIndex = 20
         Me.grpReceiveMode.TabStop = False
         '
+        'rdoPRTSend
+        '
+        Me.rdoPRTSend.AutoSize = True
+        Me.rdoPRTSend.Location = New System.Drawing.Point(146, 45)
+        Me.rdoPRTSend.Name = "rdoPRTSend"
+        Me.rdoPRTSend.Size = New System.Drawing.Size(17, 16)
+        Me.rdoPRTSend.TabIndex = 21
+        Me.rdoPRTSend.TabStop = True
+        Me.rdoPRTSend.UseVisualStyleBackColor = True
+        '
         'rdoReceiveTransaction
         '
         Me.rdoReceiveTransaction.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoReceiveTransaction.AutoSize = True
-        Me.rdoReceiveTransaction.Location = New System.Drawing.Point(146, 64)
+        Me.rdoReceiveTransaction.Location = New System.Drawing.Point(146, 121)
         Me.rdoReceiveTransaction.Name = "rdoReceiveTransaction"
         Me.rdoReceiveTransaction.Size = New System.Drawing.Size(17, 16)
         Me.rdoReceiveTransaction.TabIndex = 20
@@ -406,7 +420,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoSendTransaction.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoSendTransaction.AutoSize = True
-        Me.rdoSendTransaction.Location = New System.Drawing.Point(146, 25)
+        Me.rdoSendTransaction.Location = New System.Drawing.Point(146, 13)
         Me.rdoSendTransaction.Name = "rdoSendTransaction"
         Me.rdoSendTransaction.Size = New System.Drawing.Size(17, 16)
         Me.rdoSendTransaction.TabIndex = 20
@@ -417,7 +431,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoReturnReceive.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoReturnReceive.AutoSize = True
-        Me.rdoReturnReceive.Location = New System.Drawing.Point(146, 228)
+        Me.rdoReturnReceive.Location = New System.Drawing.Point(146, 225)
         Me.rdoReturnReceive.Name = "rdoReturnReceive"
         Me.rdoReturnReceive.Size = New System.Drawing.Size(17, 16)
         Me.rdoReturnReceive.TabIndex = 19
@@ -442,7 +456,7 @@ Partial Class frmStockTransaction
         Me.Label1.AutoSize = True
         Me.Label1.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label1.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label1.Location = New System.Drawing.Point(39, 189)
+        Me.Label1.Location = New System.Drawing.Point(39, 197)
         Me.Label1.Name = "Label1"
         Me.Label1.Size = New System.Drawing.Size(104, 21)
         Me.Label1.TabIndex = 18
@@ -452,7 +466,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoCuttingReceive.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoCuttingReceive.AutoSize = True
-        Me.rdoCuttingReceive.Location = New System.Drawing.Point(146, 194)
+        Me.rdoCuttingReceive.Location = New System.Drawing.Point(146, 199)
         Me.rdoCuttingReceive.Name = "rdoCuttingReceive"
         Me.rdoCuttingReceive.Size = New System.Drawing.Size(17, 16)
         Me.rdoCuttingReceive.TabIndex = 19
@@ -465,11 +479,23 @@ Partial Class frmStockTransaction
         Me.Label11.AutoSize = True
         Me.Label11.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label11.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label11.Location = New System.Drawing.Point(16, 62)
+        Me.Label11.Location = New System.Drawing.Point(16, 119)
         Me.Label11.Name = "Label11"
         Me.Label11.Size = New System.Drawing.Size(127, 21)
         Me.Label11.TabIndex = 18
         Me.Label11.Text = "استلام مخزني"
+        '
+        'Label3
+        '
+        Me.Label3.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label3.AutoSize = True
+        Me.Label3.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label3.ForeColor = System.Drawing.Color.Firebrick
+        Me.Label3.Location = New System.Drawing.Point(7, 40)
+        Me.Label3.Name = "Label3"
+        Me.Label3.Size = New System.Drawing.Size(136, 21)
+        Me.Label3.TabIndex = 18
+        Me.Label3.Text = "ارسال مرتجعات"
         '
         'Label10
         '
@@ -477,7 +503,7 @@ Partial Class frmStockTransaction
         Me.Label10.AutoSize = True
         Me.Label10.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label10.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label10.Location = New System.Drawing.Point(20, 23)
+        Me.Label10.Location = New System.Drawing.Point(20, 11)
         Me.Label10.Name = "Label10"
         Me.Label10.Size = New System.Drawing.Size(123, 21)
         Me.Label10.TabIndex = 18
@@ -489,7 +515,7 @@ Partial Class frmStockTransaction
         Me.Label8.AutoSize = True
         Me.Label8.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label8.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label8.Location = New System.Drawing.Point(0, 121)
+        Me.Label8.Location = New System.Drawing.Point(0, 145)
         Me.Label8.Name = "Label8"
         Me.Label8.Size = New System.Drawing.Size(143, 21)
         Me.Label8.TabIndex = 18
@@ -501,7 +527,7 @@ Partial Class frmStockTransaction
         Me.Label2.AutoSize = True
         Me.Label2.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label2.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label2.Location = New System.Drawing.Point(37, 155)
+        Me.Label2.Location = New System.Drawing.Point(37, 171)
         Me.Label2.Name = "Label2"
         Me.Label2.Size = New System.Drawing.Size(106, 21)
         Me.Label2.TabIndex = 18
@@ -511,7 +537,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoProductionReceive.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoProductionReceive.AutoSize = True
-        Me.rdoProductionReceive.Location = New System.Drawing.Point(146, 160)
+        Me.rdoProductionReceive.Location = New System.Drawing.Point(146, 173)
         Me.rdoProductionReceive.Name = "rdoProductionReceive"
         Me.rdoProductionReceive.Size = New System.Drawing.Size(17, 16)
         Me.rdoProductionReceive.TabIndex = 19
@@ -522,7 +548,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoPurchaseReceive.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoPurchaseReceive.AutoSize = True
-        Me.rdoPurchaseReceive.Location = New System.Drawing.Point(146, 126)
+        Me.rdoPurchaseReceive.Location = New System.Drawing.Point(146, 147)
         Me.rdoPurchaseReceive.Name = "rdoPurchaseReceive"
         Me.rdoPurchaseReceive.Size = New System.Drawing.Size(17, 16)
         Me.rdoPurchaseReceive.TabIndex = 19
@@ -597,4 +623,6 @@ Partial Class frmStockTransaction
     Friend WithEvents colTargetAfter As DataGridViewTextBoxColumn
     Friend WithEvents colLineNotes As DataGridViewTextBoxColumn
     Friend WithEvents colDelete As DataGridViewButtonColumn
+    Friend WithEvents rdoPRTSend As RadioButton
+    Friend WithEvents Label3 As Label
 End Class

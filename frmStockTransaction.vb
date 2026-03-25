@@ -36,6 +36,7 @@ Public Class frmStockTransaction
         ProductionReceive = 4
         CuttingReceive = 5
         SalesReturnReceive = 6
+        PurchaseReturnSend = 7
     End Enum
     Enum TransfersListMode
         NormalList
@@ -201,6 +202,11 @@ Public Class frmStockTransaction
                 cboSourceStore.Enabled = False
                 cboTargetStore.Enabled = False
                 dgvTransferDetails.TabStop = False
+            Case StockTransactionMode.PurchaseReturnSend
+                btnSend.Text = "Send PRT"
+                cboSourceStore.Enabled = True
+                cboTargetStore.Enabled = False
+                dgvTransferDetails.ReadOnly = True
         End Select
 
         ApplyDetailsGridAccess()
@@ -967,6 +973,9 @@ WHERE b.StoreID = @StoreID
             Case StockTransactionMode.SalesReturnReceive
                 operationTypeID = 12   ' SRT
                 filterByTargetStore = True
+            Case StockTransactionMode.PurchaseReturnSend
+                operationTypeID = 14
+                filterBySourceStore = True
 
             Case Else
                 dgvTransfersList.DataSource = Nothing
@@ -1491,7 +1500,9 @@ WHERE d.ProductID = @PID
         Else
             Select Case CurrentMode
                 Case StockTransactionMode.TransferSend
+
                     CreateTransferTransaction2()
+
                 Case Else
                     ReceiveInventoryTransaction()
             End Select
@@ -3197,4 +3208,19 @@ ORDER BY UnitName
         End Try
 
     End Sub
+
+    Private Sub rdoPRTSend_CheckedChanged(sender As Object, e As EventArgs) Handles rdoPRTSend.CheckedChanged
+
+        If Not rdoPRTSend.Checked Then Return
+
+        CurrentMode = StockTransactionMode.PurchaseReturnSend
+
+        PrepareNewTransaction()
+        SyncUIWithMode()
+        LoadTransfersList()
+        ApplyDetailsGridAccess()
+
+    End Sub
+
+
 End Class

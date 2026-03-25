@@ -49,9 +49,10 @@ Public Class ProductionRevaluationDto
         Public Property UnitCost As Decimal
         Public Property PastAvgCost As Decimal
         Public Property ProductCode As String
-        Public Property UnitName As String
-        Public Property SubCategoryID As Integer
-    End Class
+    Public Property UnitID As String
+    Public Property UnitName As String
+    Public Property SubCategoryID As Integer
+End Class
 
     Public Class RevalDetailDTO
         Public Property DetailID As Integer
@@ -97,4 +98,10 @@ Public Class RevalAffectedInputDto
     Public Property NetAmount As Decimal
     Public Property LineTotal As Decimal
 
+End Class
+Public Class CuttingRevaluationDto
+    Public Property Outputs As DataTable
+    Public Property CuttingCode As String
+    Public Property BaseProductCode As String
+    Public Property AvailableQty As Decimal
 End Class

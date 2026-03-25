@@ -150,11 +150,12 @@ tran)
 
                             ' Ledger
                             If hasM3 Then
-                                _inventoryRepo.InsertCostLedger_M3(transactionID, userID, m3UnitID, operationGroupID, seq, oldQtyDict, con, tran)
+                                _inventoryRepo.InsertCostLedger_M3_Purchase(transactionID, userID, m3UnitID, operationGroupID, seq, oldQtyDict, con, tran)
                             End If
 
                             Dim ledgerID =
-        _inventoryRepo.InsertCostLedger_Regular(transactionID, userID, m3UnitID, operationGroupID, seq, oldQtyDict, con, tran)
+                                _inventoryRepo.InsertCostLedger_RegularPurchase(transactionID, userID, m3UnitID, operationGroupID, seq, oldQtyDict, con, tran)
+                            _inventoryRepo.InsertLedgerLinks_PUR(transactionID, operationGroupID, userID, con, tran)
 
                             ' Inventory
                             _inventoryRepo.ApplyInventoryIn(transactionID, m3UnitID, ledgerID, con, tran)
@@ -275,6 +276,7 @@ WHERE d.TransactionID = @T
                             Dim ledgerID =
         _inventoryRepo.InsertCostLedger_RegularReturn(transactionID, userID, m3UnitID, operationGroupID, seq, oldQtyDict, con, tran)
 
+                            _inventoryRepo.InsertLedgerLinks_SRT(transactionID, operationGroupID, userID, con, tran)
 
                             Dim cnt As Integer = 0
                             Using cmd As New SqlCommand("
@@ -317,8 +319,28 @@ WHERE TransactionID=@T AND OperationGroupID=@G
                             ' Ledger
                             _inventoryRepo.InsertCostLedger_OUT(transactionID, operationGroupID, seq, oldQtyDict, con, tran)
 
+                            _inventoryRepo.InsertLoadingLinks(transactionID, operationGroupID, userID, con, tran)
+
                             ' Inventory
                             _inventoryRepo.ApplyInventoryOut(transactionID, con, tran)
+
+
+' =====================================================
+' PRT
+' =====================================================
+                        Case 14
+                            oldQtyDict =
+                                _inventoryRepo.GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
+
+                            Dim seq As Integer = 1
+                            _inventoryRepo.InsertCostLedger_OUT_PRT(transactionID, operationGroupID, seq, oldQtyDict, con, tran)
+                            _inventoryRepo.InsertPRTLinks(transactionID, operationGroupID, userID, con, tran)
+
+                            _inventoryRepo.ApplyInventoryOut(transactionID, con, tran)
+
+
+                            _inventoryRepo.FinalizeLedgerMetadata(operationGroupID, con, tran)
+
 
 
 ' =====================================================

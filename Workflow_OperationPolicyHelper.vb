@@ -228,12 +228,20 @@ SELECT StatusID
 FROM Business_SR
 WHERE SRID = @ID
 "
+
                 Case "SRT"
                     sql = "
 SELECT StatusID
 FROM Inventory_DocumentHeader
 WHERE DocumentID = @ID
 "
+                Case "PRT"
+                    sql = "
+SELECT StatusID
+FROM Inventory_DocumentHeader
+WHERE DocumentID = @ID
+"
+
 
                 Case Else
                     Throw New ApplicationException(

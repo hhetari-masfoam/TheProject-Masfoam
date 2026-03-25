@@ -32,7 +32,7 @@ Partial Class frmMasterForm
         Me.frmProduction = New System.Windows.Forms.Button()
         Me.frmLoadingBoard = New System.Windows.Forms.Button()
         Me.frmLogin = New System.Windows.Forms.Button()
-        Me.frmRevaluation = New System.Windows.Forms.Button()
+        Me.frmPurchaseReturn = New System.Windows.Forms.Button()
         Me.frmCostCorrection = New System.Windows.Forms.Button()
         Me.frmCuttingScrabCalculator = New System.Windows.Forms.Button()
         Me.btnfrmSalesReturn = New System.Windows.Forms.Button()
@@ -147,14 +147,14 @@ Partial Class frmMasterForm
         Me.frmLogin.Text = "Login"
         Me.frmLogin.UseVisualStyleBackColor = True
         '
-        'frmRevaluation
+        'frmPurchaseReturn
         '
-        Me.frmRevaluation.Location = New System.Drawing.Point(774, 121)
-        Me.frmRevaluation.Name = "frmRevaluation"
-        Me.frmRevaluation.Size = New System.Drawing.Size(146, 62)
-        Me.frmRevaluation.TabIndex = 0
-        Me.frmRevaluation.Text = "Revaluation"
-        Me.frmRevaluation.UseVisualStyleBackColor = True
+        Me.frmPurchaseReturn.Location = New System.Drawing.Point(774, 121)
+        Me.frmPurchaseReturn.Name = "frmPurchaseReturn"
+        Me.frmPurchaseReturn.Size = New System.Drawing.Size(146, 62)
+        Me.frmPurchaseReturn.TabIndex = 0
+        Me.frmPurchaseReturn.Text = "PurchaseReturn"
+        Me.frmPurchaseReturn.UseVisualStyleBackColor = True
         '
         'frmCostCorrection
         '
@@ -382,7 +382,7 @@ Partial Class frmMasterForm
         Me.Controls.Add(Me.btnfrmStockTransaction)
         Me.Controls.Add(Me.Button27)
         Me.Controls.Add(Me.Button19)
-        Me.Controls.Add(Me.frmRevaluation)
+        Me.Controls.Add(Me.frmPurchaseReturn)
         Me.Controls.Add(Me.btnfrmPurchases)
         Me.Controls.Add(Me.Button26)
         Me.Controls.Add(Me.Button18)
@@ -409,7 +409,7 @@ Partial Class frmMasterForm
     Friend WithEvents frmProduction As Button
     Friend WithEvents frmLoadingBoard As Button
     Friend WithEvents frmLogin As Button
-    Friend WithEvents frmRevaluation As Button
+    Friend WithEvents frmPurchaseReturn As Button
     Friend WithEvents frmCostCorrection As Button
     Friend WithEvents frmCuttingScrabCalculator As Button
     Friend WithEvents btnfrmSalesReturn As Button

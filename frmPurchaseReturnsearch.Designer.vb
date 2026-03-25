@@ -1,5 +1,5 @@
 ﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()>
-Partial Class frmSalesReturnsearch
+Partial Class frmPurchaseReturnsearch
     Inherits frmBaseSearch
 
     'Form overrides dispose to clean up the component list.
@@ -24,12 +24,12 @@ Partial Class frmSalesReturnsearch
     Private Sub InitializeComponent()
         Me.SuspendLayout()
         '
-        'frmSalesReturnsearch
+        'frmPurchaseReturnsearch
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(7.0!, 16.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.ClientSize = New System.Drawing.Size(1303, 588)
-        Me.Name = "frmSalesReturnsearch"
+        Me.Name = "frmPurchaseReturnsearch"
         Me.Text = "frmPurchaseSearch"
         Me.ResumeLayout(False)
         Me.PerformLayout()

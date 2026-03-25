@@ -27,10 +27,6 @@ Public Class frmPurchaseReturn
             BindInvoiceGrid()
             ApplyDecimalFormatting()
 
-            ' افتراضي
-            cboTargetStoreID.SelectedValue = 1
-            ChangeTargetStore(1)
-
             InitNewDocument()
             ApplyInvoicePermission()
         Finally

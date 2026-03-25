@@ -2593,104 +2593,6 @@ WHERE cl.TransactionID=@T
     End Sub
 
 
-    Public Sub InsertLedgerLinks_PUR(
-    transactionID As Integer,
-    operationGroupID As Guid,
-    userID As Integer,
-    con As SqlConnection,
-    tran As SqlTransaction)
-
-        Const LINK_PURCHASE As Short = 4
-
-        '========================================
-        ' 1) Get PostingDate
-        '========================================
-        Dim postingDate As DateTime
-
-        Using cmd As New SqlCommand("
-        SELECT PostingDate
-        FROM dbo.Inventory_TransactionHeader
-        WHERE TransactionID=@T
-    ", con, tran)
-
-            cmd.Parameters.Add("@T", SqlDbType.Int).Value = transactionID
-            postingDate = CDate(cmd.ExecuteScalar())
-
-        End Using
-
-        '========================================
-        ' 2) Get IN Ledgers (المهم 🔥)
-        '========================================
-        Dim dt As New DataTable()
-
-        Using cmd As New SqlCommand("
-    SELECT
-        cl.LedgerID,
-        cl.StoreID,
-        cl.ProductID,
-        ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
-        cl.InQty,
-        cl.InUnitCost
-    FROM dbo.Inventory_CostLedger cl
-    JOIN dbo.Master_Product p
-        ON p.ProductID = cl.ProductID
-    WHERE cl.TransactionID=@T
-      AND cl.InQty > 0
-      AND cl.IsActive=1
-      AND cl.IsReversed=0
-    ", con, tran)
-
-            cmd.Parameters.Add("@T", SqlDbType.Int).Value = transactionID
-
-            Using da As New SqlDataAdapter(cmd)
-                da.Fill(dt)
-            End Using
-
-        End Using
-
-        If dt.Rows.Count = 0 Then Exit Sub
-
-        '========================================
-        ' 3) Insert Links (NULL → Ledger)
-        '========================================
-        Dim seq As Integer = 1
-
-        For Each r As DataRow In dt.Rows
-
-            Dim ledgerID As Long = CLng(r("LedgerID"))
-            Dim storeID As Integer = CInt(r("StoreID"))
-            Dim productID As Integer = CInt(r("ProductID"))
-            Dim baseProductID As Integer = CInt(r("BaseProductID"))
-
-            Dim qty As Decimal = CDec(r("InQty"))
-            Dim unitCost As Decimal = CDec(r("InUnitCost"))
-
-            If qty <= 0D Then Continue For
-
-            InsertLedgerLink(
-            sourceLedgerID:=Nothing,          ' 🔥 خارجي
-            targetLedgerID:=ledgerID,         ' 🔥 داخل المخزون
-            linkType:=LINK_PURCHASE,
-            qty:=qty,
-            unitCost:=unitCost,
-            transactionID:=transactionID,
-            storeSource:=Nothing,
-            storeTarget:=storeID,
-            productID:=productID,
-            baseProductID:=baseProductID,
-            postingDate:=postingDate,
-            operationGroupID:=operationGroupID,
-            groupSeq:=seq,
-            userID:=userID,
-            con:=con,
-            tran:=tran
-        )
-
-            seq += 1
-
-        Next
-
-    End Sub
     Public Sub InsertLedgerLinks_SRT(
     transactionID As Integer,
     operationGroupID As Guid,
@@ -4922,219 +4824,6 @@ WHERE p.ProductID = @ProductID
         cmd.ExecuteNonQuery()
     End Sub
 
-    Public Sub InsertLedgerLink(
-    sourceLedgerID As Long?,
-    targetLedgerID As Long?,
-    linkType As Short,
-    qty As Decimal,
-    unitCost As Decimal,
-    transactionID As Integer,
-    storeSource As Integer?,
-    storeTarget As Integer?,
-    productID As Integer,
-    baseProductID As Integer?,
-    postingDate As DateTime,
-    operationGroupID As Guid,
-    groupSeq As Integer,
-    userID As Integer,
-    con As SqlConnection,
-    tran As SqlTransaction
-)
-
-        '========================================
-        ' 1) Direction
-        '========================================
-        Dim linkDirection As Integer = 2 ' حسب نظامك الحالي
-
-        '========================================
-        ' 2) Hash
-        '========================================
-        Dim linkHash As Byte() =
-        CalculateLinkHash(
-            sourceLedgerID,
-            targetLedgerID,
-            linkType,
-            qty,
-            unitCost,
-            operationGroupID)
-
-        '========================================
-        ' 3) RootLedgerID (اختياري)
-        '========================================
-        Dim rootLedgerID As Object = DBNull.Value
-
-        If sourceLedgerID.HasValue Then
-
-            Using cmdRoot As New SqlCommand("
-        SELECT RootLedgerID
-        FROM Inventory_CostLedger
-        WHERE LedgerID = @L", con, tran)
-
-                cmdRoot.Parameters.Add("@L", SqlDbType.BigInt).Value = sourceLedgerID.Value
-
-                Dim obj = cmdRoot.ExecuteScalar()
-                If obj IsNot Nothing AndAlso obj IsNot DBNull.Value Then
-                    rootLedgerID = CLng(obj)
-                Else
-                    rootLedgerID = sourceLedgerID.Value
-                End If
-            End Using
-
-        ElseIf targetLedgerID.HasValue Then
-
-            ' 🔥 هذا السطر الجديد فقط
-            rootLedgerID = targetLedgerID.Value
-
-        End If
-        '========================================
-        ' 4) DetailIDs (Null-safe)
-        '========================================
-        Dim sourceTransactionDetailID As Object = DBNull.Value
-        Dim targetTransactionDetailID As Object = DBNull.Value
-
-        Using cmdDet As New SqlCommand("
-        SELECT
-            (SELECT SourceDetailID FROM Inventory_CostLedger WHERE LedgerID=@SrcL) AS SrcDetailID,
-            (SELECT SourceDetailID FROM Inventory_CostLedger WHERE LedgerID=@TgtL) AS TgtDetailID
-    ", con, tran)
-
-            ' Source
-            If sourceLedgerID.HasValue Then
-                cmdDet.Parameters.Add("@SrcL", SqlDbType.BigInt).Value = sourceLedgerID.Value
-            Else
-                cmdDet.Parameters.Add("@SrcL", SqlDbType.BigInt).Value = DBNull.Value
-            End If
-
-            ' Target
-            If targetLedgerID.HasValue Then
-                cmdDet.Parameters.Add("@TgtL", SqlDbType.BigInt).Value = targetLedgerID.Value
-            Else
-                cmdDet.Parameters.Add("@TgtL", SqlDbType.BigInt).Value = DBNull.Value
-            End If
-
-            Using rdr = cmdDet.ExecuteReader()
-                If rdr.Read() Then
-
-                    If rdr("SrcDetailID") IsNot DBNull.Value Then
-                        sourceTransactionDetailID = Convert.ToInt32(rdr("SrcDetailID"))
-                    End If
-
-                    If rdr("TgtDetailID") IsNot DBNull.Value Then
-                        targetTransactionDetailID = Convert.ToInt32(rdr("TgtDetailID"))
-                    End If
-
-                End If
-            End Using
-        End Using
-
-        '========================================
-        ' 5) Insert
-        '========================================
-        Dim sql As String = "
-    INSERT INTO dbo.Inventory_CostLedgerLink
-    (
-        SourceLedgerID,
-        TargetLedgerID,
-        LinkType,
-        FlowQty,
-        FlowUnitCost,
-        SourceTransactionDetailID,
-        TargetTransactionDetailID,
-        SourceStoreID,
-        TargetStoreID,
-        ProductID,
-        BaseProductID,
-        PostingDate,
-        OperationGroupID,
-        GroupSeq,
-        IsActive,
-        CreatedAt,
-        CreatedBy,
-        RootLedgerID,
-        LinkDirection,
-        LinkHash
-    )
-    VALUES
-    (
-        @SourceLedgerID,
-        @TargetLedgerID,
-        @LinkType,
-        @FlowQty,
-        @FlowUnitCost,
-        @SourceTransactionDetailID,
-        @TargetTransactionDetailID,
-        @SourceStoreID,
-        @TargetStoreID,
-        @ProductID,
-        @BaseProductID,
-        @PostingDate,
-        @OperationGroupID,
-        @GroupSeq,
-        1,
-        SYSDATETIME(),
-        @UserID,
-        @RootLedgerID,
-        @LinkDirection,
-        @LinkHash
-    );"
-
-        Using cmd As New SqlCommand(sql, con, tran)
-
-            '========================================
-            ' Ledger IDs
-            '========================================
-            cmd.Parameters.Add("@SourceLedgerID", SqlDbType.BigInt).Value =
-            If(sourceLedgerID.HasValue, sourceLedgerID.Value, CType(DBNull.Value, Object))
-
-            cmd.Parameters.Add("@TargetLedgerID", SqlDbType.BigInt).Value =
-            If(targetLedgerID.HasValue, targetLedgerID.Value, CType(DBNull.Value, Object))
-
-            '========================================
-            ' Basic
-            '========================================
-            cmd.Parameters.Add("@LinkType", SqlDbType.SmallInt).Value = linkType
-            cmd.Parameters.Add("@FlowQty", SqlDbType.Decimal).Value = qty
-            cmd.Parameters.Add("@FlowUnitCost", SqlDbType.Decimal).Value = unitCost
-
-            '========================================
-            ' Details
-            '========================================
-            cmd.Parameters.Add("@SourceTransactionDetailID", SqlDbType.Int).Value = sourceTransactionDetailID
-            cmd.Parameters.Add("@TargetTransactionDetailID", SqlDbType.Int).Value = targetTransactionDetailID
-
-            '========================================
-            ' Stores
-            '========================================
-            cmd.Parameters.Add("@SourceStoreID", SqlDbType.Int).Value =
-            If(storeSource.HasValue, storeSource.Value, CType(DBNull.Value, Object))
-
-            cmd.Parameters.Add("@TargetStoreID", SqlDbType.Int).Value =
-            If(storeTarget.HasValue, storeTarget.Value, CType(DBNull.Value, Object))
-
-            '========================================
-            ' Product
-            '========================================
-            cmd.Parameters.Add("@ProductID", SqlDbType.Int).Value = productID
-
-            cmd.Parameters.Add("@BaseProductID", SqlDbType.Int).Value =
-            If(baseProductID.HasValue, baseProductID.Value, CType(DBNull.Value, Object))
-
-            '========================================
-            ' Meta
-            '========================================
-            cmd.Parameters.Add("@PostingDate", SqlDbType.DateTime2).Value = postingDate
-            cmd.Parameters.Add("@OperationGroupID", SqlDbType.UniqueIdentifier).Value = operationGroupID
-            cmd.Parameters.Add("@GroupSeq", SqlDbType.Int).Value = groupSeq
-            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID
-
-            cmd.Parameters.Add("@RootLedgerID", SqlDbType.BigInt).Value = rootLedgerID
-            cmd.Parameters.Add("@LinkDirection", SqlDbType.Int).Value = linkDirection
-            cmd.Parameters.Add("@LinkHash", SqlDbType.VarBinary, 32).Value = linkHash
-
-            cmd.ExecuteNonQuery()
-        End Using
-
-    End Sub
     Public Sub InsertProductionLedgerLinks(
     transactionID As Integer,
     operationGroupID As Guid,
@@ -7550,7 +7239,7 @@ ORDER BY LedgerID DESC
     End Sub
 
 
-    ''' Return
+    ''' SRT
 
     Public Function GetOldQtyAllStoresReturn(
     transactionID As Integer,
@@ -8503,6 +8192,9 @@ WHERE ProductID = @ProductID;
 
     End Sub
 
+
+
+    'PRT
     Public Sub InsertCostLedger_OUT_PRT(
     transactionID As Integer,
     operationGroupID As Guid,
@@ -8815,8 +8507,6 @@ VALUES
         Next
 
     End Sub
-
-
     Public Sub InsertPRTLinks(
     transactionID As Integer,
     operationGroupID As Guid,
@@ -8933,7 +8623,6 @@ AND cl.SourceLedgerID IS NOT NULL
         Next
 
     End Sub
-
     Public Sub GetCostChainContext(
     productID As Integer,
     baseProductID As Object,
@@ -9016,6 +8705,325 @@ ORDER BY LedgerID DESC
         End If
 
     End Sub
+
+
+
+    'Purchase
+    Public Sub InsertLedgerLinks_PUR(
+    transactionID As Integer,
+    operationGroupID As Guid,
+    userID As Integer,
+    con As SqlConnection,
+    tran As SqlTransaction)
+
+        Const LINK_PURCHASE As Short = 4
+
+        '========================================
+        ' 1) Get PostingDate
+        '========================================
+        Dim postingDate As DateTime
+
+        Using cmd As New SqlCommand("
+        SELECT PostingDate
+        FROM dbo.Inventory_TransactionHeader
+        WHERE TransactionID=@T
+    ", con, tran)
+
+            cmd.Parameters.Add("@T", SqlDbType.Int).Value = transactionID
+            postingDate = CDate(cmd.ExecuteScalar())
+
+        End Using
+
+        '========================================
+        ' 2) Get IN Ledgers (المهم 🔥)
+        '========================================
+        Dim dt As New DataTable()
+
+        Using cmd As New SqlCommand("
+    SELECT
+        cl.LedgerID,
+        cl.StoreID,
+        cl.ProductID,
+        ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
+        cl.InQty,
+        cl.InUnitCost
+    FROM dbo.Inventory_CostLedger cl
+    JOIN dbo.Master_Product p
+        ON p.ProductID = cl.ProductID
+    WHERE cl.TransactionID=@T
+      AND cl.InQty > 0
+      AND cl.IsActive=1
+      AND cl.IsReversed=0
+    ", con, tran)
+
+            cmd.Parameters.Add("@T", SqlDbType.Int).Value = transactionID
+
+            Using da As New SqlDataAdapter(cmd)
+                da.Fill(dt)
+            End Using
+
+        End Using
+
+        If dt.Rows.Count = 0 Then Exit Sub
+
+        '========================================
+        ' 3) Insert Links (NULL → Ledger)
+        '========================================
+        Dim seq As Integer = 1
+
+        For Each r As DataRow In dt.Rows
+
+            Dim ledgerID As Long = CLng(r("LedgerID"))
+            Dim storeID As Integer = CInt(r("StoreID"))
+            Dim productID As Integer = CInt(r("ProductID"))
+            Dim baseProductID As Integer = CInt(r("BaseProductID"))
+
+            Dim qty As Decimal = CDec(r("InQty"))
+            Dim unitCost As Decimal = CDec(r("InUnitCost"))
+
+            If qty <= 0D Then Continue For
+
+            InsertLedgerLink(
+            sourceLedgerID:=Nothing,          ' 🔥 خارجي
+            targetLedgerID:=ledgerID,         ' 🔥 داخل المخزون
+            linkType:=LINK_PURCHASE,
+            qty:=qty,
+            unitCost:=unitCost,
+            transactionID:=transactionID,
+            storeSource:=Nothing,
+            storeTarget:=storeID,
+            productID:=productID,
+            baseProductID:=baseProductID,
+            postingDate:=postingDate,
+            operationGroupID:=operationGroupID,
+            groupSeq:=seq,
+            userID:=userID,
+            con:=con,
+            tran:=tran
+        )
+
+            seq += 1
+
+        Next
+
+    End Sub
+    Public Sub InsertLedgerLink(
+    sourceLedgerID As Long?,
+    targetLedgerID As Long?,
+    linkType As Short,
+    qty As Decimal,
+    unitCost As Decimal,
+    transactionID As Integer,
+    storeSource As Integer?,
+    storeTarget As Integer?,
+    productID As Integer,
+    baseProductID As Integer?,
+    postingDate As DateTime,
+    operationGroupID As Guid,
+    groupSeq As Integer,
+    userID As Integer,
+    con As SqlConnection,
+    tran As SqlTransaction
+)
+
+        '========================================
+        ' 1) Direction
+        '========================================
+        Dim linkDirection As Integer = 2 ' حسب نظامك الحالي
+
+        '========================================
+        ' 2) Hash
+        '========================================
+        Dim linkHash As Byte() =
+        CalculateLinkHash(
+            sourceLedgerID,
+            targetLedgerID,
+            linkType,
+            qty,
+            unitCost,
+            operationGroupID)
+
+        '========================================
+        ' 3) RootLedgerID (اختياري)
+        '========================================
+        Dim rootLedgerID As Object = DBNull.Value
+
+        If sourceLedgerID.HasValue Then
+
+            Using cmdRoot As New SqlCommand("
+        SELECT RootLedgerID
+        FROM Inventory_CostLedger
+        WHERE LedgerID = @L", con, tran)
+
+                cmdRoot.Parameters.Add("@L", SqlDbType.BigInt).Value = sourceLedgerID.Value
+
+                Dim obj = cmdRoot.ExecuteScalar()
+                If obj IsNot Nothing AndAlso obj IsNot DBNull.Value Then
+                    rootLedgerID = CLng(obj)
+                Else
+                    rootLedgerID = sourceLedgerID.Value
+                End If
+            End Using
+
+        ElseIf targetLedgerID.HasValue Then
+
+            ' 🔥 هذا السطر الجديد فقط
+            rootLedgerID = targetLedgerID.Value
+
+        End If
+        '========================================
+        ' 4) DetailIDs (Null-safe)
+        '========================================
+        Dim sourceTransactionDetailID As Object = DBNull.Value
+        Dim targetTransactionDetailID As Object = DBNull.Value
+
+        Using cmdDet As New SqlCommand("
+        SELECT
+            (SELECT SourceDetailID FROM Inventory_CostLedger WHERE LedgerID=@SrcL) AS SrcDetailID,
+            (SELECT SourceDetailID FROM Inventory_CostLedger WHERE LedgerID=@TgtL) AS TgtDetailID
+    ", con, tran)
+
+            ' Source
+            If sourceLedgerID.HasValue Then
+                cmdDet.Parameters.Add("@SrcL", SqlDbType.BigInt).Value = sourceLedgerID.Value
+            Else
+                cmdDet.Parameters.Add("@SrcL", SqlDbType.BigInt).Value = DBNull.Value
+            End If
+
+            ' Target
+            If targetLedgerID.HasValue Then
+                cmdDet.Parameters.Add("@TgtL", SqlDbType.BigInt).Value = targetLedgerID.Value
+            Else
+                cmdDet.Parameters.Add("@TgtL", SqlDbType.BigInt).Value = DBNull.Value
+            End If
+
+            Using rdr = cmdDet.ExecuteReader()
+                If rdr.Read() Then
+
+                    If rdr("SrcDetailID") IsNot DBNull.Value Then
+                        sourceTransactionDetailID = Convert.ToInt32(rdr("SrcDetailID"))
+                    End If
+
+                    If rdr("TgtDetailID") IsNot DBNull.Value Then
+                        targetTransactionDetailID = Convert.ToInt32(rdr("TgtDetailID"))
+                    End If
+
+                End If
+            End Using
+        End Using
+
+        '========================================
+        ' 5) Insert
+        '========================================
+        Dim sql As String = "
+    INSERT INTO dbo.Inventory_CostLedgerLink
+    (
+        SourceLedgerID,
+        TargetLedgerID,
+        LinkType,
+        FlowQty,
+        FlowUnitCost,
+        SourceTransactionDetailID,
+        TargetTransactionDetailID,
+        SourceStoreID,
+        TargetStoreID,
+        ProductID,
+        BaseProductID,
+        PostingDate,
+        OperationGroupID,
+        GroupSeq,
+        IsActive,
+        CreatedAt,
+        CreatedBy,
+        RootLedgerID,
+        LinkDirection,
+        LinkHash
+    )
+    VALUES
+    (
+        @SourceLedgerID,
+        @TargetLedgerID,
+        @LinkType,
+        @FlowQty,
+        @FlowUnitCost,
+        @SourceTransactionDetailID,
+        @TargetTransactionDetailID,
+        @SourceStoreID,
+        @TargetStoreID,
+        @ProductID,
+        @BaseProductID,
+        @PostingDate,
+        @OperationGroupID,
+        @GroupSeq,
+        1,
+        SYSDATETIME(),
+        @UserID,
+        @RootLedgerID,
+        @LinkDirection,
+        @LinkHash
+    );"
+
+        Using cmd As New SqlCommand(sql, con, tran)
+
+            '========================================
+            ' Ledger IDs
+            '========================================
+            cmd.Parameters.Add("@SourceLedgerID", SqlDbType.BigInt).Value =
+            If(sourceLedgerID.HasValue, sourceLedgerID.Value, CType(DBNull.Value, Object))
+
+            cmd.Parameters.Add("@TargetLedgerID", SqlDbType.BigInt).Value =
+            If(targetLedgerID.HasValue, targetLedgerID.Value, CType(DBNull.Value, Object))
+
+            '========================================
+            ' Basic
+            '========================================
+            cmd.Parameters.Add("@LinkType", SqlDbType.SmallInt).Value = linkType
+            cmd.Parameters.Add("@FlowQty", SqlDbType.Decimal).Value = qty
+            cmd.Parameters.Add("@FlowUnitCost", SqlDbType.Decimal).Value = unitCost
+
+            '========================================
+            ' Details
+            '========================================
+            cmd.Parameters.Add("@SourceTransactionDetailID", SqlDbType.Int).Value = sourceTransactionDetailID
+            cmd.Parameters.Add("@TargetTransactionDetailID", SqlDbType.Int).Value = targetTransactionDetailID
+
+            '========================================
+            ' Stores
+            '========================================
+            cmd.Parameters.Add("@SourceStoreID", SqlDbType.Int).Value =
+            If(storeSource.HasValue, storeSource.Value, CType(DBNull.Value, Object))
+
+            cmd.Parameters.Add("@TargetStoreID", SqlDbType.Int).Value =
+            If(storeTarget.HasValue, storeTarget.Value, CType(DBNull.Value, Object))
+
+            '========================================
+            ' Product
+            '========================================
+            cmd.Parameters.Add("@ProductID", SqlDbType.Int).Value = productID
+
+            cmd.Parameters.Add("@BaseProductID", SqlDbType.Int).Value =
+            If(baseProductID.HasValue, baseProductID.Value, CType(DBNull.Value, Object))
+
+            '========================================
+            ' Meta
+            '========================================
+            cmd.Parameters.Add("@PostingDate", SqlDbType.DateTime2).Value = postingDate
+            cmd.Parameters.Add("@OperationGroupID", SqlDbType.UniqueIdentifier).Value = operationGroupID
+            cmd.Parameters.Add("@GroupSeq", SqlDbType.Int).Value = groupSeq
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID
+
+            cmd.Parameters.Add("@RootLedgerID", SqlDbType.BigInt).Value = rootLedgerID
+            cmd.Parameters.Add("@LinkDirection", SqlDbType.Int).Value = linkDirection
+            cmd.Parameters.Add("@LinkHash", SqlDbType.VarBinary, 32).Value = linkHash
+
+            cmd.ExecuteNonQuery()
+        End Using
+
+    End Sub
+
+
+
+
 
 End Class
 

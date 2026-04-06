@@ -4,6 +4,10 @@ Imports System.Text
 Imports System.Configuration
 
 Public Class InvoiceApplicationService
+    Private ReadOnly _connectionString As String
+    Public Sub New(connectionString As String)
+        _connectionString = connectionString
+    End Sub
 
     Public Function SaveInvoiceDraft(
     header As InvoiceHeaderInput,
@@ -11,8 +15,7 @@ Public Class InvoiceApplicationService
     executedByEmployeeID As Integer
 ) As Integer
 
-        Using con As New SqlConnection(
-        ConfigurationManager.ConnectionStrings("MainDB").ConnectionString)
+        Using con As New SqlConnection(_connectionString)
 
             con.Open()
 
@@ -248,9 +251,7 @@ VALUES
     executedByEmployeeID As Integer
 ) As Integer
 
-        Using con As New SqlConnection(
-        ConfigurationManager.ConnectionStrings("MainDB").ConnectionString)
-
+        Using con As New SqlConnection(_connectionString)
             con.Open()
 
             Using tran = con.BeginTransaction()
@@ -468,7 +469,7 @@ VALUES
     autoClearInSimulation As Boolean
 )
 
-        Using con As New SqlConnection(ConfigurationManager.ConnectionStrings("MainDB").ConnectionString)
+        Using con As New SqlConnection(_connectionString)
             con.Open()
 
             Using tran = con.BeginTransaction()
@@ -879,7 +880,7 @@ WHERE LOID = @LOID
 
     Public Sub ReopenRejectedInvoice(documentID As Integer, executedByEmployeeID As Integer)
 
-        Using con As New SqlConnection(ConfigurationManager.ConnectionStrings("MainDB").ConnectionString)
+        Using con As New SqlConnection(_connectionString)
             con.Open()
 
             Using tran = con.BeginTransaction()
@@ -1013,9 +1014,7 @@ WHERE LOID = @LOID
         executedByEmployeeID As Integer
     )
 
-        Using con As New SqlConnection(
-            ConfigurationManager.ConnectionStrings("MainDB").ConnectionString)
-
+        Using con As New SqlConnection(_connectionString)
             con.Open()
 
             Using tran = con.BeginTransaction()

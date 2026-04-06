@@ -37,6 +37,8 @@ Public Class frmStockTransaction
         CuttingReceive = 5
         SalesReturnReceive = 6
         PurchaseReturnSend = 7
+        CuttingWasteReceive = 8
+        PostSales = 9
     End Enum
     Enum TransfersListMode
         NormalList
@@ -169,7 +171,7 @@ Public Class frmStockTransaction
 
         Select Case CurrentMode
             Case StockTransactionMode.ProductionReceive
-                btnSend.Text = "Receive PROD"
+                btnSend.Text = "استلام انتاج"
                 cboSourceStore.Enabled = False
                 cboTargetStore.Enabled = False
                 dgvTransferDetails.TabStop = False
@@ -177,36 +179,50 @@ Public Class frmStockTransaction
                 If IsEditMode Then
                     btnSend.Text = "تعديل"
                 Else
-                    btnSend.Text = "Send"
+                    btnSend.Text = "ارسال"
                 End If
                 cboSourceStore.Enabled = True
                 cboTargetStore.Enabled = True
                 dgvTransferDetails.TabStop = True
             Case StockTransactionMode.TransferReceive
-                btnSend.Text = "Receive"
+                btnSend.Text = "استلام"
                 cboSourceStore.Enabled = False
                 cboTargetStore.Enabled = False
                 dgvTransferDetails.TabStop = False
             Case StockTransactionMode.PurchaseReceive
-                btnSend.Text = "Receive PR"
+                btnSend.Text = "استلام مشتريات"
                 cboSourceStore.Enabled = False
                 cboTargetStore.Enabled = False
                 dgvTransferDetails.TabStop = False
             Case StockTransactionMode.CuttingReceive
-                btnSend.Text = "Receive CUT"
+                btnSend.Text = "استلام قص"
                 cboSourceStore.Enabled = False
                 cboTargetStore.Enabled = False
                 dgvTransferDetails.TabStop = False
             Case StockTransactionMode.SalesReturnReceive
-                btnSend.Text = "Receive SRT"
+                btnSend.Text = "استلام مرتجع مبيعات"
                 cboSourceStore.Enabled = False
                 cboTargetStore.Enabled = False
                 dgvTransferDetails.TabStop = False
             Case StockTransactionMode.PurchaseReturnSend
-                btnSend.Text = "Send PRT"
+                btnSend.Text = "استلام مرتجع مشتريات"
                 cboSourceStore.Enabled = True
                 cboTargetStore.Enabled = False
                 dgvTransferDetails.ReadOnly = True
+            Case StockTransactionMode.CuttingWasteReceive
+                btnSend.Text = "استلام سكراب"
+                cboSourceStore.Enabled = True
+                cboTargetStore.Enabled = False
+                dgvTransferDetails.ReadOnly = True
+            Case StockTransactionMode.PostSales
+                btnSend.Text = "فسح مبيعات"
+                cboSourceStore.Enabled = True
+                cboTargetStore.Enabled = False
+                dgvTransferDetails.ReadOnly = True
+                btnCancel.Enabled = False
+                btnSend.Enabled = False
+
+
         End Select
 
         ApplyDetailsGridAccess()
@@ -951,30 +967,39 @@ WHERE b.StoreID = @StoreID
         Select Case CurrentMode
 
             Case StockTransactionMode.TransferSend
-                operationTypeID = 10   ' عدل حسب رقم TRN عندك
+                operationTypeID = 10
                 filterBySourceStore = True
 
             Case StockTransactionMode.TransferReceive
-                operationTypeID = 10   ' TRN
+                operationTypeID = 10
                 filterByTargetStore = True
 
             Case StockTransactionMode.PurchaseReceive
-                operationTypeID = 7   ' PUR
+                operationTypeID = 7
                 filterByTargetStore = True
 
             Case StockTransactionMode.ProductionReceive
-                operationTypeID = 6   ' PRO
+                operationTypeID = 6
                 filterByTargetStore = True
 
             Case StockTransactionMode.CuttingReceive
-                operationTypeID = 11  ' CUT
+                operationTypeID = 11
                 filterByTargetStore = True
 
             Case StockTransactionMode.SalesReturnReceive
-                operationTypeID = 12   ' SRT
+                operationTypeID = 12
                 filterByTargetStore = True
+
             Case StockTransactionMode.PurchaseReturnSend
                 operationTypeID = 14
+                filterBySourceStore = True
+
+            Case StockTransactionMode.CuttingWasteReceive
+                operationTypeID = 13
+                filterBySourceStore = True
+
+            Case StockTransactionMode.PostSales
+                operationTypeID = 4
                 filterBySourceStore = True
 
             Case Else
@@ -982,18 +1007,141 @@ WHERE b.StoreID = @StoreID
                 Exit Sub
 
         End Select
-
-
         ' =========================
-        ' الاستعلام الجديد المتوافق مع الهيكل الحالي
+        ' إذا كنا في وضع تحميل سند واحد من البحث
+        ' =========================
+        If CurrentListMode = TransfersListMode.SingleHeader AndAlso CurrentTransactionID > 0 Then
+
+            Dim dtSingle As New DataTable()
+
+            Dim sqlSingle As String =
+"
+SELECT
+    h.TransactionID AS RefID,
+
+    CASE h.OperationTypeID
+        WHEN 10 THEN CAST(h.TransactionID AS NVARCHAR)
+        WHEN 12 THEN dh.DocumentNo
+        WHEN 14 THEN dh.DocumentNo
+        WHEN 7 THEN dh.DocumentNo
+        WHEN 6 THEN ph.ProductionCode
+        WHEN 11 THEN ch.CuttingCode
+        WHEN 13 THEN wh.WasteCode
+        WHEN 4 THEN lo.LOCode
+        ELSE CAST(h.SourceDocumentID AS NVARCHAR)
+    END AS RefCode,
+
+    h.TransactionDate,
+    ot.OperationName,
+    s.StatusName,
+    src.StoreName AS SourceStoreName,
+    tgt.StoreName AS TargetStoreName
+
+FROM Inventory_TransactionHeader h
+INNER JOIN Workflow_Status s
+    ON s.StatusID = h.StatusID
+INNER JOIN Workflow_OperationType ot
+    ON ot.OperationTypeID = h.OperationTypeID
+
+LEFT JOIN Inventory_DocumentHeader dh
+    ON dh.DocumentID = h.SourceDocumentID
+LEFT JOIN Production_Header ph
+    ON ph.ProductionID = h.SourceDocumentID
+LEFT JOIN Production_CuttingHeader ch
+    ON ch.CuttingID = h.SourceDocumentID
+LEFT JOIN Inventory_WasteHeader wh
+    ON wh.WasteID = h.SourceDocumentID
+LEFT JOIN Logistics_LoadingOrder lo
+    ON lo.LOID = h.SourceDocumentID
+
+OUTER APPLY
+(
+    SELECT TOP 1 st.StoreName
+    FROM Inventory_TransactionDetails d
+    INNER JOIN Master_Store st
+        ON st.StoreID = d.SourceStoreID
+    WHERE d.TransactionID = h.TransactionID
+) src
+
+OUTER APPLY
+(
+    SELECT TOP 1 st.StoreName
+    FROM Inventory_TransactionDetails d
+    INNER JOIN Master_Store st
+        ON st.StoreID = d.TargetStoreID
+    WHERE d.TransactionID = h.TransactionID
+) tgt
+
+WHERE h.TransactionID = @TransactionID
+"
+
+            Using con As New SqlConnection(ConnStr)
+                Using cmd As New SqlCommand(sqlSingle, con)
+                    cmd.Parameters.Add("@TransactionID", SqlDbType.Int).Value = CurrentTransactionID
+
+                    Using da As New SqlDataAdapter(cmd)
+                        da.Fill(dtSingle)
+                    End Using
+                End Using
+            End Using
+
+            dgvTransfersList.DataSource = dtSingle
+
+            If dgvTransfersList.Columns.Contains("RefID") Then
+                dgvTransfersList.Columns("RefID").Visible = False
+            End If
+
+            If dgvTransfersList.Columns.Contains("RefCode") Then
+                dgvTransfersList.Columns("RefCode").HeaderText = "كود العملية"
+            End If
+            If dgvTransfersList.Columns.Contains("OperationName") Then
+                dgvTransfersList.Columns("OperationName").HeaderText = "نوع العملية"
+            End If
+            If dgvTransfersList.Columns.Contains("StatusName") Then
+                dgvTransfersList.Columns("StatusName").HeaderText = "الحالة"
+            End If
+            If dgvTransfersList.Columns.Contains("TransactionDate") Then
+                dgvTransfersList.Columns("TransactionDate").HeaderText = "التاريخ"
+            End If
+            If dgvTransfersList.Columns.Contains("SourceStoreName") Then
+                dgvTransfersList.Columns("SourceStoreName").HeaderText = "مستودع المصدر"
+            End If
+            If dgvTransfersList.Columns.Contains("TargetStoreName") Then
+                dgvTransfersList.Columns("TargetStoreName").HeaderText = "مستودع الهدف"
+            End If
+
+            Exit Sub
+        End If
+        ' =========================
+        ' SQL نظيف (بدون تكرار + بدون أخطاء)
         ' =========================
         Dim sql As String =
 "
 SELECT
     h.TransactionID AS RefID,
-    h.TransactionID AS TransactionID,
+
+    -- ✅ كود العملية (المرجع الحقيقي)
+    CASE h.OperationTypeID
+
+        WHEN 10 THEN CAST(h.TransactionID AS NVARCHAR)
+
+        WHEN 12 THEN dh.DocumentNo
+        WHEN 14 THEN dh.DocumentNo
+        WHEN 7 THEN dh.DocumentNo
+
+        WHEN 6 THEN ph.ProductionCode
+        WHEN 11 THEN ch.CuttingCode
+        WHEN 13 THEN wh.WasteCode
+        WHEN 4 THEN lo.LOCode
+
+        ELSE CAST(h.SourceDocumentID AS NVARCHAR)
+
+    END AS RefCode,
+
     h.TransactionDate,
-    s.StatusName AS TransactionStatus,
+
+    ot.OperationName,      -- اسم العملية
+    s.StatusName,          -- الحالة
 
     src.StoreName AS SourceStoreName,
     tgt.StoreName AS TargetStoreName
@@ -1003,6 +1151,26 @@ FROM Inventory_TransactionHeader h
 INNER JOIN Workflow_Status s
     ON s.StatusID = h.StatusID
 
+INNER JOIN Workflow_OperationType ot
+    ON ot.OperationTypeID = h.OperationTypeID
+
+-- ربط المستندات
+LEFT JOIN Inventory_DocumentHeader dh
+    ON dh.DocumentID = h.SourceDocumentID
+
+LEFT JOIN Production_Header ph
+    ON ph.ProductionID = h.SourceDocumentID
+
+LEFT JOIN Production_CuttingHeader ch
+    ON ch.CuttingID = h.SourceDocumentID
+
+LEFT JOIN Inventory_WasteHeader wh
+    ON wh.WasteID = h.SourceDocumentID
+
+LEFT JOIN Logistics_LoadingOrder lo
+    ON lo.LOID = h.SourceDocumentID
+
+-- المستودعات
 OUTER APPLY
 (
     SELECT TOP 1 st.StoreName
@@ -1027,12 +1195,10 @@ WHERE
     AND h.OperationTypeID = @OperationTypeID
 "
 
-
         ' =========================
         ' فلترة المستودعات
         ' =========================
         If filterBySourceStore AndAlso IsNumeric(cboSourceStore.SelectedValue) Then
-
             sql &= "
 AND EXISTS
 (
@@ -1041,12 +1207,9 @@ AND EXISTS
     WHERE d.TransactionID = h.TransactionID
       AND d.SourceStoreID = @SourceStoreID
 )"
-
         End If
 
-
         If filterByTargetStore AndAlso IsNumeric(cboTargetStore.SelectedValue) Then
-
             sql &= "
 AND EXISTS
 (
@@ -1055,14 +1218,9 @@ AND EXISTS
     WHERE d.TransactionID = h.TransactionID
       AND d.TargetStoreID = @TargetStoreID
 )"
-
         End If
 
-
-        sql &= "
-ORDER BY h.TransactionDate DESC
-"
-
+        sql &= " ORDER BY h.TransactionDate DESC"
 
         ' =========================
         ' التنفيذ
@@ -1071,8 +1229,6 @@ ORDER BY h.TransactionDate DESC
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(sql, con)
-
-                cmd.Parameters.Clear()
 
                 cmd.Parameters.Add("@OperationTypeID", SqlDbType.Int).Value = operationTypeID
 
@@ -1091,33 +1247,22 @@ ORDER BY h.TransactionDate DESC
             End Using
         End Using
 
-
         dgvTransfersList.DataSource = dt
 
+        ' =========================
+        ' تنسيق الأعمدة
+        ' =========================
         If dgvTransfersList.Columns.Contains("RefID") Then
             dgvTransfersList.Columns("RefID").Visible = False
         End If
 
-        ' تغيير أسماء الأعمدة إلى العربية
-        If dgvTransfersList.Columns.Contains("TransactionID") Then
-            dgvTransfersList.Columns("TransactionID").HeaderText = "رقم السند"
-        End If
+        dgvTransfersList.Columns("RefCode").HeaderText = "كود العملية"
+        dgvTransfersList.Columns("OperationName").HeaderText = "نوع العملية"
+        dgvTransfersList.Columns("StatusName").HeaderText = "الحالة"
+        dgvTransfersList.Columns("TransactionDate").HeaderText = "التاريخ"
+        dgvTransfersList.Columns("SourceStoreName").HeaderText = "مستودع المصدر"
+        dgvTransfersList.Columns("TargetStoreName").HeaderText = "مستودع الهدف"
 
-        If dgvTransfersList.Columns.Contains("TransactionDate") Then
-            dgvTransfersList.Columns("TransactionDate").HeaderText = "التاريخ"
-        End If
-
-        If dgvTransfersList.Columns.Contains("TransactionStatus") Then
-            dgvTransfersList.Columns("TransactionStatus").HeaderText = "الحالة"
-        End If
-
-        If dgvTransfersList.Columns.Contains("SourceStoreName") Then
-            dgvTransfersList.Columns("SourceStoreName").HeaderText = "مستودع المصدر"
-        End If
-
-        If dgvTransfersList.Columns.Contains("TargetStoreName") Then
-            dgvTransfersList.Columns("TargetStoreName").HeaderText = "مستودع الهدف"
-        End If
     End Sub
     Private Sub FilterTransfersByWorkflow(dt As DataTable)
 
@@ -1504,9 +1649,10 @@ WHERE d.ProductID = @PID
                     CreateTransferTransaction2()
 
                 Case Else
-                    ReceiveInventoryTransaction()
+                    PostInventoryTransaction()
             End Select
         End If
+        LoadTransfersList()
 
     End Sub
     Private Sub UpdateCurrentTransaction()
@@ -1678,40 +1824,64 @@ WHERE d.ProductID = @PID
         End Try
 
     End Sub
-    Private Sub ReceiveInventoryTransaction()
+    Private Sub PostInventoryTransaction()
 
         If CurrentTransactionID <= 0 Then Exit Sub
 
-        ' تحقق إضافي قبل الاستلام
-        Dim canReceive As Boolean = False
-        Using con As New SqlConnection(ConnStr)
-            Using cmd As New SqlCommand("
-            SELECT COUNT(*) 
-            FROM Inventory_TransactionHeader 
-            WHERE TransactionID = @ID 
-              AND StatusID = 5 
-              AND IsInventoryPosted = 0
-        ", con)
-                cmd.Parameters.AddWithValue("@ID", CurrentTransactionID)
-                con.Open()
-                canReceive = (CInt(cmd.ExecuteScalar()) > 0)
-            End Using
-        End Using
-
-        If Not canReceive Then
-            MessageBox.Show("لا يمكن استلام هذا السند في حالته الحالية", "تنبيه")
-            Exit Sub
-        End If
-
         Try
-            Dim engine As New TransactionEngine(ConnStr)
-            engine.Receive(CurrentTransactionID, CurrentUserID)
+            Using con As New SqlConnection(ConnStr)
+                con.Open()
+
+                Using tran = con.BeginTransaction()
+
+                    ' ============================================
+                    ' 1️⃣ تحقق قبل الاستلام (داخل نفس الترانزكشن)
+                    ' ============================================
+                    Dim canReceive As Boolean = False
+
+                    Using cmd As New SqlCommand("
+SELECT COUNT(*) 
+FROM Inventory_TransactionHeader 
+WHERE TransactionID = @ID 
+  AND StatusID = 5 
+  AND IsInventoryPosted = 0
+", con, tran)
+
+                        cmd.Parameters.AddWithValue("@ID", CurrentTransactionID)
+                        canReceive = (CInt(cmd.ExecuteScalar()) > 0)
+
+                    End Using
+
+                    If Not canReceive Then
+                        MessageBox.Show("لا يمكن استلام هذا السند في حالته الحالية", "تنبيه")
+                        tran.Rollback()
+                        Exit Sub
+                    End If
+
+                    ' ============================================
+                    ' 2️⃣ تنفيذ الاستلام (داخل نفس الترانزكشن)
+                    ' ============================================
+                    Dim engine As New TransactionEngine(ConnStr)
+
+                    engine.Receive(CurrentTransactionID, CurrentUserID, con, tran)
+
+                    ' ============================================
+                    ' 3️⃣ Commit
+                    ' ============================================
+                    tran.Commit()
+
+                End Using
+            End Using
 
             MessageBox.Show("تم الاستلام بنجاح", "تم")
 
+            ' ============================================
+            ' 4️⃣ تحديث الواجهة
+            ' ============================================
             RefreshFormStatus(CurrentTransactionID)
-            LoadTransfersList()
             ApplyDetailsGridAccess()
+            LoadTransfersList()
+
             RefreshWorkflowUI()
 
         Catch ex As Exception
@@ -1787,7 +1957,56 @@ WHERE TransactionID = @ID
     ' =========================
     ' تنفيذ الاستقبال (آمن)
     ' =========================
+    Private Sub ResetTransactionData()
 
+        _isLoadingTransaction = True
+
+        Try
+            SafeResetGrid(dgvTransferDetails)
+
+            CurrentTransactionID = 0
+            EditingTransactionID = 0
+            IsEditMode = False
+
+            txtTransactionCode.Clear()
+            dtpTransactionDate.Value = Date.Today
+            btnSend.Enabled = True
+
+            LoadStoresByUserPermission()
+
+            dgvTransferDetails.DataSource = BuildEmptyDetailsTable()
+
+            Dim dt = CType(dgvTransferDetails.DataSource, DataTable)
+            If dt.Rows.Count = 0 Then
+                dt.Rows.Add(dt.NewRow())
+            End If
+
+            dgvTransferDetails.ReadOnly = False
+
+        Finally
+            _isLoadingTransaction = False
+        End Try
+
+    End Sub
+    Protected Sub Reset()
+
+        ' ✅ إعادة للوضع الافتراضي فقط هنا
+        RemoveHandler rdoSendTransaction.CheckedChanged, AddressOf rdoSendTransaction_CheckedChanged
+
+        rdoSendTransaction.Checked = True
+        CurrentMode = StockTransactionMode.TransferSend
+
+        AddHandler rdoSendTransaction.CheckedChanged, AddressOf rdoSendTransaction_CheckedChanged
+
+        rdoSendTransaction.Refresh()
+
+        ' تنظيف البيانات
+        ResetTransactionData()
+
+        LoadTransfersList()
+        RefreshWorkflowUI()
+
+    End Sub
     Private Sub btnNew_Click(sender As Object, e As EventArgs) Handles btnNew.Click
 
         _allowLeaveGrid = True
@@ -1802,7 +2021,8 @@ WHERE TransactionID = @ID
         EditingTransactionID = 0
         CurrentTransactionID = 0
         IsEditMode = False
-        PrepareNewTransaction()
+        Reset()
+        'PrepareNewTransaction()
         SyncUIWithMode()
         LoadTransfersList()
         ApplyDetailsGridAccess()
@@ -1908,7 +2128,7 @@ WHERE d.TransactionID = @ID
 
                 ' ✅ نستخدم CurrentMode الحالي للشروط
                 If CurrentMode = StockTransactionMode.ProductionReceive _
-           OrElse CurrentMode = StockTransactionMode.CuttingReceive Then
+           OrElse CurrentMode = StockTransactionMode.CuttingReceive OrElse CurrentMode = StockTransactionMode.CuttingWasteReceive Then
 
                     sql &= " AND d.SourceStoreID IS NULL"
 
@@ -2001,7 +2221,7 @@ WHERE d.TransactionID = @ID
             ' تعبئة كمبوا كود الصنف
             If sourceStoreID > 0 Then
                 Dim colCode = CType(dgvTransferDetails.Columns("colProductCode"), DataGridViewComboBoxColumn)
-                colCode.DataSource = LoadProductCodesForSourceStore(sourceStoreID)
+                colCode.DataSource = LoadAllProductCodes()
                 colCode.DisplayMember = "ProductCode"
                 colCode.ValueMember = "ProductCode"
                 colCode.ValueType = GetType(String)
@@ -2206,6 +2426,8 @@ e As FormClosingEventArgs) Handles Me.FormClosing
         _allowLeaveGrid = True
 
         Using frm As New frmStockTransactionSearch()
+
+            frm.CurrentMode = CurrentMode   ' ✅ أهم سطر
 
             If frm.ShowDialog() <> DialogResult.OK Then Exit Sub
 
@@ -2992,6 +3214,53 @@ ORDER BY UnitName
         ApplyDetailsGridAccess()
 
     End Sub
+    Private Sub rdoPostSales_CheckedChanged(
+    sender As Object,
+    e As EventArgs
+) Handles rdoPostSales.CheckedChanged
+
+        _allowLeaveGrid = True
+        If _isLoadingTransaction Then Exit Sub
+        PrepareNewTransaction()
+        ' لا حاجة لإطفاء المشتريات يدويًا مع RadioButton
+        ' لأن النظام يفعل ذلك تلقائيًا
+
+        CurrentListMode = TransfersListMode.NormalList
+        CurrentTransactionID = 0
+        EditingTransactionID = 0
+
+        _isLoadingTransaction = True
+        Try
+            SafeResetGrid(dgvTransferDetails)
+
+            If rdoPostSales.Checked Then
+                CurrentMode = StockTransactionMode.PostSales
+
+                cboTargetStore.SelectedIndex = -1
+                cboSourceStore.Enabled = False
+                cboTargetStore.Enabled = False
+            Else
+                CurrentMode = StockTransactionMode.TransferSend
+
+                cboSourceStore.Enabled = True
+                cboTargetStore.Enabled = True
+            End If
+
+            dgvTransferDetails.DataSource = BuildEmptyDetailsTable()
+            Dim dt = CType(dgvTransferDetails.DataSource, DataTable)
+            If dt.Rows.Count = 0 Then
+                dt.Rows.Add(dt.NewRow())
+            End If
+
+        Finally
+            _isLoadingTransaction = False
+        End Try
+
+        SyncUIWithMode()
+        LoadTransfersList()
+        ApplyDetailsGridAccess()
+
+    End Sub
     Private Sub rdoPurchaseReceive_CheckedChanged(
     sender As Object,
     e As EventArgs
@@ -3209,11 +3478,23 @@ ORDER BY UnitName
 
     End Sub
 
-    Private Sub rdoPRTSend_CheckedChanged(sender As Object, e As EventArgs) Handles rdoPRTSend.CheckedChanged
+    Private Sub rdoPRTSend_CheckedChanged(sender As Object, e As EventArgs) Handles rdoPRTSend.CheckedChanged, rdoPostSales.CheckedChanged
 
         If Not rdoPRTSend.Checked Then Return
 
         CurrentMode = StockTransactionMode.PurchaseReturnSend
+
+        PrepareNewTransaction()
+        SyncUIWithMode()
+        LoadTransfersList()
+        ApplyDetailsGridAccess()
+
+    End Sub
+    Private Sub rdoScrapRecieve_CheckedChanged(sender As Object, e As EventArgs) Handles rdoScrapRecieve.CheckedChanged
+
+        If Not rdoScrapRecieve.Checked Then Return
+
+        CurrentMode = StockTransactionMode.CuttingWasteReceive
 
         PrepareNewTransaction()
         SyncUIWithMode()

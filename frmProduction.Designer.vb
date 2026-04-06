@@ -95,13 +95,6 @@ Partial Class frmProduction
         Me.pnlTotals = New System.Windows.Forms.Panel()
         Me.sctDetails = New System.Windows.Forms.SplitContainer()
         Me.dgvProduced = New System.Windows.Forms.DataGridView()
-        Me.colManOutputID = New System.Windows.Forms.DataGridViewTextBoxColumn()
-        Me.colManlength = New System.Windows.Forms.DataGridViewTextBoxColumn()
-        Me.colManWidth = New System.Windows.Forms.DataGridViewTextBoxColumn()
-        Me.colManHeight = New System.Windows.Forms.DataGridViewTextBoxColumn()
-        Me.colManQTY = New System.Windows.Forms.DataGridViewTextBoxColumn()
-        Me.colManProductVolume = New System.Windows.Forms.DataGridViewTextBoxColumn()
-        Me.colManTotalProductVolume = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.ChkIsCleaningUsed = New System.Windows.Forms.CheckBox()
         Me.txtProductionUnit = New System.Windows.Forms.TextBox()
         Me.txtCleaningChemicalUnit = New System.Windows.Forms.TextBox()
@@ -110,6 +103,14 @@ Partial Class frmProduction
         Me.Label10 = New System.Windows.Forms.Label()
         Me.ChkBOMIsActive = New System.Windows.Forms.CheckBox()
         Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
+        Me.colManOutputID = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.colManlength = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.colManWidth = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.colManHeight = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.colManQTY = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.colManProductVolume = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.colManTotalProductVolume = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.colDelete = New System.Windows.Forms.DataGridViewButtonColumn()
         CType(Me.dgvProductionCalculations, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.pnlBtns.SuspendLayout()
         Me.Panel3.SuspendLayout()
@@ -803,7 +804,7 @@ Partial Class frmProduction
         '
         Me.dgvProduced.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
         Me.dgvProduced.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        Me.dgvProduced.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colManOutputID, Me.colManlength, Me.colManWidth, Me.colManHeight, Me.colManQTY, Me.colManProductVolume, Me.colManTotalProductVolume})
+        Me.dgvProduced.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colManOutputID, Me.colManlength, Me.colManWidth, Me.colManHeight, Me.colManQTY, Me.colManProductVolume, Me.colManTotalProductVolume, Me.colDelete})
         Me.dgvProduced.Dock = System.Windows.Forms.DockStyle.Fill
         Me.dgvProduced.Location = New System.Drawing.Point(0, 0)
         Me.dgvProduced.Name = "dgvProduced"
@@ -812,51 +813,6 @@ Partial Class frmProduction
         Me.dgvProduced.RowTemplate.Height = 26
         Me.dgvProduced.Size = New System.Drawing.Size(1077, 400)
         Me.dgvProduced.TabIndex = 0
-        '
-        'colManOutputID
-        '
-        Me.colManOutputID.HeaderText = "Column1"
-        Me.colManOutputID.MinimumWidth = 6
-        Me.colManOutputID.Name = "colManOutputID"
-        Me.colManOutputID.Visible = False
-        '
-        'colManlength
-        '
-        Me.colManlength.HeaderText = "الطول"
-        Me.colManlength.MinimumWidth = 6
-        Me.colManlength.Name = "colManlength"
-        '
-        'colManWidth
-        '
-        Me.colManWidth.HeaderText = "العرض"
-        Me.colManWidth.MinimumWidth = 6
-        Me.colManWidth.Name = "colManWidth"
-        '
-        'colManHeight
-        '
-        Me.colManHeight.HeaderText = "الارتفاع"
-        Me.colManHeight.MinimumWidth = 6
-        Me.colManHeight.Name = "colManHeight"
-        '
-        'colManQTY
-        '
-        Me.colManQTY.HeaderText = "الكمية"
-        Me.colManQTY.MinimumWidth = 6
-        Me.colManQTY.Name = "colManQTY"
-        '
-        'colManProductVolume
-        '
-        Me.colManProductVolume.HeaderText = "حجم الوحدة"
-        Me.colManProductVolume.MinimumWidth = 6
-        Me.colManProductVolume.Name = "colManProductVolume"
-        Me.colManProductVolume.ReadOnly = True
-        '
-        'colManTotalProductVolume
-        '
-        Me.colManTotalProductVolume.HeaderText = "اجمالي الحجم"
-        Me.colManTotalProductVolume.MinimumWidth = 6
-        Me.colManTotalProductVolume.Name = "colManTotalProductVolume"
-        Me.colManTotalProductVolume.ReadOnly = True
         '
         'ChkIsCleaningUsed
         '
@@ -977,6 +933,57 @@ Partial Class frmProduction
         Me.SplitContainer1.SplitterDistance = 172
         Me.SplitContainer1.TabIndex = 68
         '
+        'colManOutputID
+        '
+        Me.colManOutputID.HeaderText = "Column1"
+        Me.colManOutputID.MinimumWidth = 6
+        Me.colManOutputID.Name = "colManOutputID"
+        Me.colManOutputID.Visible = False
+        '
+        'colManlength
+        '
+        Me.colManlength.HeaderText = "الطول"
+        Me.colManlength.MinimumWidth = 6
+        Me.colManlength.Name = "colManlength"
+        '
+        'colManWidth
+        '
+        Me.colManWidth.HeaderText = "العرض"
+        Me.colManWidth.MinimumWidth = 6
+        Me.colManWidth.Name = "colManWidth"
+        '
+        'colManHeight
+        '
+        Me.colManHeight.HeaderText = "الارتفاع"
+        Me.colManHeight.MinimumWidth = 6
+        Me.colManHeight.Name = "colManHeight"
+        '
+        'colManQTY
+        '
+        Me.colManQTY.HeaderText = "الكمية"
+        Me.colManQTY.MinimumWidth = 6
+        Me.colManQTY.Name = "colManQTY"
+        '
+        'colManProductVolume
+        '
+        Me.colManProductVolume.HeaderText = "حجم الوحدة"
+        Me.colManProductVolume.MinimumWidth = 6
+        Me.colManProductVolume.Name = "colManProductVolume"
+        Me.colManProductVolume.ReadOnly = True
+        '
+        'colManTotalProductVolume
+        '
+        Me.colManTotalProductVolume.HeaderText = "اجمالي الحجم"
+        Me.colManTotalProductVolume.MinimumWidth = 6
+        Me.colManTotalProductVolume.Name = "colManTotalProductVolume"
+        Me.colManTotalProductVolume.ReadOnly = True
+        '
+        'colDelete
+        '
+        Me.colDelete.HeaderText = "حذف"
+        Me.colDelete.MinimumWidth = 6
+        Me.colDelete.Name = "colDelete"
+        '
         'frmProduction
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(7.0!, 16.0!)
@@ -1087,6 +1094,9 @@ Partial Class frmProduction
     Friend WithEvents colCalAvailableStock As DataGridViewTextBoxColumn
     Friend WithEvents colCalActualQTY As DataGridViewTextBoxColumn
     Friend WithEvents colCalCost As DataGridViewTextBoxColumn
+    Friend WithEvents ChkIsCleaningUsed As CheckBox
+    Friend WithEvents btnCancelProduction As Button
+    Friend WithEvents SplitContainer1 As SplitContainer
     Friend WithEvents colManOutputID As DataGridViewTextBoxColumn
     Friend WithEvents colManlength As DataGridViewTextBoxColumn
     Friend WithEvents colManWidth As DataGridViewTextBoxColumn
@@ -1094,7 +1104,5 @@ Partial Class frmProduction
     Friend WithEvents colManQTY As DataGridViewTextBoxColumn
     Friend WithEvents colManProductVolume As DataGridViewTextBoxColumn
     Friend WithEvents colManTotalProductVolume As DataGridViewTextBoxColumn
-    Friend WithEvents ChkIsCleaningUsed As CheckBox
-    Friend WithEvents btnCancelProduction As Button
-    Friend WithEvents SplitContainer1 As SplitContainer
+    Friend WithEvents colDelete As DataGridViewButtonColumn
 End Class

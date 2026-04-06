@@ -317,5 +317,26 @@
         frm.Show()   ' 👈 هذا كل المطلوب
 
     End Sub
+
+    Private Sub frmGoodsIssue_Click(sender As Object, e As EventArgs) Handles frmGoodsIssue.Click
+        If Not PermissionService.Can("PURCHASE_OPEN") Then
+            MessageBox.Show("لا تملك صلاحية فتح قوائم الانتاج")
+            Exit Sub
+        End If
+
+        ' منع فتح أكثر من نسخة (اختياري)
+        For Each f As Form In Application.OpenForms
+            If TypeOf f Is frmGoodsIssue Then
+                f.Activate()
+                Exit Sub
+            End If
+        Next
+
+        ' فتح الفورم بشكل عادي
+        Dim frm As New frmGoodsIssue()
+        frm.Show()   ' 👈 هذا كل المطلوب
+
+    End Sub
+
 End Class
 

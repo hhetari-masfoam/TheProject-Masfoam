@@ -170,7 +170,7 @@ WHERE WasteID=@W
                   sourceStoreID:=header.SourceStoreID,
                   reservedQty:=wasteQty,
                   sourceOperationTypeID:=OP_SCRAP,
-                  sourceID:=newWasteID,
+                  sourceID:=detailID,
                   sourceDetailID:=detailID,
                   costAtReserve:=unitCostAtReserve,
                   userID:=userID)
@@ -338,7 +338,12 @@ WHERE TransactionID = @T
             End Using
         End Using
     End Function
-    Public Sub SendWaste(wasteID As Integer, userID As Integer)
+    Public Class SendWasteResult
+        Public Property WasteID As Integer
+        Public Property WasteCode As String
+        Public Property TransactionID As Integer
+    End Class
+    Public Function SendWaste(wasteID As Integer, userID As Integer) As SendWasteResult
         Using con As New SqlConnection(_connStr)
             con.Open()
             Using tran = con.BeginTransaction()
@@ -420,16 +425,20 @@ WHERE WasteID=@WasteID
                         Dim affected = cmd.ExecuteNonQuery()
                         If affected = 0 Then Throw New Exception("فشل تحديث حالة الهالك إلى SENT.")
                     End Using
-
+                    Dim result As New SendWasteResult With {
+    .WasteID = wasteID,
+    .WasteCode = hdr.WasteCode,
+    .TransactionID = transactionID
+}
                     tran.Commit()
-
+                    Return result
                 Catch
                     tran.Rollback()
                     Throw
                 End Try
             End Using
         End Using
-    End Sub
+    End Function
     Private Function GetWasteAvgCost(con As SqlConnection, tran As SqlTransaction, wasteID As Integer) As Decimal
         Using cmd As New SqlCommand("
 SELECT CAST(ISNULL(WasteAvgCost,0) AS DECIMAL(18,6))
@@ -1077,7 +1086,7 @@ INSERT INTO dbo.Inventory_Reservation
 VALUES
 (
  @ProductID, @SourceStoreID, @ReservedQty,
- @SourceOperationTypeID, @SourceID, @CostAtReserve,
+ @SourceOperationTypeID, @SourceDetailID, @CostAtReserve,
  SYSDATETIME(), NULL, @UserID, @ResStatus, @SourceDetailID
 )
 ", con, tran)
@@ -1085,7 +1094,7 @@ VALUES
             cmd.Parameters.AddWithValue("@SourceStoreID", sourceStoreID)
             cmd.Parameters.AddWithValue("@ReservedQty", reservedQty)
             cmd.Parameters.AddWithValue("@SourceOperationTypeID", sourceOperationTypeID)
-            cmd.Parameters.AddWithValue("@SourceID", sourceID)
+            cmd.Parameters.AddWithValue("@SourceID", sourceDetailID)
             cmd.Parameters.AddWithValue("@SourceDetailID", sourceDetailID)
             cmd.Parameters.AddWithValue("@CostAtReserve", costAtReserve)
             cmd.Parameters.AddWithValue("@UserID", userID)
@@ -1135,6 +1144,8 @@ VALUES
         Public Property TransactionID As Integer
         Public Property TotalWasteWeightKG As Decimal
         Public Property TotalWasteVolumeM3 As Decimal
+        Public Property WasteCode As String
+
     End Class
 
     Private Function LoadWasteForSend(con As SqlConnection, tran As SqlTransaction, wasteID As Integer) As WasteForSend
@@ -1256,12 +1267,15 @@ WHERE BaseProductID=@B
 
     Private Sub DeleteAllReservationsForWaste(con As SqlConnection, tran As SqlTransaction, wasteID As Integer)
         Using cmd As New SqlCommand("
-DELETE FROM dbo.Inventory_Reservation
-WHERE SourceOperationTypeID = @Op
-  AND SourceID = @SourceID
+DELETE R
+FROM dbo.Inventory_Reservation R
+INNER JOIN dbo.Inventory_WasteDetails D
+    ON R.SourceID = D.WasteDetailID
+WHERE D.WasteID = @WasteID
+  AND R.SourceOperationTypeID = @Op
 ", con, tran)
             cmd.Parameters.AddWithValue("@Op", OP_SCRAP)
-            cmd.Parameters.AddWithValue("@SourceID", wasteID)
+            cmd.Parameters.AddWithValue("@WasteID", wasteID)
 
             Dim affected = cmd.ExecuteNonQuery()
             ' (اختياري للتشخيص مؤقتاً)

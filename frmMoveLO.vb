@@ -46,7 +46,25 @@ Public Class frmMoveLO
                         cmdCode.ExecuteNonQuery()
                         nextLOCode = pNextCode.Value.ToString()
                     End Using
+                    Dim operationTypeID As Integer
 
+                    Using cmdType As New SqlCommand("
+SELECT TOP 1 OperationTypeID
+FROM dbo.Workflow_OperationType
+WHERE OperationCode = @Code
+  AND IsActive = 1
+", con, tran)
+
+                        cmdType.Parameters.AddWithValue("@Code", "LOD")
+
+                        Dim obj = cmdType.ExecuteScalar()
+
+                        If obj Is Nothing OrElse IsDBNull(obj) Then
+                            Throw New ApplicationException("OperationType (LOD) غير موجود أو غير مفعل")
+                        End If
+
+                        operationTypeID = CInt(obj)
+                    End Using
                     ' 2- إنشاء Header (Status=1)
                     Using cmdLO As New SqlCommand("
 INSERT INTO dbo.Logistics_LoadingOrder
@@ -59,7 +77,7 @@ SELECT SCOPE_IDENTITY();
 
                         cmdLO.Parameters.AddWithValue("@LOCode", nextLOCode)
                         cmdLO.Parameters.AddWithValue("@UserID", CurrentUser.EmployeeID)
-                        cmdLO.Parameters.AddWithValue("@OperationTypeID", 1)
+                        cmdLO.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
 
                         newLOID = CInt(cmdLO.ExecuteScalar())
                     End Using

@@ -74,11 +74,8 @@ Public Class frmCuttingWasteCalculator
         dtpPeriodEnd.Format = DateTimePickerFormat.Custom
         dtpPeriodEnd.CustomFormat = "yyyy-MM-dd HH:mm:ss"
         ' ✅ السياسة الجديدة: لا حفظ ولا إرسال منفصل ولا إلغاء
-        btnSave.Enabled = False
-        btnCancel.Enabled = False
 
         ' زر الإرسال يصبح زر التنفيذ
-        btnSend.Text = "تنفيذ"
         btnSend.Enabled = True
         ' PeriodStart always read-only (auto)
         dtpPeriodStart.Enabled = False
@@ -265,6 +262,9 @@ ORDER BY ProductCode
             MessageBox.Show(ex.Message, "خطأ", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
+    Private Sub txtWasteReason_TextChanged(sender As Object, e As EventArgs) Handles txtWasteReason.TextChanged
+        MarkDirty()
+    End Sub
 
     Private Sub btnSave_Click(sender As Object, e As EventArgs) Handles btnSave.Click
         If _isLoading Then Exit Sub
@@ -303,9 +303,6 @@ ORDER BY ProductCode
         End Try
     End Sub
 
-    Private Sub txtWasteReason_TextChanged(sender As Object, e As EventArgs) Handles txtWasteReason.TextChanged
-        MarkDirty()
-    End Sub
     Private Sub btnSend_Click(sender As Object, e As EventArgs) Handles btnSend.Click
 
         If _isLoading Then Exit Sub
@@ -317,43 +314,22 @@ ORDER BY ProductCode
             ' 1️⃣ حساب القيم النهائية قبل الترحيل
             CalculateAndFillGrid()
 
-            ' 2️⃣ تجهيز بيانات الهالك
-            Dim hdr As New CuttingWasteApplicationService.WasteHeaderDraft With {
-            .WasteID = 0,
-            .WasteCode = "",
-            .PeriodStart = dtpPeriodStart.Value,
-            .PeriodEnd = dtpPeriodEnd.Value,
-            .WasteTypeCode = CStr(cboWasteType.SelectedValue),
-            .CalculationTypeCode = CStr(cboCalculationType.SelectedValue),
-            .WasteReason = txtWasteReason.Text,
-            .WastePercent = If(txtWastePercent.Visible, CType(GetDec(txtWastePercent.Text), Decimal?), Nothing),
-            .SourceStoreID = CInt(cboSourceStore.SelectedValue),
-            .TargetStoreID = CInt(cboTargetStore.SelectedValue),
-            .ScrapProductID = CInt(cboScrapCode.SelectedValue),
-            .CurrentScrapStockQty = Round6(ParseDecimalFromTextWithUnit(txtCurrentScrapStock.Text)),
-            .CurrentScrapAvgCost = Round6(ParseDecimalFromTextWithUnit(txtCurrentScrapAvgCost.Text)),
-            .WasteAvgCost = Round6(_wasteAvgCost),
-            .NewScrapAvgCost = Round6(_newScrapAvgCost)
-        }
 
             ' 3️⃣ بناء التفاصيل من الجريد
             Dim totals = BuildTotalsFromGrid()
             Dim detailsDt = BuildDetailsDataTableFromGrid()
 
-            ' 4️⃣ تنفيذ العملية الكاملة
-            ' هذه الدالة يجب أن تنشئ Transaction بنوع:
-            ' OperationTypeID = 13 (SCRAP)
-            ' ثم تستدعي Receive(transactionID)
-            Dim result = Service.ExecuteWasteInstant(hdr, totals, detailsDt, CurrentUserID)
+            If _wasteID <= 0 Then
+                MessageBox.Show("لا يوجد مستند للحفظ.", "تنبيه")
+                Exit Sub
+            End If
 
-            Dim engine As New TransactionEngine(DbConfig.ConnectionString)
-
-            engine.Receive(result.TransactionID, CurrentUserID)
+            Dim result = Service.SendWaste(_wasteID, CurrentUserID)
             ' 5️⃣ تحديث الواجهة
             _wasteID = result.WasteID
             _wasteCode = result.WasteCode
 
-            txtStatusCode.Text = "RECEIVED"
+            txtStatusCode.Text = "SENT"
 
             MessageBox.Show(
             "تم تنفيذ وترحيل الهالك بنجاح." & vbCrLf &
@@ -369,7 +345,7 @@ ORDER BY ProductCode
             ' بعد الترحيل يصبح المستند للقراءة فقط
             ApplyDocumentMode()
             ConfigureGridRules()
-
+            LoadWasteDocument(_wasteID)
         Catch ex As Exception
 
             MessageBox.Show(ex.Message, "خطأ", MessageBoxButtons.OK, MessageBoxIcon.Error)
@@ -1718,8 +1694,7 @@ ORDER BY d.WasteDetailID
         txtStatusCode.ReadOnly = True
 
         ' ==== Buttons (حسب رغبتك) ====
-        btnSave.Enabled = False
-        btnSend.Enabled = False
+        btnSend.Enabled = True
         btnCalculate.Enabled = False ' إذا عندك زر حساب/تحديث
 
         ' ==== Grid بالكامل ReadOnly ====

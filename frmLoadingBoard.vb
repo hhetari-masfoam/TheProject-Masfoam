@@ -1,4 +1,5 @@
 ﻿Imports System.Data.SqlClient
+Imports System.Diagnostics.Eventing.Reader
 Imports System.Runtime.Remoting.Messaging
 
 Public Class frmLoadingBoard
@@ -35,18 +36,142 @@ Public Class frmLoadingBoard
         Normal = 0
         InvoiceSelection = 1
         ViewOnly = 2
+        GoodsIssueSelection = 4
     End Enum
     Public Property CurrentMode As LoadingBoardMode = LoadingBoardMode.Normal
+    Private Sub ApplyEditPolicyByLoadingStatus(loID As Integer)
+
+        If loID <= 0 Then Exit Sub
+        If IsLoading Then Exit Sub
+
+        If CurrentMode = LoadingBoardMode.ViewOnly Then
+            dgvLOs.ReadOnly = True
+            dgvLoadingSR.ReadOnly = True
+            colLoadingSRtoInvoice.ReadOnly = False
+            dgvLoadingSRD.ReadOnly = True
+
+            btnSaveLO.Enabled = False
+            btnSendLoading.Enabled = False
+            btnAddSelectedSRToLO.Enabled = False
+            btnRemoveSR.Enabled = False
+            btnExportToInvoice.Enabled = False
+            Exit Sub
+        End If
+
+        If CurrentMode = LoadingBoardMode.InvoiceSelection OrElse
+   CurrentMode = LoadingBoardMode.GoodsIssueSelection Then
+
+            dgvLOs.ReadOnly = True
+            dgvLoadingSRD.ReadOnly = True
+
+            ' ✅ مهم: الجريد ليس ReadOnly (حتى يعمل التشيك)
+            dgvLoadingSR.ReadOnly = False
+
+            ' ✅ اقفل كل الأعمدة ما عدا عمود التشيك فقط
+            For Each col As DataGridViewColumn In dgvLoadingSR.Columns
+                col.ReadOnly = (col.Name <> "colLoadingSRtoInvoice")
+            Next
+
+            ' ✅ اجعل النقر على التشيك يشتغل مباشرة
+            dgvLoadingSR.EditMode = DataGridViewEditMode.EditOnEnter
+
+            btnSaveLO.Visible = False
+            btnSendLoading.Visible = False
+            btnAddSelectedSRToLO.Visible = False
+            btnRemoveSR.Visible = False
+            btnExportToInvoice.Enabled = True
+            btnExportToInvoice.Visible = True
+            btnCancel.Visible = False
+            btnPrint.Visible = False
+            btnSearch.Visible = False
+
+            Exit Sub
+        End If
+
+        ' 2) Status-based policy (Normal mode)
+        Dim statusID As Integer = GetLoadingStatusID(loID)
+
+        Dim fullEdit As Boolean = (statusID = 2 OrElse statusID = 14)  ' NEW, IN_LOADEDING
+        Dim headerOnly As Boolean = (statusID = 15)                    ' WAITING_INVOICE
+
+        If fullEdit Then
+            dgvLOs.ReadOnly = False
+            dgvLoadingSR.ReadOnly = False
+            dgvLoadingSRD.ReadOnly = False
+
+            ' اقفل كل أعمدة SRD عدا الكمية
+            For Each col As DataGridViewColumn In dgvLoadingSRD.Columns
+                col.ReadOnly = (col.Name <> "colLoadingSRDLoadedInThisLO")
+            Next
+
+            btnSaveLO.Enabled = True
+            btnSendLoading.Enabled = True
+            btnAddSelectedSRToLO.Enabled = True
+            btnRemoveSR.Enabled = True
+            Exit Sub
+        End If
+
+        If headerOnly Then
+            dgvLoadingSR.ReadOnly = True
+            colLoadingSRtoInvoice.ReadOnly = False
+
+            dgvLoadingSRD.ReadOnly = True
+
+            dgvLOs.ReadOnly = False
+            For Each c As DataGridViewColumn In dgvLOs.Columns
+                c.ReadOnly = True
+            Next
+
+            dgvLOs.Columns("colLOsDriverCode").ReadOnly = False
+            dgvLOs.Columns("colLOsSupervisor").ReadOnly = False
+            dgvLOs.Columns("colLOsVehicale").ReadOnly = False
+            dgvLOs.Columns("colLOsNote").ReadOnly = False
+            If dgvLOs.Columns.Contains("colLOsStoreID") Then dgvLOs.Columns("colLOsStoreID").ReadOnly = True
+
+            btnSaveLO.Enabled = True
+            btnSendLoading.Enabled = False
+            btnAddSelectedSRToLO.Enabled = False
+            btnRemoveSR.Enabled = False
+            Exit Sub
+        End If
+
+        ' No edit
+        dgvLOs.ReadOnly = True
+        dgvLoadingSR.ReadOnly = True
+        colLoadingSRtoInvoice.ReadOnly = False
+
+        dgvLoadingSRD.ReadOnly = True
+
+        btnSaveLO.Enabled = False
+        btnSendLoading.Enabled = False
+        btnAddSelectedSRToLO.Enabled = False
+        btnRemoveSR.Enabled = False
+        If CurrentMode = LoadingBoardMode.InvoiceSelection OrElse
+              CurrentMode = LoadingBoardMode.GoodsIssueSelection Then
+
+            ' ... (التعديلات التي تعملها على ReadOnly للأعمدة)
+
+
+            Exit Sub
+        End If
+
+    End Sub
+
     Private Sub ApplyModeUI()
 
         ' Visible by mode
         btnCloseBoard.Visible = (CurrentMode <> LoadingBoardMode.InvoiceSelection)
         btnAddSelectedSRToLO.Visible = (CurrentMode = LoadingBoardMode.Normal)
         btnSaveLO.Visible = (CurrentMode <> LoadingBoardMode.InvoiceSelection)
-        btnPostLoading.Visible = (CurrentMode = LoadingBoardMode.Normal)
-        btnExportToInvoice.Visible = (CurrentMode = LoadingBoardMode.InvoiceSelection)
+        btnSendLoading.Visible = (CurrentMode = LoadingBoardMode.Normal)
+        btnExportToInvoice.Visible = (CurrentMode <> LoadingBoardMode.Normal)
+        btnRemoveSR.Visible = (CurrentMode <> LoadingBoardMode.InvoiceSelection OrElse CurrentMode = LoadingBoardMode.GoodsIssueSelection)
+        btnSearch.Visible = (CurrentMode <> LoadingBoardMode.InvoiceSelection OrElse CurrentMode = LoadingBoardMode.GoodsIssueSelection)
+        btnCancel.Visible = (CurrentMode <> LoadingBoardMode.InvoiceSelection OrElse CurrentMode = LoadingBoardMode.GoodsIssueSelection)
+        btnPrint.Visible = (CurrentMode <> LoadingBoardMode.InvoiceSelection OrElse CurrentMode = LoadingBoardMode.GoodsIssueSelection)
 
-        If CurrentMode = LoadingBoardMode.InvoiceSelection Then
+        If CurrentMode = LoadingBoardMode.InvoiceSelection OrElse
+   CurrentMode = LoadingBoardMode.GoodsIssueSelection Then
 
             colLoadingSRtoInvoice.Visible = True
             colLoadingSRDCodes.Visible = True
@@ -240,18 +365,20 @@ Public Class frmLoadingBoard
 
                 Dim statusFilter As String
 
-                If CurrentMode = LoadingBoardMode.InvoiceSelection Then
-                    ' ✅ في وضع الفاتورة: اعرض LO سواء 15 أو 8
+                If CurrentMode = LoadingBoardMode.GoodsIssueSelection Then
+                    statusFilter = "5"
+
+                ElseIf CurrentMode = LoadingBoardMode.InvoiceSelection Then
                     statusFilter = "15,8"
+
                 Else
-                    ' الوضع القديم كما هو
                     statusFilter = "0,1,2,14"
                 End If
-
                 ' ✅ فلترة "متاح للسحب" تختلف فقط في وضع الفاتورة
                 Dim sqlAvailabilityFilter As String
 
-                If CurrentMode = LoadingBoardMode.InvoiceSelection Then
+                If CurrentMode = LoadingBoardMode.InvoiceSelection OrElse
+   CurrentMode = LoadingBoardMode.GoodsIssueSelection Then
                     ' متاح للسحب إذا يوجد على الأقل LOD واحد LoadedQty>0 وغير مرتبط بفاتورة SAL غير ملغاة
                     sqlAvailabilityFilter = "
 AND EXISTS (
@@ -479,7 +606,8 @@ ORDER BY LO.InitiatedDateTime DESC
     End Sub
     Private Sub frmLoadingBoard_Shown(sender As Object, e As EventArgs) Handles Me.Shown
         ' ✅ طبّق سياسة وضع الفاتورة حتى قبل اختيار LO
-        If CurrentMode = LoadingBoardMode.InvoiceSelection Then
+        If CurrentMode = LoadingBoardMode.InvoiceSelection OrElse
+   CurrentMode = LoadingBoardMode.GoodsIssueSelection Then
             ApplyInvoiceSelectionPolicyForSRGrid()
         End If
     End Sub
@@ -523,9 +651,14 @@ ORDER BY LO.InitiatedDateTime DESC
                 Using rd = cmd.ExecuteReader()
                     If rd.Read() Then
 
-                        Dim r As Integer = dgvLOs.Rows.Add()
-                        Dim row As DataGridViewRow = dgvLOs.Rows(r)
+                        Dim row As DataGridViewRow
 
+                        If dgvLOs.Rows.Count = 0 Then
+                            Dim r As Integer = dgvLOs.Rows.Add()
+                            row = dgvLOs.Rows(r)
+                        Else
+                            row = dgvLOs.Rows(0)
+                        End If
                         ' أعمدة عادية
                         row.Cells("colLOsID").Value =
                         CInt(rd("LOID"))
@@ -733,43 +866,43 @@ WHERE LoadingOrderDetailID = @LODID
 
                     ' (3.1) قراءة OperationTypeID + SourceStoreID (مهم للحجز)
                     Dim operationTypeID As Integer
-                        Dim sourceStoreIDObj As Object
+                    Dim sourceStoreIDObj As Object
 
-                        Using cmdOp As New SqlCommand("
+                    Using cmdOp As New SqlCommand("
 SELECT OperationTypeID, SourceStoreID
 FROM dbo.Logistics_LoadingOrder
 WHERE LOID = @LOID
 ", con, tran)
-                            cmdOp.Parameters.AddWithValue("@LOID", CurrentLOID)
+                        cmdOp.Parameters.AddWithValue("@LOID", CurrentLOID)
 
-                            Using rd = cmdOp.ExecuteReader()
-                                If Not rd.Read() Then Throw New Exception("LO غير موجود")
-                                If IsDBNull(rd("OperationTypeID")) Then Throw New Exception("OperationTypeID غير موجود لأمر التحميل")
-                                operationTypeID = CInt(rd("OperationTypeID"))
-                                sourceStoreIDObj = rd("SourceStoreID")
-                            End Using
+                        Using rd = cmdOp.ExecuteReader()
+                            If Not rd.Read() Then Throw New Exception("LO غير موجود")
+                            If IsDBNull(rd("OperationTypeID")) Then Throw New Exception("OperationTypeID غير موجود لأمر التحميل")
+                            operationTypeID = CInt(rd("OperationTypeID"))
+                            sourceStoreIDObj = rd("SourceStoreID")
                         End Using
+                    End Using
 
-                        If sourceStoreIDObj Is Nothing OrElse IsDBNull(sourceStoreIDObj) Then
-                            Throw New Exception("SourceStoreID غير محدد في أمر التحميل - لا يمكن إنشاء حجز")
-                        End If
+                    If sourceStoreIDObj Is Nothing OrElse IsDBNull(sourceStoreIDObj) Then
+                        Throw New Exception("SourceStoreID غير محدد في أمر التحميل - لا يمكن إنشاء حجز")
+                    End If
 
 
-                        ' (3.2) تحديث Volume_m3
-                        Using cmdVol As New SqlCommand("
+                    ' (3.2) تحديث Volume_m3
+                    Using cmdVol As New SqlCommand("
 UPDATE LOD
 SET Volume_m3 =
     (ISNULL(Length_cm,0) * ISNULL(Width_cm,0) * ISNULL(Height_cm,0)) / 1000000.0
 FROM dbo.Logistics_LoadingOrderDetail LOD
 WHERE LOD.LOID = @LOID
 ", con, tran)
-                            cmdVol.Parameters.AddWithValue("@LOID", CurrentLOID)
-                            cmdVol.ExecuteNonQuery()
-                        End Using
+                        cmdVol.Parameters.AddWithValue("@LOID", CurrentLOID)
+                        cmdVol.ExecuteNonQuery()
+                    End Using
 
 
-                        ' (3.3) تحديث الحجز الموجود (LoadedQty > 0)
-                        Using cmdUpdRes As New SqlCommand("
+                    ' (3.3) تحديث الحجز الموجود (LoadedQty > 0)
+                    Using cmdUpdRes As New SqlCommand("
 UPDATE IR
 SET
     IR.ReservedQty = LOD.LoadedQty,
@@ -778,38 +911,38 @@ SET
     IR.CreatedBy   = @UserID
 FROM dbo.Inventory_Reservation IR
 INNER JOIN dbo.Logistics_LoadingOrderDetail LOD
-    ON IR.SourceDetailID        = LOD.SourceDetailID
+   ON IR.SourceID = LOD.LoadingOrderDetailID
    AND IR.SourceOperationTypeID = @OperationTypeID
    AND IR.ProductID             = LOD.ProductID
 WHERE LOD.LOID = @LOID
   AND LOD.LoadedQty > 0
 ", con, tran)
-                            cmdUpdRes.Parameters.AddWithValue("@UserID", CurrentUser.EmployeeID)
-                            cmdUpdRes.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
-                            cmdUpdRes.Parameters.AddWithValue("@LOID", CurrentLOID)
-                            cmdUpdRes.ExecuteNonQuery()
-                        End Using
+                        cmdUpdRes.Parameters.AddWithValue("@UserID", CurrentUser.EmployeeID)
+                        cmdUpdRes.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
+                        cmdUpdRes.Parameters.AddWithValue("@LOID", CurrentLOID)
+                        cmdUpdRes.ExecuteNonQuery()
+                    End Using
 
 
-                        ' (3.4) حذف الحجز إذا LoadedQty = 0
-                        Using cmdDelRes As New SqlCommand("
+                    ' (3.4) حذف الحجز إذا LoadedQty = 0
+                    Using cmdDelRes As New SqlCommand("
 DELETE IR
 FROM dbo.Inventory_Reservation IR
 INNER JOIN dbo.Logistics_LoadingOrderDetail LOD
-    ON IR.SourceDetailID        = LOD.SourceDetailID
+   ON IR.SourceID = LOD.LoadingOrderDetailID
    AND IR.SourceOperationTypeID = @OperationTypeID
    AND IR.ProductID             = LOD.ProductID
 WHERE LOD.LOID = @LOID
   AND LOD.LoadedQty = 0
 ", con, tran)
-                            cmdDelRes.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
-                            cmdDelRes.Parameters.AddWithValue("@LOID", CurrentLOID)
-                            cmdDelRes.ExecuteNonQuery()
-                        End Using
+                        cmdDelRes.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
+                        cmdDelRes.Parameters.AddWithValue("@LOID", CurrentLOID)
+                        cmdDelRes.ExecuteNonQuery()
+                    End Using
 
 
-                        ' (3.5) إنشاء حجز جديد (للأسطر بدون حجز)
-                        Using cmdInsRes As New SqlCommand("
+                    ' (3.5) إنشاء حجز جديد (للأسطر بدون حجز)
+                    Using cmdInsRes As New SqlCommand("
 INSERT INTO dbo.Inventory_Reservation
 (
     ProductID,
@@ -838,7 +971,7 @@ FROM dbo.Logistics_LoadingOrderDetail LOD
 INNER JOIN dbo.Logistics_LoadingOrder LO
     ON LO.LOID = LOD.LOID
 LEFT JOIN dbo.Inventory_Reservation IR
-    ON IR.SourceDetailID        = LOD.SourceDetailID
+  ON IR.SourceID = LOD.LoadingOrderDetailID 
    AND IR.SourceOperationTypeID = @OperationTypeID
    AND IR.ProductID             = LOD.ProductID
 WHERE LOD.LOID = @LOID
@@ -846,15 +979,15 @@ WHERE LOD.LOID = @LOID
   AND LOD.SourceDetailID IS NOT NULL
   AND IR.ReservationID IS NULL
 ", con, tran)
-                            cmdInsRes.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
-                            cmdInsRes.Parameters.AddWithValue("@UserID", CurrentUser.EmployeeID)
-                            cmdInsRes.Parameters.AddWithValue("@LOID", CurrentLOID)
-                            cmdInsRes.ExecuteNonQuery()
-                        End Using
+                        cmdInsRes.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
+                        cmdInsRes.Parameters.AddWithValue("@UserID", CurrentUser.EmployeeID)
+                        cmdInsRes.Parameters.AddWithValue("@LOID", CurrentLOID)
+                        cmdInsRes.ExecuteNonQuery()
+                    End Using
 
 
-                        ' (3.6) تحديث حالة SRD حسب إجمالي التحميل
-                        Using cmdUpdSRD As New SqlCommand("
+                    ' (3.6) تحديث حالة SRD حسب إجمالي التحميل
+                    Using cmdUpdSRD As New SqlCommand("
 ;WITH TotalLoaded AS
 (
     SELECT
@@ -881,14 +1014,14 @@ WHERE EXISTS
       AND X.LOID = @LOID
 )
 ", con, tran)
-                            cmdUpdSRD.Parameters.AddWithValue("@LOID", CurrentLOID)
-                            cmdUpdSRD.ExecuteNonQuery()
-                        End Using
+                        cmdUpdSRD.Parameters.AddWithValue("@LOID", CurrentLOID)
+                        cmdUpdSRD.ExecuteNonQuery()
+                    End Using
 
 
-                        ' (3.7) تحديث حالة أمر التحميل
-                        ' (3.7) تحديث حالة أمر التحميل - فقط في الحالات المسموحة
-                        Using cmdUpdLO As New SqlCommand("
+                    ' (3.7) تحديث حالة أمر التحميل
+                    ' (3.7) تحديث حالة أمر التحميل - فقط في الحالات المسموحة
+                    Using cmdUpdLO As New SqlCommand("
 UPDATE dbo.Logistics_LoadingOrder
 SET
     LoadingStatusID = 14,
@@ -896,16 +1029,16 @@ SET
     ModifiedBy = @UserID
 WHERE LOID = @LOID
 ", con, tran)
-                            cmdUpdLO.Parameters.AddWithValue("@LOID", CurrentLOID)
-                            cmdUpdLO.Parameters.AddWithValue("@UserID", CurrentUser.EmployeeID)
-                            cmdUpdLO.ExecuteNonQuery()
-                        End Using
-                        tran.Commit()
-                        IsSaved = True
-                        IsDirty = False
+                        cmdUpdLO.Parameters.AddWithValue("@LOID", CurrentLOID)
+                        cmdUpdLO.Parameters.AddWithValue("@UserID", CurrentUser.EmployeeID)
+                        cmdUpdLO.ExecuteNonQuery()
+                    End Using
+                    tran.Commit()
+                    IsSaved = True
+                    IsDirty = False
 
-                    Catch ex As Exception
-                        Try : tran.Rollback() : Catch : End Try
+                Catch ex As Exception
+                    Try : tran.Rollback() : Catch : End Try
                     MessageBox.Show(ex.Message, "خطأ", MessageBoxButtons.OK, MessageBoxIcon.Error)
                     Exit Sub
                 End Try
@@ -997,7 +1130,8 @@ WHERE LOID = @LOID
 
             Dim sqlExtraFilterForLOD As String = ""
 
-            If CurrentMode = LoadingBoardMode.InvoiceSelection Then
+            If CurrentMode = LoadingBoardMode.InvoiceSelection OrElse
+   CurrentMode = LoadingBoardMode.GoodsIssueSelection Then
                 sqlExtraFilterForLOD = "
       AND ISNULL(LOD.LoadedQty,0) > 0
       AND NOT EXISTS (
@@ -1078,7 +1212,8 @@ ORDER BY SR.SRID
             ' + احتياط: في وضع الفاتورة فقط، لا نعرض LoadedQty = 0
             Dim sqlNotExistsForThisLOD As String = ""
 
-            If CurrentMode = LoadingBoardMode.InvoiceSelection Then
+            If CurrentMode = LoadingBoardMode.InvoiceSelection OrElse
+   CurrentMode = LoadingBoardMode.GoodsIssueSelection Then
                 sqlNotExistsForThisLOD = "
 AND ISNULL(LOD.LoadedQty,0) > 0
 AND NOT EXISTS (
@@ -1421,39 +1556,6 @@ WHERE SRD.SRID = @SRID
             dgvLoadingSRD.CommitEdit(DataGridViewDataErrorContexts.Commit)
         End If
     End Sub
-    Private Sub dgvLoadingSR_CellContentClick(
-    sender As Object,
-    e As DataGridViewCellEventArgs
-) Handles dgvLoadingSR.CellContentClick
-        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Exit Sub
-
-        If dgvLoadingSR.Columns(e.ColumnIndex).Name <> "colLoadingSRtoInvoice" Then Exit Sub
-
-
-        ' جرّب نجبر الحفظ
-        dgvLoadingSR.CommitEdit(DataGridViewDataErrorContexts.Commit)
-        If CurrentMode <> LoadingBoardMode.InvoiceSelection Then Exit Sub
-        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Exit Sub
-        If dgvLoadingSR.Columns(e.ColumnIndex).Name <> "colLoadingSRtoInvoice" Then Exit Sub
-        dgvLoadingSR.CommitEdit(DataGridViewDataErrorContexts.Commit)
-
-        Dim clickedRow = dgvLoadingSR.Rows(e.RowIndex)
-
-        Dim isChecked As Boolean =
-        CBool(If(clickedRow.Cells("colLoadingSRtoInvoice").Value, False))
-
-        ' إذا المستخدم يحاول التحديد
-        If isChecked Then
-
-            ' 🔒 إلغاء أي تحديد سابق فورًا
-            For Each r As DataGridViewRow In dgvLoadingSR.Rows
-                If r Is clickedRow Then Continue For
-                r.Cells("colLoadingSRtoInvoice").Value = False
-            Next
-
-        End If
-
-    End Sub
 
 
     Private Sub dgvLoadingSR_CellValueChanged(
@@ -1752,7 +1854,7 @@ WHERE LOID = @LOID
 
 
 
-    Private Sub btnPostLoading_Click(sender As Object, e As EventArgs) Handles btnPostLoading.Click
+    Private Sub btnSendLoading_Click(sender As Object, e As EventArgs) Handles btnSendLoading.Click
 
         If CurrentLOID = 0 Then Exit Sub
 
@@ -1846,7 +1948,7 @@ WHERE LOID = @LOID
         totalVolume.ToString("N3") & "   متر مكعب"
 
         frm.dgvPostingOrderConfirmation.DataSource =
-        BuildPostConfirmationData(CurrentLOID)
+        BuildSendConfirmationData(CurrentLOID)
 
         If frm.ShowDialog() <> DialogResult.OK Then Exit Sub
 
@@ -1857,10 +1959,10 @@ WHERE LOID = @LOID
         Try
 
             Dim repo As New InventoryRepository(ConnStr)
-            repo.PostLoadingOrder(CurrentLOID, CurrentUser.EmployeeID)
+            repo.SendLoadingOrder(CurrentLOID, CurrentUser.EmployeeID)
 
 
-            MessageBox.Show("تم الترحيل بنجاح",
+            MessageBox.Show("تم الارسال وبانتظار فسح البضائع",
                         "نجاح",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information)
@@ -1886,7 +1988,7 @@ WHERE LOID = @LOID
         End Try
 
     End Sub
-    Private Function BuildPostConfirmationData(loID As Integer) As DataTable
+    Private Function BuildSendConfirmationData(loID As Integer) As DataTable
 
         Dim dt As New DataTable()
 
@@ -2000,54 +2102,59 @@ ORDER BY SRD.ProductCode
         End Using
 
     End Function
+    Private Sub dgvLoadingSR_CellContentClick(sender As Object, e As DataGridViewCellEventArgs) Handles dgvLoadingSR.CellContentClick
 
-    Private Sub btnExportToInvoice_Click(
-    sender As Object,
-    e As EventArgs
-) Handles btnExportToInvoice.Click
+        If e.RowIndex < 0 Then Exit Sub
 
-        Dim selectedSRID As Integer = 0
+        If dgvLoadingSR.Columns(e.ColumnIndex).Name = "colLoadingSRtoInvoice" Then
 
-        For Each r As DataGridViewRow In dgvLoadingSR.Rows
-            If CBool(If(r.Cells("colLoadingSRtoInvoice").Value, False)) Then
-                selectedSRID = CInt(r.Cells("colLoadingSRID").Value)
+            For Each row As DataGridViewRow In dgvLoadingSR.Rows
+                row.Cells("colLoadingSRtoInvoice").Value = False
+            Next
+
+            dgvLoadingSR.Rows(e.RowIndex).Cells("colLoadingSRtoInvoice").Value = True
+
+        End If
+
+    End Sub
+    Private Sub btnExportToInvoice_Click(sender As Object, e As EventArgs) Handles btnExportToInvoice.Click
+
+        ' 1️⃣ تأكد اختيار أمر تحميل
+        If dgvOpenedLOs.CurrentRow Is Nothing Then
+            MessageBox.Show("اختر أمر تحميل أولاً", "تنبيه")
+            Exit Sub
+        End If
+
+        ' 2️⃣ استخراج LOID
+        SelectedLOID = CInt(dgvOpenedLOs.CurrentRow.Cells("colOpenLOsID").Value)
+
+        ' 3️⃣ البحث عن SR المحدد
+        Dim found As Boolean = False
+        If dgvLoadingSR.Rows.Count = 0 Then
+            MessageBox.Show("لا توجد طلبات في هذا التحميل", "تنبيه")
+            Exit Sub
+        End If
+        For Each row As DataGridViewRow In dgvLoadingSR.Rows
+
+            If row.Cells("colLoadingSRtoInvoice").Value IsNot Nothing AndAlso
+           CBool(row.Cells("colLoadingSRtoInvoice").Value) = True Then
+
+                SelectedSRID = CInt(row.Cells("colLoadingSRID").Value)
+                found = True
                 Exit For
+
             End If
+
         Next
 
-        If selectedSRID <= 0 Then
-            MessageBox.Show("يرجى اختيار طلب واحد فقط للفوترة.", "تنبيه")
+        ' 4️⃣ تحقق
+        If Not found Then
+            MessageBox.Show("اختر طلب مبيعات واحد", "تنبيه")
             Exit Sub
         End If
 
-        If CurrentLOID <= 0 Then
-            MessageBox.Show("لم يتم تحديد أمر التحميل.", "تنبيه")
-            Exit Sub
-        End If
-
-        ' ✅ Snapshot: ModifiedAt لحظة التصدير
-        Dim modAtObj As Object = Nothing
-        Using con As New SqlConnection(ConnStr)
-            con.Open()
-            Using cmd As New SqlCommand("
-SELECT ModifiedAt
-FROM dbo.Logistics_LoadingOrder
-WHERE LOID = @LOID
-", con)
-                cmd.Parameters.AddWithValue("@LOID", CurrentLOID)
-                modAtObj = cmd.ExecuteScalar()
-            End Using
-        End Using
-
-        If modAtObj Is Nothing OrElse IsDBNull(modAtObj) Then
-            SelectedLOModifiedAt = Nothing
-        Else
-            SelectedLOModifiedAt = CDate(modAtObj)
-        End If
-
-        Me.SelectedLOID = CurrentLOID
-        Me.SelectedSRID = selectedSRID
-
+        ' 5️⃣ إرجاع النتيجة
+        Me.DialogResult = DialogResult.OK
         Me.Close()
 
     End Sub
@@ -2138,117 +2245,6 @@ WHERE LOID = @LOID
         End Using
     End Function
 
-    Private Sub ApplyEditPolicyByLoadingStatus(loID As Integer)
-
-        If loID <= 0 Then Exit Sub
-        If IsLoading Then Exit Sub
-
-        ' 1) Mode override
-        If CurrentMode = LoadingBoardMode.ViewOnly Then
-            dgvLOs.ReadOnly = True
-            dgvLoadingSR.ReadOnly = True
-            colLoadingSRtoInvoice.ReadOnly = False
-            dgvLoadingSRD.ReadOnly = True
-
-            btnSaveLO.Enabled = False
-            btnPostLoading.Enabled = False
-            btnAddSelectedSRToLO.Enabled = False
-            btnRemoveSR.Enabled = False
-            btnExportToInvoice.Enabled = False
-            Exit Sub
-        End If
-
-        If CurrentMode = LoadingBoardMode.InvoiceSelection Then
-
-            dgvLOs.ReadOnly = True
-            dgvLoadingSRD.ReadOnly = True
-
-            ' ✅ مهم: الجريد ليس ReadOnly (حتى يعمل التشيك)
-            dgvLoadingSR.ReadOnly = False
-
-            ' ✅ اقفل كل الأعمدة ما عدا عمود التشيك فقط
-            For Each col As DataGridViewColumn In dgvLoadingSR.Columns
-                col.ReadOnly = (col.Name <> "colLoadingSRtoInvoice")
-            Next
-
-            ' ✅ اجعل النقر على التشيك يشتغل مباشرة
-            dgvLoadingSR.EditMode = DataGridViewEditMode.EditOnEnter
-
-            btnSaveLO.Enabled = False
-            btnPostLoading.Enabled = False
-            btnAddSelectedSRToLO.Enabled = False
-            btnRemoveSR.Enabled = False
-
-            Exit Sub
-        End If
-
-        ' 2) Status-based policy (Normal mode)
-        Dim statusID As Integer = GetLoadingStatusID(loID)
-
-        Dim fullEdit As Boolean = (statusID = 2 OrElse statusID = 14)  ' NEW, IN_LOADEDING
-        Dim headerOnly As Boolean = (statusID = 15)                    ' WAITING_INVOICE
-
-        If fullEdit Then
-            dgvLOs.ReadOnly = False
-            dgvLoadingSR.ReadOnly = False
-            dgvLoadingSRD.ReadOnly = False
-
-            ' اقفل كل أعمدة SRD عدا الكمية
-            For Each col As DataGridViewColumn In dgvLoadingSRD.Columns
-                col.ReadOnly = (col.Name <> "colLoadingSRDLoadedInThisLO")
-            Next
-
-            btnSaveLO.Enabled = True
-            btnPostLoading.Enabled = True
-            btnAddSelectedSRToLO.Enabled = True
-            btnRemoveSR.Enabled = True
-            Exit Sub
-        End If
-
-        If headerOnly Then
-            dgvLoadingSR.ReadOnly = True
-            colLoadingSRtoInvoice.ReadOnly = False
-
-            dgvLoadingSRD.ReadOnly = True
-
-            dgvLOs.ReadOnly = False
-            For Each c As DataGridViewColumn In dgvLOs.Columns
-                c.ReadOnly = True
-            Next
-
-            dgvLOs.Columns("colLOsDriverCode").ReadOnly = False
-            dgvLOs.Columns("colLOsSupervisor").ReadOnly = False
-            dgvLOs.Columns("colLOsVehicale").ReadOnly = False
-            dgvLOs.Columns("colLOsNote").ReadOnly = False
-            If dgvLOs.Columns.Contains("colLOsStoreID") Then dgvLOs.Columns("colLOsStoreID").ReadOnly = True
-
-            btnSaveLO.Enabled = True
-            btnPostLoading.Enabled = False
-            btnAddSelectedSRToLO.Enabled = False
-            btnRemoveSR.Enabled = False
-            Exit Sub
-        End If
-
-        ' No edit
-        dgvLOs.ReadOnly = True
-        dgvLoadingSR.ReadOnly = True
-        colLoadingSRtoInvoice.ReadOnly = False
-
-        dgvLoadingSRD.ReadOnly = True
-
-        btnSaveLO.Enabled = False
-        btnPostLoading.Enabled = False
-        btnAddSelectedSRToLO.Enabled = False
-        btnRemoveSR.Enabled = False
-        If CurrentMode = LoadingBoardMode.InvoiceSelection Then
-
-            ' ... (التعديلات التي تعملها على ReadOnly للأعمدة)
-
-
-            Exit Sub
-        End If
-
-    End Sub
 
     Private Sub dgvLoadingSR_CellBeginEdit(sender As Object, e As DataGridViewCellCancelEventArgs) Handles dgvLoadingSR.CellBeginEdit
 
@@ -2272,4 +2268,23 @@ WHERE LOID = @LOID
         End If
     End Sub
 
+    Private Sub btnSearch_Click(sender As Object, e As EventArgs) Handles btnSearch.Click
+
+        Dim frm As New frmLoadingSearch()
+
+        If frm.ShowDialog() <> DialogResult.OK Then Exit Sub
+        If frm.SelectedLOID <= 0 Then Exit Sub
+
+        ' 🔑 تحديد الـ LO المختار
+        Me.FocusLOID = frm.SelectedLOID
+
+        ' 🔥 الطريقة المثالية: تحميل LO واحد فقط + تحديده مباشرة
+        AddFocusLOToOpenedGrid(Me.FocusLOID)
+
+        ' 🔄 تحميل باقي البيانات
+        LoadLOHeader(Me.FocusLOID)
+        LoadSRsForLO(Me.FocusLOID)
+        LoadSRDDetailsForLO(Me.FocusLOID)
+
+    End Sub
 End Class

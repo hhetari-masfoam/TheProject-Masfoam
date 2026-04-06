@@ -55,14 +55,18 @@ Partial Class frmStockTransaction
         Me.btnNew = New System.Windows.Forms.Button()
         Me.btnClose = New System.Windows.Forms.Button()
         Me.grpReceiveMode = New System.Windows.Forms.GroupBox()
+        Me.rdoScrapRecieve = New System.Windows.Forms.RadioButton()
+        Me.rdoPostSales = New System.Windows.Forms.RadioButton()
         Me.rdoPRTSend = New System.Windows.Forms.RadioButton()
         Me.rdoReceiveTransaction = New System.Windows.Forms.RadioButton()
         Me.rdoSendTransaction = New System.Windows.Forms.RadioButton()
         Me.rdoReturnReceive = New System.Windows.Forms.RadioButton()
+        Me.Label4 = New System.Windows.Forms.Label()
         Me.Label9 = New System.Windows.Forms.Label()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.rdoCuttingReceive = New System.Windows.Forms.RadioButton()
         Me.Label11 = New System.Windows.Forms.Label()
+        Me.Label5 = New System.Windows.Forms.Label()
         Me.Label3 = New System.Windows.Forms.Label()
         Me.Label10 = New System.Windows.Forms.Label()
         Me.Label8 = New System.Windows.Forms.Label()
@@ -83,7 +87,7 @@ Partial Class frmStockTransaction
         Me.Panel1.Dock = System.Windows.Forms.DockStyle.Top
         Me.Panel1.Location = New System.Drawing.Point(0, 0)
         Me.Panel1.Name = "Panel1"
-        Me.Panel1.Size = New System.Drawing.Size(1101, 331)
+        Me.Panel1.Size = New System.Drawing.Size(1191, 331)
         Me.Panel1.TabIndex = 0
         '
         'dgvTransfersList
@@ -98,7 +102,7 @@ Partial Class frmStockTransaction
         Me.dgvTransfersList.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvTransfersList.RowHeadersWidth = 51
         Me.dgvTransfersList.RowTemplate.Height = 26
-        Me.dgvTransfersList.Size = New System.Drawing.Size(1101, 331)
+        Me.dgvTransfersList.Size = New System.Drawing.Size(1191, 331)
         Me.dgvTransfersList.TabIndex = 1
         '
         'txtTransactionCode
@@ -127,14 +131,14 @@ Partial Class frmStockTransaction
         Me.Panel2.Dock = System.Windows.Forms.DockStyle.Fill
         Me.Panel2.Location = New System.Drawing.Point(0, 331)
         Me.Panel2.Name = "Panel2"
-        Me.Panel2.Size = New System.Drawing.Size(1101, 418)
+        Me.Panel2.Size = New System.Drawing.Size(1191, 422)
         Me.Panel2.TabIndex = 1
         '
         'lblSourceStore
         '
         Me.lblSourceStore.Anchor = System.Windows.Forms.AnchorStyles.Bottom
         Me.lblSourceStore.AutoSize = True
-        Me.lblSourceStore.Location = New System.Drawing.Point(612, 54)
+        Me.lblSourceStore.Location = New System.Drawing.Point(657, 58)
         Me.lblSourceStore.Name = "lblSourceStore"
         Me.lblSourceStore.Size = New System.Drawing.Size(54, 17)
         Me.lblSourceStore.TabIndex = 6
@@ -144,7 +148,7 @@ Partial Class frmStockTransaction
         '
         Me.lblTargetStore.Anchor = System.Windows.Forms.AnchorStyles.Bottom
         Me.lblTargetStore.AutoSize = True
-        Me.lblTargetStore.Location = New System.Drawing.Point(161, 54)
+        Me.lblTargetStore.Location = New System.Drawing.Point(206, 58)
         Me.lblTargetStore.Name = "lblTargetStore"
         Me.lblTargetStore.Size = New System.Drawing.Size(59, 17)
         Me.lblTargetStore.TabIndex = 4
@@ -154,7 +158,7 @@ Partial Class frmStockTransaction
         '
         Me.cboTargetStore.Anchor = System.Windows.Forms.AnchorStyles.Bottom
         Me.cboTargetStore.FormattingEnabled = True
-        Me.cboTargetStore.Location = New System.Drawing.Point(595, 70)
+        Me.cboTargetStore.Location = New System.Drawing.Point(640, 74)
         Me.cboTargetStore.Name = "cboTargetStore"
         Me.cboTargetStore.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.cboTargetStore.Size = New System.Drawing.Size(92, 24)
@@ -164,7 +168,7 @@ Partial Class frmStockTransaction
         '
         Me.cboSourceStore.Anchor = System.Windows.Forms.AnchorStyles.Bottom
         Me.cboSourceStore.FormattingEnabled = True
-        Me.cboSourceStore.Location = New System.Drawing.Point(145, 70)
+        Me.cboSourceStore.Location = New System.Drawing.Point(190, 74)
         Me.cboSourceStore.Name = "cboSourceStore"
         Me.cboSourceStore.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.cboSourceStore.Size = New System.Drawing.Size(92, 24)
@@ -185,7 +189,7 @@ Partial Class frmStockTransaction
         Me.dgvTransferDetails.RowHeadersWidth = 51
         Me.dgvTransferDetails.RowTemplate.Height = 26
         Me.dgvTransferDetails.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect
-        Me.dgvTransferDetails.Size = New System.Drawing.Size(1101, 364)
+        Me.dgvTransferDetails.Size = New System.Drawing.Size(1191, 368)
         Me.dgvTransferDetails.TabIndex = 0
         '
         'colProductSearch
@@ -205,7 +209,7 @@ Partial Class frmStockTransaction
         'colProductCode
         '
         Me.colProductCode.DataPropertyName = "ProductCode"
-        Me.colProductCode.HeaderText = "رقم السند"
+        Me.colProductCode.HeaderText = "كود الصنف"
         Me.colProductCode.MinimumWidth = 6
         Me.colProductCode.Name = "colProductCode"
         Me.colProductCode.Resizable = System.Windows.Forms.DataGridViewTriState.[True]
@@ -293,7 +297,7 @@ Partial Class frmStockTransaction
         Me.Panel5.Dock = System.Windows.Forms.DockStyle.Top
         Me.Panel5.Location = New System.Drawing.Point(0, 0)
         Me.Panel5.Name = "Panel5"
-        Me.Panel5.Size = New System.Drawing.Size(1101, 54)
+        Me.Panel5.Size = New System.Drawing.Size(1191, 54)
         Me.Panel5.TabIndex = 8
         '
         'Panel4
@@ -308,15 +312,15 @@ Partial Class frmStockTransaction
         Me.Panel4.Controls.Add(Me.btnClose)
         Me.Panel4.Controls.Add(Me.grpReceiveMode)
         Me.Panel4.Dock = System.Windows.Forms.DockStyle.Right
-        Me.Panel4.Location = New System.Drawing.Point(1101, 0)
+        Me.Panel4.Location = New System.Drawing.Point(1191, 0)
         Me.Panel4.Name = "Panel4"
-        Me.Panel4.Size = New System.Drawing.Size(181, 749)
+        Me.Panel4.Size = New System.Drawing.Size(191, 753)
         Me.Panel4.TabIndex = 9
         '
         'btnCancel
         '
         Me.btnCancel.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnCancel.Location = New System.Drawing.Point(25, 620)
+        Me.btnCancel.Location = New System.Drawing.Point(39, 633)
         Me.btnCancel.Name = "btnCancel"
         Me.btnCancel.Size = New System.Drawing.Size(128, 53)
         Me.btnCancel.TabIndex = 9
@@ -325,7 +329,7 @@ Partial Class frmStockTransaction
         '
         'btnCancelReceive
         '
-        Me.btnCancelReceive.Location = New System.Drawing.Point(25, 682)
+        Me.btnCancelReceive.Location = New System.Drawing.Point(39, 695)
         Me.btnCancelReceive.Name = "btnCancelReceive"
         Me.btnCancelReceive.Size = New System.Drawing.Size(128, 53)
         Me.btnCancelReceive.TabIndex = 17
@@ -335,7 +339,7 @@ Partial Class frmStockTransaction
         'btnTransactionSearch
         '
         Me.btnTransactionSearch.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnTransactionSearch.Location = New System.Drawing.Point(25, 372)
+        Me.btnTransactionSearch.Location = New System.Drawing.Point(39, 385)
         Me.btnTransactionSearch.Name = "btnTransactionSearch"
         Me.btnTransactionSearch.Size = New System.Drawing.Size(128, 53)
         Me.btnTransactionSearch.TabIndex = 12
@@ -345,7 +349,7 @@ Partial Class frmStockTransaction
         'btnSend
         '
         Me.btnSend.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnSend.Location = New System.Drawing.Point(25, 496)
+        Me.btnSend.Location = New System.Drawing.Point(39, 509)
         Me.btnSend.Name = "btnSend"
         Me.btnSend.Size = New System.Drawing.Size(128, 53)
         Me.btnSend.TabIndex = 10
@@ -355,7 +359,7 @@ Partial Class frmStockTransaction
         'btnNew
         '
         Me.btnNew.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnNew.Location = New System.Drawing.Point(25, 434)
+        Me.btnNew.Location = New System.Drawing.Point(39, 447)
         Me.btnNew.Name = "btnNew"
         Me.btnNew.Size = New System.Drawing.Size(128, 53)
         Me.btnNew.TabIndex = 9
@@ -365,7 +369,7 @@ Partial Class frmStockTransaction
         'btnClose
         '
         Me.btnClose.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnClose.Location = New System.Drawing.Point(25, 558)
+        Me.btnClose.Location = New System.Drawing.Point(39, 571)
         Me.btnClose.Name = "btnClose"
         Me.btnClose.Size = New System.Drawing.Size(128, 53)
         Me.btnClose.TabIndex = 8
@@ -374,15 +378,20 @@ Partial Class frmStockTransaction
         '
         'grpReceiveMode
         '
+        Me.grpReceiveMode.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.grpReceiveMode.BackColor = System.Drawing.Color.FromArgb(CType(CType(255, Byte), Integer), CType(CType(255, Byte), Integer), CType(CType(192, Byte), Integer))
+        Me.grpReceiveMode.Controls.Add(Me.rdoScrapRecieve)
+        Me.grpReceiveMode.Controls.Add(Me.rdoPostSales)
         Me.grpReceiveMode.Controls.Add(Me.rdoPRTSend)
         Me.grpReceiveMode.Controls.Add(Me.rdoReceiveTransaction)
         Me.grpReceiveMode.Controls.Add(Me.rdoSendTransaction)
         Me.grpReceiveMode.Controls.Add(Me.rdoReturnReceive)
+        Me.grpReceiveMode.Controls.Add(Me.Label4)
         Me.grpReceiveMode.Controls.Add(Me.Label9)
         Me.grpReceiveMode.Controls.Add(Me.Label1)
         Me.grpReceiveMode.Controls.Add(Me.rdoCuttingReceive)
         Me.grpReceiveMode.Controls.Add(Me.Label11)
+        Me.grpReceiveMode.Controls.Add(Me.Label5)
         Me.grpReceiveMode.Controls.Add(Me.Label3)
         Me.grpReceiveMode.Controls.Add(Me.Label10)
         Me.grpReceiveMode.Controls.Add(Me.Label8)
@@ -391,14 +400,38 @@ Partial Class frmStockTransaction
         Me.grpReceiveMode.Controls.Add(Me.rdoPurchaseReceive)
         Me.grpReceiveMode.Location = New System.Drawing.Point(4, 64)
         Me.grpReceiveMode.Name = "grpReceiveMode"
-        Me.grpReceiveMode.Size = New System.Drawing.Size(169, 267)
+        Me.grpReceiveMode.RightToLeft = System.Windows.Forms.RightToLeft.Yes
+        Me.grpReceiveMode.Size = New System.Drawing.Size(181, 306)
         Me.grpReceiveMode.TabIndex = 20
         Me.grpReceiveMode.TabStop = False
         '
+        'rdoScrapRecieve
+        '
+        Me.rdoScrapRecieve.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.rdoScrapRecieve.AutoSize = True
+        Me.rdoScrapRecieve.Location = New System.Drawing.Point(162, 248)
+        Me.rdoScrapRecieve.Name = "rdoScrapRecieve"
+        Me.rdoScrapRecieve.Size = New System.Drawing.Size(17, 16)
+        Me.rdoScrapRecieve.TabIndex = 22
+        Me.rdoScrapRecieve.TabStop = True
+        Me.rdoScrapRecieve.UseVisualStyleBackColor = True
+        '
+        'rdoPostSales
+        '
+        Me.rdoPostSales.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.rdoPostSales.AutoSize = True
+        Me.rdoPostSales.Location = New System.Drawing.Point(162, 69)
+        Me.rdoPostSales.Name = "rdoPostSales"
+        Me.rdoPostSales.Size = New System.Drawing.Size(17, 16)
+        Me.rdoPostSales.TabIndex = 21
+        Me.rdoPostSales.TabStop = True
+        Me.rdoPostSales.UseVisualStyleBackColor = True
+        '
         'rdoPRTSend
         '
+        Me.rdoPRTSend.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoPRTSend.AutoSize = True
-        Me.rdoPRTSend.Location = New System.Drawing.Point(146, 45)
+        Me.rdoPRTSend.Location = New System.Drawing.Point(162, 45)
         Me.rdoPRTSend.Name = "rdoPRTSend"
         Me.rdoPRTSend.Size = New System.Drawing.Size(17, 16)
         Me.rdoPRTSend.TabIndex = 21
@@ -409,7 +442,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoReceiveTransaction.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoReceiveTransaction.AutoSize = True
-        Me.rdoReceiveTransaction.Location = New System.Drawing.Point(146, 121)
+        Me.rdoReceiveTransaction.Location = New System.Drawing.Point(162, 121)
         Me.rdoReceiveTransaction.Name = "rdoReceiveTransaction"
         Me.rdoReceiveTransaction.Size = New System.Drawing.Size(17, 16)
         Me.rdoReceiveTransaction.TabIndex = 20
@@ -420,7 +453,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoSendTransaction.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoSendTransaction.AutoSize = True
-        Me.rdoSendTransaction.Location = New System.Drawing.Point(146, 13)
+        Me.rdoSendTransaction.Location = New System.Drawing.Point(162, 13)
         Me.rdoSendTransaction.Name = "rdoSendTransaction"
         Me.rdoSendTransaction.Size = New System.Drawing.Size(17, 16)
         Me.rdoSendTransaction.TabIndex = 20
@@ -431,34 +464,46 @@ Partial Class frmStockTransaction
         '
         Me.rdoReturnReceive.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoReturnReceive.AutoSize = True
-        Me.rdoReturnReceive.Location = New System.Drawing.Point(146, 225)
+        Me.rdoReturnReceive.Location = New System.Drawing.Point(162, 225)
         Me.rdoReturnReceive.Name = "rdoReturnReceive"
         Me.rdoReturnReceive.Size = New System.Drawing.Size(17, 16)
         Me.rdoReturnReceive.TabIndex = 19
         Me.rdoReturnReceive.TabStop = True
         Me.rdoReturnReceive.UseVisualStyleBackColor = True
         '
+        'Label4
+        '
+        Me.Label4.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label4.AutoSize = True
+        Me.Label4.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label4.ForeColor = System.Drawing.Color.Firebrick
+        Me.Label4.Location = New System.Drawing.Point(24, 247)
+        Me.Label4.Name = "Label4"
+        Me.Label4.Size = New System.Drawing.Size(148, 18)
+        Me.Label4.TabIndex = 18
+        Me.Label4.Text = "استلام  سكراب قص"
+        '
         'Label9
         '
         Me.Label9.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label9.AutoSize = True
-        Me.Label9.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label9.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label9.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label9.Location = New System.Drawing.Point(3, 223)
+        Me.Label9.Location = New System.Drawing.Point(17, 223)
         Me.Label9.Name = "Label9"
-        Me.Label9.Size = New System.Drawing.Size(140, 21)
+        Me.Label9.Size = New System.Drawing.Size(155, 18)
         Me.Label9.TabIndex = 18
-        Me.Label9.Text = "استلام مرتجعات"
+        Me.Label9.Text = "استلام مرتجع مبيعات"
         '
         'Label1
         '
         Me.Label1.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label1.AutoSize = True
-        Me.Label1.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label1.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label1.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label1.Location = New System.Drawing.Point(39, 197)
+        Me.Label1.Location = New System.Drawing.Point(83, 197)
         Me.Label1.Name = "Label1"
-        Me.Label1.Size = New System.Drawing.Size(104, 21)
+        Me.Label1.Size = New System.Drawing.Size(89, 18)
         Me.Label1.TabIndex = 18
         Me.Label1.Text = "استلام قص"
         '
@@ -466,7 +511,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoCuttingReceive.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoCuttingReceive.AutoSize = True
-        Me.rdoCuttingReceive.Location = New System.Drawing.Point(146, 199)
+        Me.rdoCuttingReceive.Location = New System.Drawing.Point(162, 199)
         Me.rdoCuttingReceive.Name = "rdoCuttingReceive"
         Me.rdoCuttingReceive.Size = New System.Drawing.Size(17, 16)
         Me.rdoCuttingReceive.TabIndex = 19
@@ -477,35 +522,47 @@ Partial Class frmStockTransaction
         '
         Me.Label11.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label11.AutoSize = True
-        Me.Label11.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label11.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label11.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label11.Location = New System.Drawing.Point(16, 119)
+        Me.Label11.Location = New System.Drawing.Point(63, 119)
         Me.Label11.Name = "Label11"
-        Me.Label11.Size = New System.Drawing.Size(127, 21)
+        Me.Label11.Size = New System.Drawing.Size(109, 18)
         Me.Label11.TabIndex = 18
         Me.Label11.Text = "استلام مخزني"
+        '
+        'Label5
+        '
+        Me.Label5.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
+        Me.Label5.AutoSize = True
+        Me.Label5.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label5.ForeColor = System.Drawing.Color.Firebrick
+        Me.Label5.Location = New System.Drawing.Point(66, 64)
+        Me.Label5.Name = "Label5"
+        Me.Label5.Size = New System.Drawing.Size(98, 18)
+        Me.Label5.TabIndex = 18
+        Me.Label5.Text = "فسح مبيعات"
         '
         'Label3
         '
         Me.Label3.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label3.AutoSize = True
-        Me.Label3.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label3.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label3.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label3.Location = New System.Drawing.Point(7, 40)
+        Me.Label3.Location = New System.Drawing.Point(5, 40)
         Me.Label3.Name = "Label3"
-        Me.Label3.Size = New System.Drawing.Size(136, 21)
+        Me.Label3.Size = New System.Drawing.Size(167, 18)
         Me.Label3.TabIndex = 18
-        Me.Label3.Text = "ارسال مرتجعات"
+        Me.Label3.Text = "ارسال مرتجع مشتريات"
         '
         'Label10
         '
         Me.Label10.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label10.AutoSize = True
-        Me.Label10.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label10.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label10.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label10.Location = New System.Drawing.Point(20, 11)
+        Me.Label10.Location = New System.Drawing.Point(66, 11)
         Me.Label10.Name = "Label10"
-        Me.Label10.Size = New System.Drawing.Size(123, 21)
+        Me.Label10.Size = New System.Drawing.Size(106, 18)
         Me.Label10.TabIndex = 18
         Me.Label10.Text = "ارسال مخزني"
         '
@@ -513,11 +570,11 @@ Partial Class frmStockTransaction
         '
         Me.Label8.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label8.AutoSize = True
-        Me.Label8.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label8.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label8.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label8.Location = New System.Drawing.Point(0, 145)
+        Me.Label8.Location = New System.Drawing.Point(49, 145)
         Me.Label8.Name = "Label8"
-        Me.Label8.Size = New System.Drawing.Size(143, 21)
+        Me.Label8.Size = New System.Drawing.Size(123, 18)
         Me.Label8.TabIndex = 18
         Me.Label8.Text = "استلام مشتريات"
         '
@@ -525,11 +582,11 @@ Partial Class frmStockTransaction
         '
         Me.Label2.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.Label2.AutoSize = True
-        Me.Label2.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.Label2.Font = New System.Drawing.Font("Tahoma", 9.0!, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
         Me.Label2.ForeColor = System.Drawing.Color.Firebrick
-        Me.Label2.Location = New System.Drawing.Point(37, 171)
+        Me.Label2.Location = New System.Drawing.Point(83, 171)
         Me.Label2.Name = "Label2"
-        Me.Label2.Size = New System.Drawing.Size(106, 21)
+        Me.Label2.Size = New System.Drawing.Size(89, 18)
         Me.Label2.TabIndex = 18
         Me.Label2.Text = "استلام انتاج"
         '
@@ -537,7 +594,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoProductionReceive.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoProductionReceive.AutoSize = True
-        Me.rdoProductionReceive.Location = New System.Drawing.Point(146, 173)
+        Me.rdoProductionReceive.Location = New System.Drawing.Point(162, 173)
         Me.rdoProductionReceive.Name = "rdoProductionReceive"
         Me.rdoProductionReceive.Size = New System.Drawing.Size(17, 16)
         Me.rdoProductionReceive.TabIndex = 19
@@ -548,7 +605,7 @@ Partial Class frmStockTransaction
         '
         Me.rdoPurchaseReceive.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.rdoPurchaseReceive.AutoSize = True
-        Me.rdoPurchaseReceive.Location = New System.Drawing.Point(146, 147)
+        Me.rdoPurchaseReceive.Location = New System.Drawing.Point(162, 147)
         Me.rdoPurchaseReceive.Name = "rdoPurchaseReceive"
         Me.rdoPurchaseReceive.Size = New System.Drawing.Size(17, 16)
         Me.rdoPurchaseReceive.TabIndex = 19
@@ -558,11 +615,11 @@ Partial Class frmStockTransaction
         'frmStockTransaction
         '
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None
-        Me.ClientSize = New System.Drawing.Size(1282, 749)
+        Me.ClientSize = New System.Drawing.Size(1382, 753)
         Me.Controls.Add(Me.Panel2)
         Me.Controls.Add(Me.Panel1)
         Me.Controls.Add(Me.Panel4)
-        Me.MinimumSize = New System.Drawing.Size(1200, 700)
+        Me.MinimumSize = New System.Drawing.Size(1200, 400)
         Me.Name = "frmStockTransaction"
         Me.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
         Me.Text = "frmStockTransaction"
@@ -610,6 +667,12 @@ Partial Class frmStockTransaction
     Friend WithEvents rdoReceiveTransaction As RadioButton
     Friend WithEvents Label11 As Label
     Friend WithEvents Label10 As Label
+    Friend WithEvents rdoPRTSend As RadioButton
+    Friend WithEvents Label3 As Label
+    Friend WithEvents rdoScrapRecieve As RadioButton
+    Friend WithEvents Label4 As Label
+    Friend WithEvents rdoPostSales As RadioButton
+    Friend WithEvents Label5 As Label
     Friend WithEvents colProductSearch As DataGridViewButtonColumn
     Friend WithEvents colProductID As DataGridViewTextBoxColumn
     Friend WithEvents colProductCode As DataGridViewComboBoxColumn
@@ -623,6 +686,4 @@ Partial Class frmStockTransaction
     Friend WithEvents colTargetAfter As DataGridViewTextBoxColumn
     Friend WithEvents colLineNotes As DataGridViewTextBoxColumn
     Friend WithEvents colDelete As DataGridViewButtonColumn
-    Friend WithEvents rdoPRTSend As RadioButton
-    Friend WithEvents Label3 As Label
 End Class

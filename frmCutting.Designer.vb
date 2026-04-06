@@ -70,6 +70,7 @@ Partial Class frmCutting
         Me.colOutProductType = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colOutPieceVolume = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colOutTotalVolume = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.colDelete = New System.Windows.Forms.DataGridViewButtonColumn()
         Me.pnlOutPutsCalculations = New System.Windows.Forms.Panel()
         Me.Label22 = New System.Windows.Forms.Label()
         Me.txtNotes = New System.Windows.Forms.TextBox()
@@ -87,9 +88,9 @@ Partial Class frmCutting
         Me.colQTY = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colProductType = New System.Windows.Forms.DataGridViewComboBoxColumn()
         Me.colAdd = New System.Windows.Forms.DataGridViewButtonColumn()
-        Me.colDelete = New System.Windows.Forms.DataGridViewButtonColumn()
         Me.tabCuttingFollow = New System.Windows.Forms.TabPage()
         Me.DataGridView1 = New System.Windows.Forms.DataGridView()
+        Me.btnCancel = New System.Windows.Forms.Button()
         Me.Panel1.SuspendLayout()
         Me.pnlProductSpecs.SuspendLayout()
         CType(Me.dgvOutPut, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -107,6 +108,7 @@ Partial Class frmCutting
         '
         'Panel1
         '
+        Me.Panel1.Controls.Add(Me.btnCancel)
         Me.Panel1.Controls.Add(Me.txtCuttingStatus)
         Me.Panel1.Controls.Add(Me.btnSend)
         Me.Panel1.Controls.Add(Me.Button1)
@@ -132,7 +134,7 @@ Partial Class frmCutting
         'btnSend
         '
         Me.btnSend.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnSend.Location = New System.Drawing.Point(5, 403)
+        Me.btnSend.Location = New System.Drawing.Point(8, 319)
         Me.btnSend.Name = "btnSend"
         Me.btnSend.Size = New System.Drawing.Size(129, 55)
         Me.btnSend.TabIndex = 1
@@ -162,7 +164,7 @@ Partial Class frmCutting
         'btnSearch
         '
         Me.btnSearch.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnSearch.Location = New System.Drawing.Point(5, 465)
+        Me.btnSearch.Location = New System.Drawing.Point(8, 381)
         Me.btnSearch.Name = "btnSearch"
         Me.btnSearch.Size = New System.Drawing.Size(129, 55)
         Me.btnSearch.TabIndex = 0
@@ -172,7 +174,7 @@ Partial Class frmCutting
         'btnClose
         '
         Me.btnClose.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnClose.Location = New System.Drawing.Point(5, 527)
+        Me.btnClose.Location = New System.Drawing.Point(8, 514)
         Me.btnClose.Name = "btnClose"
         Me.btnClose.Size = New System.Drawing.Size(129, 55)
         Me.btnClose.TabIndex = 0
@@ -182,7 +184,7 @@ Partial Class frmCutting
         'btnSave
         '
         Me.btnSave.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnSave.Location = New System.Drawing.Point(5, 341)
+        Me.btnSave.Location = New System.Drawing.Point(8, 257)
         Me.btnSave.Name = "btnSave"
         Me.btnSave.Size = New System.Drawing.Size(129, 55)
         Me.btnSave.TabIndex = 0
@@ -192,7 +194,7 @@ Partial Class frmCutting
         'btnNew
         '
         Me.btnNew.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnNew.Location = New System.Drawing.Point(5, 279)
+        Me.btnNew.Location = New System.Drawing.Point(8, 195)
         Me.btnNew.Name = "btnNew"
         Me.btnNew.Size = New System.Drawing.Size(129, 55)
         Me.btnNew.TabIndex = 0
@@ -463,7 +465,7 @@ Partial Class frmCutting
         '
         Me.dgvOutPut.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
         Me.dgvOutPut.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        Me.dgvOutPut.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colProductID, Me.colOutProductTypeID, Me.colOutLength, Me.colOutWidth, Me.colOutHeight, Me.colOutQTY, Me.colOutProductCode, Me.colOutProductType, Me.colOutPieceVolume, Me.colOutTotalVolume})
+        Me.dgvOutPut.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colProductID, Me.colOutProductTypeID, Me.colOutLength, Me.colOutWidth, Me.colOutHeight, Me.colOutQTY, Me.colOutProductCode, Me.colOutProductType, Me.colOutPieceVolume, Me.colOutTotalVolume, Me.colDelete})
         Me.dgvOutPut.Dock = System.Windows.Forms.DockStyle.Fill
         Me.dgvOutPut.Location = New System.Drawing.Point(0, 0)
         Me.dgvOutPut.Name = "dgvOutPut"
@@ -535,6 +537,13 @@ Partial Class frmCutting
         Me.colOutTotalVolume.HeaderText = "اجمالي الحجم"
         Me.colOutTotalVolume.MinimumWidth = 6
         Me.colOutTotalVolume.Name = "colOutTotalVolume"
+        '
+        'colDelete
+        '
+        Me.colDelete.HeaderText = ""
+        Me.colDelete.MinimumWidth = 6
+        Me.colDelete.Name = "colDelete"
+        Me.colDelete.Text = "حذف"
         '
         'pnlOutPutsCalculations
         '
@@ -650,7 +659,7 @@ Partial Class frmCutting
         Me.dgvInPut.AllowUserToDeleteRows = False
         Me.dgvInPut.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
         Me.dgvInPut.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        Me.dgvInPut.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colLength, Me.colWidth, Me.colHeight, Me.colQTY, Me.colProductType, Me.colAdd, Me.colDelete})
+        Me.dgvInPut.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colLength, Me.colWidth, Me.colHeight, Me.colQTY, Me.colProductType, Me.colAdd})
         Me.dgvInPut.Dock = System.Windows.Forms.DockStyle.Fill
         Me.dgvInPut.Location = New System.Drawing.Point(0, 0)
         Me.dgvInPut.Name = "dgvInPut"
@@ -711,20 +720,9 @@ Partial Class frmCutting
         Me.colAdd.MinimumWidth = 6
         Me.colAdd.Name = "colAdd"
         Me.colAdd.Resizable = System.Windows.Forms.DataGridViewTriState.[True]
-        Me.colAdd.Text = "Add"
+        Me.colAdd.Text = "إضافة"
         Me.colAdd.UseColumnTextForButtonValue = True
         Me.colAdd.Width = 125
-        '
-        'colDelete
-        '
-        Me.colDelete.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None
-        Me.colDelete.HeaderText = ""
-        Me.colDelete.MinimumWidth = 6
-        Me.colDelete.Name = "colDelete"
-        Me.colDelete.Resizable = System.Windows.Forms.DataGridViewTriState.[False]
-        Me.colDelete.Text = "Delete"
-        Me.colDelete.UseColumnTextForButtonValue = True
-        Me.colDelete.Width = 125
         '
         'tabCuttingFollow
         '
@@ -746,6 +744,16 @@ Partial Class frmCutting
         Me.DataGridView1.RowTemplate.Height = 26
         Me.DataGridView1.Size = New System.Drawing.Size(896, 275)
         Me.DataGridView1.TabIndex = 0
+        '
+        'btnCancel
+        '
+        Me.btnCancel.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.btnCancel.Location = New System.Drawing.Point(8, 445)
+        Me.btnCancel.Name = "btnCancel"
+        Me.btnCancel.Size = New System.Drawing.Size(129, 55)
+        Me.btnCancel.TabIndex = 11
+        Me.btnCancel.Text = "إلغاء"
+        Me.btnCancel.UseVisualStyleBackColor = True
         '
         'frmCutting
         '
@@ -825,6 +833,9 @@ Partial Class frmCutting
     Friend WithEvents cboTargetedStore As ComboBox
     Friend WithEvents Label25 As Label
     Friend WithEvents txtCuttingStatus As TextBox
+    Friend WithEvents SplitContainer1 As SplitContainer
+    Friend WithEvents dgvInPut As DataGridView
+    Friend WithEvents Button1 As Button
     Friend WithEvents colProductID As DataGridViewTextBoxColumn
     Friend WithEvents colOutProductTypeID As DataGridViewTextBoxColumn
     Friend WithEvents colOutLength As DataGridViewTextBoxColumn
@@ -835,14 +846,12 @@ Partial Class frmCutting
     Friend WithEvents colOutProductType As DataGridViewTextBoxColumn
     Friend WithEvents colOutPieceVolume As DataGridViewTextBoxColumn
     Friend WithEvents colOutTotalVolume As DataGridViewTextBoxColumn
-    Friend WithEvents SplitContainer1 As SplitContainer
-    Friend WithEvents dgvInPut As DataGridView
+    Friend WithEvents colDelete As DataGridViewButtonColumn
     Friend WithEvents colLength As DataGridViewTextBoxColumn
     Friend WithEvents colWidth As DataGridViewTextBoxColumn
     Friend WithEvents colHeight As DataGridViewTextBoxColumn
     Friend WithEvents colQTY As DataGridViewTextBoxColumn
     Friend WithEvents colProductType As DataGridViewComboBoxColumn
     Friend WithEvents colAdd As DataGridViewButtonColumn
-    Friend WithEvents colDelete As DataGridViewButtonColumn
-    Friend WithEvents Button1 As Button
+    Friend WithEvents btnCancel As Button
 End Class

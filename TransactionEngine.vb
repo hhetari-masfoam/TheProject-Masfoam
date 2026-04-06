@@ -20,14 +20,14 @@ Public Class TransactionEngine
 
     End Sub
 
-    Public Sub Receive(transactionID As Integer, userID As Integer)
-
-        Using con As New SqlConnection(_connectionString)
-            con.Open()
-
-            Using tran = con.BeginTransaction()
-                Dim opTypeID As Integer = -1
-                Dim operationGroupID As Guid = Guid.NewGuid()
+    Public Sub Receive(
+        transactionID As Integer,
+        userID As Integer,
+        con As SqlConnection,
+        tran As SqlTransaction
+    )
+        Dim opTypeID As Integer = -1
+        Dim operationGroupID As Guid = Guid.NewGuid()
                 Try
 
                     ' =====================================================
@@ -95,15 +95,15 @@ Public Class TransactionEngine
                             End If
 
                             Dim ledgerID =
-_inventoryRepo.InsertCostLedger_Regular_Production(
-transactionID,
-userID,
-m3UnitID,
-operationGroupID,
-seq,
-oldQtyDict,
-con,
-tran)
+                                    _inventoryRepo.InsertCostLedger_Regular_Production(
+                                    transactionID,
+                                    userID,
+                                    m3UnitID,
+                                    operationGroupID,
+                                    seq,
+                                    oldQtyDict,
+                                    con,
+                                    tran)
                             ' Links
                             _inventoryRepo.InsertProductionLedgerLinks(transactionID, operationGroupID, userID, con, tran)
 
@@ -210,15 +210,13 @@ tran)
                             ' Inventory
                             _inventoryRepo.ApplyInventoryOutCut(transactionID, con, tran)
                             _inventoryRepo.ApplyInventoryInCut(transactionID, m3UnitID, 0, con, tran)
-
-                            ' Cost
-                            _inventoryRepo.UpdateFinalProductAvgCostForFG_FromCutLedger(transactionID, con, tran)
+                    _inventoryRepo.UpdateFinalProductAvgCostForFG_FromCutLedger(transactionID, con, tran)
 
 
 ' =====================================================
 ' 1️⃣2️⃣ SALES RETURN
 ' =====================================================
-                        Case 12
+                Case 12
                             oldQtyDict =
                                 _inventoryRepo.GetOldQtyAllStoresReturn(transactionID, operationGroupID, con, tran)
 
@@ -276,7 +274,7 @@ WHERE d.TransactionID = @T
                             Dim ledgerID =
         _inventoryRepo.InsertCostLedger_RegularReturn(transactionID, userID, m3UnitID, operationGroupID, seq, oldQtyDict, con, tran)
 
-                            _inventoryRepo.InsertLedgerLinks_SRT(transactionID, operationGroupID, userID, con, tran)
+                            _inventoryRepo.GetLedgerLinks_SRT(transactionID, operationGroupID, userID, con, tran)
 
                             Dim cnt As Integer = 0
                             Using cmd As New SqlCommand("
@@ -307,28 +305,24 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
 
 
-' =====================================================
-' 1️⃣3️⃣ LOAD
-' =====================================================
+                            ' =====================================================
+                            ' 1️⃣3️⃣ LOAD
+                            ' =====================================================
                         Case 4
                             oldQtyDict =
-                                _inventoryRepo.GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
+                           _inventoryRepo.GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
+                    Dim seq As Integer = 1
+                    _inventoryRepo.InsertCostLedger_OUT_lOADING(transactionID, operationGroupID, seq, oldQtyDict, con, tran)
 
-                            Dim seq As Integer = 1
+                    _inventoryRepo.InsertLoadingLinks(transactionID, operationGroupID, userID, con, tran)
 
-                            ' Ledger
-                            _inventoryRepo.InsertCostLedger_OUT(transactionID, operationGroupID, seq, oldQtyDict, con, tran)
-
-                            _inventoryRepo.InsertLoadingLinks(transactionID, operationGroupID, userID, con, tran)
-
-                            ' Inventory
-                            _inventoryRepo.ApplyInventoryOut(transactionID, con, tran)
-
+                    '   Inventory
+                    _inventoryRepo.ApplyInventoryOut(transactionID, con, tran)
 
 ' =====================================================
 ' PRT
 ' =====================================================
-                        Case 14
+                Case 14
                             oldQtyDict =
                                 _inventoryRepo.GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
 
@@ -370,15 +364,13 @@ WHERE TransactionID=@T AND OperationGroupID=@G
                     _inventoryRepo.FinalizeLedgerMetadata(operationGroupID, con, tran)
                     UpdateSourceDocumentStatus(transactionID, userID, con, tran)
                     _inventoryRepo.UpdateFinalStatuses(transactionID, con, tran)
-                    tran.Commit()
+            _inventoryRepo.DeleteReservationByTransaction(transactionID, con, tran)
 
 
+        Catch ex As Exception
 
-                Catch ex As Exception
 
-                    tran.Rollback()
-
-                    Dim msg As New Text.StringBuilder()
+            Dim msg As New Text.StringBuilder()
 
                     msg.AppendLine("==========================================")
                     msg.AppendLine("        RECEIVE ENGINE CRITICAL ERROR     ")
@@ -475,8 +467,8 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
                 End Try
 
-            End Using
-        End Using
+
+
 
     End Sub
 
@@ -785,7 +777,6 @@ WHERE TransactionID=@T AND OperationGroupID=@G
                     StatusID = 6
                 WHERE DocumentID = @ID
             ", con, tran)
-
                     cmd.Parameters.AddWithValue("@ID", sourceDocumentID)
                     cmd.ExecuteNonQuery()
                 End Using

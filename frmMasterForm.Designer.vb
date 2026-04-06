@@ -45,7 +45,7 @@ Partial Class frmMasterForm
         Me.Button21 = New System.Windows.Forms.Button()
         Me.Button22 = New System.Windows.Forms.Button()
         Me.Button23 = New System.Windows.Forms.Button()
-        Me.Button24 = New System.Windows.Forms.Button()
+        Me.frmGoodsIssue = New System.Windows.Forms.Button()
         Me.Button25 = New System.Windows.Forms.Button()
         Me.Button26 = New System.Windows.Forms.Button()
         Me.Button27 = New System.Windows.Forms.Button()
@@ -264,14 +264,14 @@ Partial Class frmMasterForm
         Me.Button23.Text = "Button1"
         Me.Button23.UseVisualStyleBackColor = True
         '
-        'Button24
+        'frmGoodsIssue
         '
-        Me.Button24.Location = New System.Drawing.Point(14, 235)
-        Me.Button24.Name = "Button24"
-        Me.Button24.Size = New System.Drawing.Size(146, 62)
-        Me.Button24.TabIndex = 0
-        Me.Button24.Text = "Button1"
-        Me.Button24.UseVisualStyleBackColor = True
+        Me.frmGoodsIssue.Location = New System.Drawing.Point(14, 235)
+        Me.frmGoodsIssue.Name = "frmGoodsIssue"
+        Me.frmGoodsIssue.Size = New System.Drawing.Size(146, 62)
+        Me.frmGoodsIssue.TabIndex = 0
+        Me.frmGoodsIssue.Text = "GoodsIssue"
+        Me.frmGoodsIssue.UseVisualStyleBackColor = True
         '
         'Button25
         '
@@ -361,7 +361,7 @@ Partial Class frmMasterForm
         Me.ClientSize = New System.Drawing.Size(1231, 448)
         Me.Controls.Add(Me.lblCurrentUser)
         Me.Controls.Add(Me.btnChangeUser)
-        Me.Controls.Add(Me.Button24)
+        Me.Controls.Add(Me.frmGoodsIssue)
         Me.Controls.Add(Me.frmInvoice)
         Me.Controls.Add(Me.frmProduction)
         Me.Controls.Add(Me.Button31)
@@ -422,7 +422,7 @@ Partial Class frmMasterForm
     Friend WithEvents Button21 As Button
     Friend WithEvents Button22 As Button
     Friend WithEvents Button23 As Button
-    Friend WithEvents Button24 As Button
+    Friend WithEvents frmGoodsIssue As Button
     Friend WithEvents Button25 As Button
     Friend WithEvents Button26 As Button
     Friend WithEvents Button27 As Button

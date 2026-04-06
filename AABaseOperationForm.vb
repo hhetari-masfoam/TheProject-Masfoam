@@ -15,8 +15,11 @@ Public Class AABaseOperationForm
     ' =========================
     ' Connection
     ' =========================
-    Protected ReadOnly ConnStr As String = AppConfig.MainConnectionString
-    ' =========================
+    Protected ReadOnly Property ConnStr As String
+        Get
+            Return AppConfig.MainConnectionString
+        End Get
+    End Property    ' =========================
     ' Central Operation State
     ' =========================
     Protected FormOperationTypeID As Integer = 0
@@ -163,13 +166,13 @@ Public Class AABaseOperationForm
         Dim statusID As Integer = 0
 
         If entityID > 0 Then
-            ' استخدام استعلام مباشر بدون الحاجة إلى FormScopeCode
+
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
-                SELECT StatusID
-                FROM Inventory_TransactionHeader
-                WHERE TransactionID = @EntityID
-            ", con)
+        SELECT StatusID
+        FROM Inventory_DocumentHeader   -- ✅ هنا التعديل
+        WHERE DocumentID = @EntityID
+    ", con)
 
                     cmd.Parameters.AddWithValue("@EntityID", entityID)
                     con.Open()
@@ -178,10 +181,11 @@ Public Class AABaseOperationForm
                     If result IsNot Nothing AndAlso Not IsDBNull(result) Then
                         statusID = CInt(result)
                     End If
+
                 End Using
             End Using
+
         Else
-            ' إنشاء جديد → الحالة الابتدائية
             ResolveInitialStatus()
             statusID = FormStatusID
         End If

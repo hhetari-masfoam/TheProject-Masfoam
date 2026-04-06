@@ -95,7 +95,9 @@
     <Compile Include="AppSession.vb" />
     <Compile Include="AuditHelper.vb" />
     <Compile Include="AvgCostData.vb" />
+    <Compile Include="CostCorrectionService_Old.vb" />
     <Compile Include="CurrentUser.vb" />
+    <Compile Include="CuttingService.vb" />
     <Compile Include="CuttingWasteApplicationService.vb" />
     <Compile Include="DbConfig.vb" />
     <Compile Include="frmBaseSearch.Designer.vb">
@@ -114,6 +116,12 @@
       <DependentUpon>frmBOMSearch.vb</DependentUpon>
     </Compile>
     <Compile Include="frmBOMSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmCostCorrection.Designer.vb">
+      <DependentUpon>frmCostCorrection.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmCostCorrection.vb">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="frmCostCorrectionAdvanceAnalysis.Designer.vb">
@@ -152,10 +160,28 @@
     <Compile Include="frmCuttingWasteCalculatorSearch.vb">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="frmCostCorrection.Designer.vb">
-      <DependentUpon>frmCostCorrection.vb</DependentUpon>
+    <Compile Include="frmCostCorrection_old.Designer.vb">
+      <DependentUpon>frmCostCorrection_old.vb</DependentUpon>
     </Compile>
-    <Compile Include="frmCostCorrection.vb">
+    <Compile Include="frmCostCorrection_old.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmEngineEditConfirmation.Designer.vb">
+      <DependentUpon>frmEngineEditConfirmation.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmEngineEditConfirmation.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmGoodsIssue.Designer.vb">
+      <DependentUpon>frmGoodsIssue.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmGoodsIssue.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmLoadingSearch.Designer.vb">
+      <DependentUpon>frmLoadingSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmLoadingSearch.vb">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="frmPurchaseReturn.Designer.vb">
@@ -302,11 +328,13 @@
     <Compile Include="frmStockTransactionSearch.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="GoodsIssueService.vb" />
     <Compile Include="HashHelper.vb" />
     <Compile Include="InventoryMovementDTO.vb" />
     <Compile Include="CostCorrectionModels.vb" />
     <Compile Include="CostCorrectionService.vb" />
     <Compile Include="InventoryRepository.vb" />
+    <Compile Include="ProductionService.vb" />
     <Compile Include="PurchaseApplicationService.vb" />
     <Compile Include="InvoiceApplicationService.vb" />
     <Compile Include="frmInvoiceSearch.Designer.vb">
@@ -351,6 +379,7 @@
   <ItemGroup>
     <EmbeddedResource Include="AABaseOperationForm.resx">
       <DependentUpon>AABaseOperationForm.vb</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="ABaseEditMappingProvider.resx">
       <DependentUpon>ABaseEditMappingProvider.vb</DependentUpon>
@@ -368,6 +397,9 @@
     <EmbeddedResource Include="frmBOMSearch.resx">
       <DependentUpon>frmBOMSearch.vb</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmCostCorrection.resx">
+      <DependentUpon>frmCostCorrection.vb</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmCostCorrectionAdvanceAnalysis.resx">
       <DependentUpon>frmCostCorrectionAdvanceAnalysis.vb</DependentUpon>
     </EmbeddedResource>
@@ -383,8 +415,17 @@
     <EmbeddedResource Include="frmCuttingWasteCalculatorSearch.resx">
       <DependentUpon>frmCuttingWasteCalculatorSearch.vb</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmCostCorrection.resx">
-      <DependentUpon>frmCostCorrection.vb</DependentUpon>
+    <EmbeddedResource Include="frmCostCorrection_old.resx">
+      <DependentUpon>frmCostCorrection_old.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmEngineEditConfirmation.resx">
+      <DependentUpon>frmEngineEditConfirmation.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmGoodsIssue.resx">
+      <DependentUpon>frmGoodsIssue.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmLoadingSearch.resx">
+      <DependentUpon>frmLoadingSearch.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmPurchaseReturn.resx">
       <DependentUpon>frmPurchaseReturn.vb</DependentUpon>

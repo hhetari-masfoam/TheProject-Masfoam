@@ -71,14 +71,15 @@ Partial Class frmLoadingBoard
         Me.colOpenLOsVehicleInfo = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colOpenLOsSupervisor = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.pnlOpenLOs = New System.Windows.Forms.Panel()
+        Me.btnSearch = New System.Windows.Forms.Button()
         Me.btnRemoveSR = New System.Windows.Forms.Button()
         Me.btnCancel = New System.Windows.Forms.Button()
         Me.btnExportToInvoice = New System.Windows.Forms.Button()
         Me.btnCloseBoard = New System.Windows.Forms.Button()
         Me.btnAddSelectedSRToLO = New System.Windows.Forms.Button()
         Me.btnSaveLO = New System.Windows.Forms.Button()
-        Me.Button2 = New System.Windows.Forms.Button()
-        Me.btnPostLoading = New System.Windows.Forms.Button()
+        Me.btnPrint = New System.Windows.Forms.Button()
+        Me.btnSendLoading = New System.Windows.Forms.Button()
         Me.pnlOverlayLoading.SuspendLayout()
         CType(Me.scLoadingMain, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.scLoadingMain.Panel1.SuspendLayout()
@@ -510,19 +511,29 @@ Partial Class frmLoadingBoard
         '
         'pnlOpenLOs
         '
+        Me.pnlOpenLOs.Controls.Add(Me.btnSearch)
         Me.pnlOpenLOs.Controls.Add(Me.btnRemoveSR)
         Me.pnlOpenLOs.Controls.Add(Me.btnCancel)
         Me.pnlOpenLOs.Controls.Add(Me.btnExportToInvoice)
         Me.pnlOpenLOs.Controls.Add(Me.btnCloseBoard)
         Me.pnlOpenLOs.Controls.Add(Me.btnAddSelectedSRToLO)
         Me.pnlOpenLOs.Controls.Add(Me.btnSaveLO)
-        Me.pnlOpenLOs.Controls.Add(Me.Button2)
-        Me.pnlOpenLOs.Controls.Add(Me.btnPostLoading)
+        Me.pnlOpenLOs.Controls.Add(Me.btnPrint)
+        Me.pnlOpenLOs.Controls.Add(Me.btnSendLoading)
         Me.pnlOpenLOs.Dock = System.Windows.Forms.DockStyle.Bottom
         Me.pnlOpenLOs.Location = New System.Drawing.Point(0, 608)
         Me.pnlOpenLOs.Name = "pnlOpenLOs"
         Me.pnlOpenLOs.Size = New System.Drawing.Size(597, 145)
         Me.pnlOpenLOs.TabIndex = 3
+        '
+        'btnSearch
+        '
+        Me.btnSearch.Location = New System.Drawing.Point(266, 47)
+        Me.btnSearch.Name = "btnSearch"
+        Me.btnSearch.Size = New System.Drawing.Size(124, 34)
+        Me.btnSearch.TabIndex = 8
+        Me.btnSearch.Text = "بحث"
+        Me.btnSearch.UseVisualStyleBackColor = True
         '
         'btnRemoveSR
         '
@@ -583,25 +594,25 @@ Partial Class frmLoadingBoard
         Me.btnSaveLO.Text = "حفظ التحميل"
         Me.btnSaveLO.UseVisualStyleBackColor = False
         '
-        'Button2
+        'btnPrint
         '
-        Me.Button2.BackColor = System.Drawing.Color.Gainsboro
-        Me.Button2.Location = New System.Drawing.Point(135, 43)
-        Me.Button2.Name = "Button2"
-        Me.Button2.Size = New System.Drawing.Size(124, 34)
-        Me.Button2.TabIndex = 2
-        Me.Button2.Text = "طباعة"
-        Me.Button2.UseVisualStyleBackColor = False
+        Me.btnPrint.BackColor = System.Drawing.Color.Gainsboro
+        Me.btnPrint.Location = New System.Drawing.Point(135, 43)
+        Me.btnPrint.Name = "btnPrint"
+        Me.btnPrint.Size = New System.Drawing.Size(124, 34)
+        Me.btnPrint.TabIndex = 2
+        Me.btnPrint.Text = "طباعة"
+        Me.btnPrint.UseVisualStyleBackColor = False
         '
-        'btnPostLoading
+        'btnSendLoading
         '
-        Me.btnPostLoading.BackColor = System.Drawing.Color.Gainsboro
-        Me.btnPostLoading.Location = New System.Drawing.Point(3, 43)
-        Me.btnPostLoading.Name = "btnPostLoading"
-        Me.btnPostLoading.Size = New System.Drawing.Size(124, 34)
-        Me.btnPostLoading.TabIndex = 0
-        Me.btnPostLoading.Text = "إرسال للفوترة"
-        Me.btnPostLoading.UseVisualStyleBackColor = False
+        Me.btnSendLoading.BackColor = System.Drawing.Color.Gainsboro
+        Me.btnSendLoading.Location = New System.Drawing.Point(3, 43)
+        Me.btnSendLoading.Name = "btnSendLoading"
+        Me.btnSendLoading.Size = New System.Drawing.Size(124, 34)
+        Me.btnSendLoading.TabIndex = 0
+        Me.btnSendLoading.Text = "إرسال للفوترة"
+        Me.btnSendLoading.UseVisualStyleBackColor = False
         '
         'frmLoadingBoard
         '
@@ -637,8 +648,8 @@ Partial Class frmLoadingBoard
     Friend WithEvents btnCloseBoard As Button
     Friend WithEvents btnAddSelectedSRToLO As Button
     Friend WithEvents btnSaveLO As Button
-    Friend WithEvents Button2 As Button
-    Friend WithEvents btnPostLoading As Button
+    Friend WithEvents btnPrint As Button
+    Friend WithEvents btnSendLoading As Button
     Friend WithEvents scLoadingMain As SplitContainer
     Friend WithEvents dgvLOs As DataGridView
     Friend WithEvents dgvLoadingSR As DataGridView
@@ -687,4 +698,5 @@ Partial Class frmLoadingBoard
     Friend WithEvents colLOsStoreID As DataGridViewComboBoxColumn
     Friend WithEvents btnCancel As Button
     Friend WithEvents btnRemoveSR As Button
+    Friend WithEvents btnSearch As Button
 End Class

@@ -1113,7 +1113,7 @@ CALC:
                 Throw New Exception("لا يسمح باعتماد هذه الفاتورة حسب سياسة النظام")
             End If
 
-            Dim service As New InvoiceApplicationService()
+            Dim service As New InvoiceApplicationService(ConnStr)
 
             Dim isSimplified As Boolean = rbuSimplified.Checked
             Dim autoClear As Boolean = rbuSimulation.Checked Or rbuDeveloper.Checked
@@ -2274,7 +2274,7 @@ ORDER BY LO.LOID DESC
             MessageBoxIcon.Warning
         ) <> DialogResult.Yes Then Exit Sub
 
-            Dim service As New InvoiceApplicationService()
+            Dim service As New InvoiceApplicationService(ConnStr)
             Dim oldDocumentID As Integer = CurrentDocumentID
 
             ' =========================
@@ -2631,7 +2631,7 @@ WHERE D.DocumentID = @DocumentID
             Dim header As InvoiceHeaderInput =
             BuildInvoiceHeader(details)
 
-            Dim service As New InvoiceApplicationService()
+            Dim service As New InvoiceApplicationService(ConnStr)
 
             ' ======================================
             ' منع تعدد أنواع الضريبة
@@ -2757,7 +2757,7 @@ WHERE D.DocumentID = @DocumentID
 
         If CurrentDocumentID <= 0 Then Exit Sub
 
-        Dim service As New InvoiceApplicationService()
+        Dim service As New InvoiceApplicationService(ConnStr)
         '     Dim zatcaDT As DataTable =
         '    service.PrepareZATCAReport(CurrentTransactionID)
 
@@ -2783,7 +2783,7 @@ WHERE D.DocumentID = @DocumentID
 
         If CurrentDocumentID <= 0 Then Exit Sub
 
-        Dim service As New InvoiceApplicationService()
+        Dim service As New InvoiceApplicationService(ConnStr)
 
         '        If Not service.ValidateInvoiceChain(CurrentTransactionID) Then
         '       MessageBox.Show("تسلسل الفاتورة غير صالح", "تحذير")
@@ -3136,7 +3136,7 @@ WHERE D.DocumentID = @DocumentID
                 Exit Sub
             End If
 
-            Dim service As New InvoiceApplicationService()
+            Dim service As New InvoiceApplicationService(ConnStr)
             service.ReopenRejectedInvoice(CurrentDocumentID, CurrentEmployeeID)
 
             ' تحديث الشاشة

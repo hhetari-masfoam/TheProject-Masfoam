@@ -685,7 +685,6 @@ WHERE H.DocumentType = 'PRT'
         btnCancel.Enabled = policy.IsCancelable
 
         cboPartnerID.Enabled = policy.AllowEditData
-        cboTargetStoreID.Enabled = policy.AllowEditData
         txtInvoiceNote.ReadOnly = Not policy.AllowEditData
 
         dgvInvoiceDetails.ReadOnly = (policy.Mode = EditMode.None)
@@ -1420,17 +1419,13 @@ WHERE R.DocumentID = @PRT
     End Sub
 
     Private Sub LoadInvoiceDocument(documentID As Integer)
-
         If documentID <= 0 Then Exit Sub
         If IsLoading OrElse IsResolvingProduct Then Return
         IsLoadingInvoiceDetails = True
 
         Using con As New SqlConnection(ConnStr)
             con.Open()
-
-            ' ============================================
-            ' 1️⃣ تحميل الهيدر بالكامل
-            ' ============================================
+            ' تحميل بيانات الهيدر
             Using cmd As New SqlCommand("
 SELECT
     H.*,
@@ -1439,94 +1434,44 @@ SELECT
     LO.LOCode,
     SR.SRCode
 FROM Inventory_DocumentHeader H
-LEFT JOIN Master_Partner P
-    ON P.PartnerID = H.PartnerID
-LEFT JOIN Document_Link L
-    ON L.TargetDocumentID = H.DocumentID
-    AND L.TargetType = 'SAL'
-LEFT JOIN Logistics_LoadingOrder LO
-    ON LO.LOID = L.SourceDocumentID
-LEFT JOIN Logistics_LoadingOrderSR LOSR
-    ON LOSR.LOID = LO.LOID
-LEFT JOIN Business_SR SR
-    ON SR.SRID = LOSR.SRID
+LEFT JOIN Master_Partner P ON P.PartnerID = H.PartnerID
+LEFT JOIN Document_Link L ON L.TargetDocumentID = H.DocumentID AND L.TargetType = 'SAL'
+LEFT JOIN Logistics_LoadingOrder LO ON LO.LOID = L.SourceDocumentID
+LEFT JOIN Logistics_LoadingOrderSR LOSR ON LOSR.LOID = LO.LOID
+LEFT JOIN Business_SR SR ON SR.SRID = LOSR.SRID
 WHERE H.DocumentID = @DocumentID
-
-
 ", con)
-
                 cmd.Parameters.AddWithValue("@DocumentID", documentID)
-
                 Using rd = cmd.ExecuteReader()
                     If rd.Read() Then
-
-
                         txtInvoicCode.Text = rd("DocumentNo").ToString()
                         dtpDocumentDate.Value = CDate(rd("DocumentDate"))
-
                         cboPartnerID.SelectedValue = rd("PartnerID")
                         cboPaymentMethodID.SelectedValue = rd("PaymentMethodID")
                         cboPaymentTerm.SelectedValue = rd("PaymentTermID")
-                        Dim initialStatus As Integer =
-    Workflow_OperationPolicyHelper.GetInitialStatusByScope("PRT")
-
+                        Dim initialStatus As Integer = Workflow_OperationPolicyHelper.GetInitialStatusByScope("PRT")
                         cboStatusID.SelectedValue = initialStatus
-
                         chkIsIncludeVAT.Checked = CBool(rd("IsTaxInclusive"))
-
-                        txtInvoiceNote.Text =
-                        If(IsDBNull(rd("Notes")), "", rd("Notes").ToString())
-
-                        txtPartnerName.Text =
-                        If(IsDBNull(rd("PartnerName")), "", rd("PartnerName").ToString())
-
-
-                        If Not IsDBNull(rd("TaxReasonID")) Then
-                            cboTaxReason.SelectedValue = rd("TaxReasonID")
-                        End If
-                        If Not IsDBNull(rd("TaxNumber")) Then
-                            txtVATRegistrationNumber.Text = rd("TaxNumber").ToString()
-                        End If
-
-                        ' ===============================
-                        ' تحميل الإجماليات كما هي
-                        ' ===============================
+                        txtInvoiceNote.Text = If(IsDBNull(rd("Notes")), "", rd("Notes").ToString())
+                        txtPartnerName.Text = If(IsDBNull(rd("PartnerName")), "", rd("PartnerName").ToString())
+                        If Not IsDBNull(rd("TaxReasonID")) Then cboTaxReason.SelectedValue = rd("TaxReasonID")
+                        If Not IsDBNull(rd("TaxNumber")) Then txtVATRegistrationNumber.Text = rd("TaxNumber").ToString()
                         txtTotalAmount.Text = rd("TotalAmount").ToString()
                         txtTotalDiscount.Text = rd("TotalDiscount").ToString()
                         txtTotalTaxableAmount.Text = rd("TotalTaxableAmount").ToString()
                         txtTotalTax.Text = rd("TotalTax").ToString()
                         txtGrandTotal.Text = rd("GrandTotal").ToString()
-
                     End If
                 End Using
             End Using
 
-            ' ============================================
-            ' 2️⃣ تحميل التفاصيل بالكامل بدون حساب
-            ' ============================================
+            ' تحميل التفاصيل
             InvoiceDetailsDT.Clear()
-            If InvoiceDetailsDT.Rows.Count > 0 Then
-
-                Dim firstRow As DataRow = InvoiceDetailsDT.Rows(0)
-
-                If Not IsDBNull(firstRow("TargetStoreID")) Then
-
-                    Dim storeID As Integer = CInt(firstRow("TargetStoreID"))
-
-                    cboTargetStoreID.SelectedValue = storeID
-
-                    ' تحميل منتجات هذا المخزن
-                    ChangeTargetStore(storeID)
-
-                End If
-
-            End If
             dgvInvoiceDetails.SuspendLayout()
             Using cmd As New SqlCommand("
 SELECT
     D.DetailID,
-    D.Quantity AS OriginalQty,   -- الكمية الأصلية فقط
-
+    D.Quantity AS OriginalQty,
     D.ProductID,
     P.ProductCode,
     P.ProductName,
@@ -1534,48 +1479,151 @@ SELECT
     P.Length,
     P.Width,
     P.Height,
-
     D.UnitID,
     U.UnitName,
     U.UnitCode,
+    D.UnitPrice,
+    D.DiscountRate,
+    D.TaxRate,
+    D.TaxTypeID,
+    D.TargetStoreID
+FROM Inventory_DocumentDetails D
+INNER JOIN Master_Product P ON P.ProductID = D.ProductID
+LEFT JOIN Master_Unit U ON U.UnitID = D.UnitID
+WHERE D.DocumentID = @DocumentID
+", con)
+                cmd.Parameters.AddWithValue("@DocumentID", documentID)
+                Using rd = cmd.ExecuteReader()
+                    While rd.Read()
+                        Dim dr As DataRow = InvoiceDetailsDT.NewRow()
+                        dr("ProductID") = rd("ProductID")
+                        dr("ProductCode") = rd("ProductCode")
+                        dr("ProductName") = rd("ProductName")
+                        dr("ProductTypeID") = rd("ProductTypeID")
+                        dr("UnitID") = rd("UnitID")
+                        dr("UnitCode") = rd("UnitCode")
+                        dr("UnitName") = rd("UnitName")
+                        dr("Quantity") = rd("OriginalQty")
+                        dr("ReturnQty") = 0D
+                        dr("PieceSellPrice") = rd("UnitPrice")
+                        dr("DiscountRate") = rd("DiscountRate")
+                        dr("TaxRate") = rd("TaxRate")
+                        dr("TaxTypeID") = rd("TaxTypeID")
+                        ' الصحيحة: خزن مخزن السطر في TargetStoreID
+                        If Not IsDBNull(rd("TargetStoreID")) Then
+                            dr("TargetStoreID") = rd("TargetStoreID")
+                        Else
+                            dr("TargetStoreID") = DBNull.Value
+                        End If
+                        dr("SourceDocumentDetailID") = rd("DetailID")
+                        InvoiceDetailsDT.Rows.Add(dr)
+                    End While
+                End Using
+            End Using
+            dgvInvoiceDetails.ResumeLayout()
 
+            ' تعبئة ComboBox المستودع من أول سطر فعلي
+            If InvoiceDetailsDT.Rows.Count > 0 Then
+                Dim firstRow As DataRow = InvoiceDetailsDT.Rows(0)
+                If Not IsDBNull(firstRow("TargetStoreID")) Then
+                    Dim storeID As Integer = CInt(firstRow("TargetStoreID"))
+                    If cboTargetStoreID.DataSource Is Nothing OrElse cboTargetStoreID.Items.Count = 0 Then LoadStores()
+                    cboTargetStoreID.SelectedValue = storeID
+                    ChangeTargetStore(storeID)
+                End If
+            End If
+
+        End Using
+
+        IsLoadingInvoiceDetails = False
+        btnSaveDraft.Text = "حفظ"
+        ApplyInvoicePermission()
+    End Sub
+
+    Private Sub LoadPRTDocument(documentID As Integer)
+        If documentID <= 0 Then Exit Sub
+        IsLoadingInvoiceDetails = True
+
+        Using con As New SqlConnection(ConnStr)
+            con.Open()
+            ' تحميل الهيدر
+            Using cmd As New SqlCommand("
+SELECT
+    H.*,
+    P.PartnerName,
+    P.VATRegistrationNumber AS TaxNumber
+FROM Inventory_DocumentHeader H
+LEFT JOIN Master_Partner P ON P.PartnerID = H.PartnerID
+WHERE H.DocumentID = @DocumentID
+", con)
+                cmd.Parameters.AddWithValue("@DocumentID", documentID)
+                Using rd = cmd.ExecuteReader()
+                    If rd.Read() Then
+                        CurrentPRTDocumentID = CInt(rd("DocumentID"))
+                        CurrentSourceSALDocumentID = 0
+                        txtInvoicCode.Text = rd("DocumentNo").ToString()
+                        dtpDocumentDate.Value = CDate(rd("DocumentDate"))
+                        cboPartnerID.SelectedValue = rd("PartnerID")
+                        cboPaymentMethodID.SelectedValue = rd("PaymentMethodID")
+                        cboPaymentTerm.SelectedValue = rd("PaymentTermID")
+                        cboStatusID.SelectedValue = CInt(rd("StatusID"))
+                        chkIsIncludeVAT.Checked = CBool(rd("IsTaxInclusive"))
+                        txtInvoiceNote.Text = If(IsDBNull(rd("Notes")), "", rd("Notes").ToString())
+                        txtPartnerName.Text = If(IsDBNull(rd("PartnerName")), "", rd("PartnerName").ToString())
+                        If Not IsDBNull(rd("TaxReasonID")) Then cboTaxReason.SelectedValue = rd("TaxReasonID")
+                        If Not IsDBNull(rd("TaxNumber")) Then txtVATRegistrationNumber.Text = rd("TaxNumber").ToString()
+                        txtTotalAmount.Text = rd("TotalAmount").ToString()
+                        txtTotalDiscount.Text = rd("TotalDiscount").ToString()
+                        txtTotalTaxableAmount.Text = rd("TotalTaxableAmount").ToString()
+                        txtTotalTax.Text = rd("TotalTax").ToString()
+                        txtGrandTotal.Text = rd("GrandTotal").ToString()
+                    End If
+                End Using
+            End Using
+
+            ' تحميل التفاصيل
+            InvoiceDetailsDT.Clear()
+
+            Using cmd As New SqlCommand("
+SELECT
+    D.DetailID,
+    D.SourceDocumentDetailID,
+    D.Quantity AS ReturnQty,
+    SD.Quantity AS OriginalQty,
+    D.ProductID,
+    P.ProductCode,
+    P.ProductName,
+    P.ProductTypeID,
+    P.Length,
+    P.Width,
+    P.Height,
+    D.UnitID,
+    U.UnitName,
+    U.UnitCode,
     D.UnitPrice,
     D.DiscountRate,
     D.TaxRate,
     D.TaxTypeID,
     D.SourceStoreID
-
 FROM Inventory_DocumentDetails D
-
-INNER JOIN Master_Product P
-    ON P.ProductID = D.ProductID
-
-LEFT JOIN Master_Unit U
-    ON U.UnitID = D.UnitID
-
+LEFT JOIN Inventory_DocumentDetails SD ON SD.DetailID = D.SourceDocumentDetailID
+INNER JOIN Master_Product P ON P.ProductID = D.ProductID
+LEFT JOIN Master_Unit U ON U.UnitID = D.UnitID
 WHERE D.DocumentID = @DocumentID
 ", con)
-
                 cmd.Parameters.AddWithValue("@DocumentID", documentID)
-
                 Using rd = cmd.ExecuteReader()
-
                     While rd.Read()
-
                         Dim dr As DataRow = InvoiceDetailsDT.NewRow()
-
                         dr("ProductID") = rd("ProductID")
                         dr("ProductCode") = rd("ProductCode")
                         dr("ProductName") = rd("ProductName")
                         dr("ProductTypeID") = rd("ProductTypeID")
-
                         dr("UnitID") = rd("UnitID")
                         dr("UnitCode") = rd("UnitCode")
                         dr("UnitName") = rd("UnitName")
-
-                        dr("Quantity") = rd("OriginalQty")   ' الكمية الأصلية
-                        dr("ReturnQty") = 0D            ' دائماً صفر عند إنشاء مرتجع
-
+                        dr("Quantity") = rd("OriginalQty")
+                        dr("ReturnQty") = rd("ReturnQty")
                         dr("PieceSellPrice") = rd("UnitPrice")
                         dr("DiscountRate") = rd("DiscountRate")
                         dr("TaxRate") = rd("TaxRate")
@@ -1585,201 +1633,26 @@ WHERE D.DocumentID = @DocumentID
                         Else
                             dr("TargetStoreID") = DBNull.Value
                         End If
-
-                        dr("SourceDocumentDetailID") = rd("DetailID")
-                        InvoiceDetailsDT.Rows.Add(dr)
-
-                    End While
-
-                End Using
-                ' ✅ تحديد المخزن من التفاصيل
-
-            End Using
-
-        End Using
-        dgvInvoiceDetails.ResumeLayout()
-        IsLoadingInvoiceDetails = False
-
-        btnSaveDraft.Text = "حفظ"
-        ApplyInvoicePermission()
-    End Sub
-
-    Private Sub LoadPRTDocument(documentID As Integer)
-
-        If documentID <= 0 Then Exit Sub
-
-        IsLoadingInvoiceDetails = True
-
-        Using con As New SqlConnection(ConnStr)
-            con.Open()
-
-            ' ============================================
-            ' 1️⃣ تحميل الهيدر بالكامل
-            ' ============================================
-            Using cmd As New SqlCommand("
-SELECT
-    H.*,
-    P.PartnerName,
-    P.VATRegistrationNumber AS TaxNumber
-FROM Inventory_DocumentHeader H
-LEFT JOIN Master_Partner P
-    ON P.PartnerID = H.PartnerID
-WHERE H.DocumentID = @DocumentID
-
-
-", con)
-
-                cmd.Parameters.AddWithValue("@DocumentID", documentID)
-
-                Using rd = cmd.ExecuteReader()
-                    If rd.Read() Then
-
-                        CurrentPRTDocumentID = CInt(rd("DocumentID"))
-                        CurrentSourceSALDocumentID = 0
-
-                        txtInvoicCode.Text = rd("DocumentNo").ToString()
-                        dtpDocumentDate.Value = CDate(rd("DocumentDate"))
-
-                        cboPartnerID.SelectedValue = rd("PartnerID")
-                        cboPaymentMethodID.SelectedValue = rd("PaymentMethodID")
-                        cboPaymentTerm.SelectedValue = rd("PaymentTermID")
-                        cboStatusID.SelectedValue = CInt(rd("StatusID"))
-
-                        chkIsIncludeVAT.Checked = CBool(rd("IsTaxInclusive"))
-
-                        txtInvoiceNote.Text =
-                        If(IsDBNull(rd("Notes")), "", rd("Notes").ToString())
-
-                        txtPartnerName.Text =
-                        If(IsDBNull(rd("PartnerName")), "", rd("PartnerName").ToString())
-
-
-                        If Not IsDBNull(rd("TaxReasonID")) Then
-                            cboTaxReason.SelectedValue = rd("TaxReasonID")
-                        End If
-                        If Not IsDBNull(rd("TaxNumber")) Then
-                            txtVATRegistrationNumber.Text = rd("TaxNumber").ToString()
-                        End If
-
-                        ' ===============================
-                        ' تحميل الإجماليات كما هي
-                        ' ===============================
-                        txtTotalAmount.Text = rd("TotalAmount").ToString()
-                        txtTotalDiscount.Text = rd("TotalDiscount").ToString()
-                        txtTotalTaxableAmount.Text = rd("TotalTaxableAmount").ToString()
-                        txtTotalTax.Text = rd("TotalTax").ToString()
-                        txtGrandTotal.Text = rd("GrandTotal").ToString()
-
-                    End If
-                End Using
-            End Using
-
-            ' ============================================
-            ' 2️⃣ تحميل التفاصيل بالكامل بدون حساب
-            ' ============================================
-            InvoiceDetailsDT.Clear()
-
-            Using cmd As New SqlCommand("
-SELECT
-    D.DetailID,
-    D.SourceDocumentDetailID,
-    D.Quantity AS ReturnQty,
-    SD.Quantity AS OriginalQty,
-
-    D.ProductID,
-    P.ProductCode,
-    P.ProductName,
-    P.ProductTypeID,
-    P.Length,
-    P.Width,
-    P.Height,
-
-    D.UnitID,
-    U.UnitName,
-    U.UnitCode,
-
-    D.UnitPrice,
-    D.DiscountRate,
-    D.TaxRate,
-    D.TaxTypeID,
-    D.TargetStoreID
-
-FROM Inventory_DocumentDetails D
-
-LEFT JOIN Inventory_DocumentDetails SD
-    ON SD.DetailID = D.SourceDocumentDetailID
-
-INNER JOIN Master_Product P
-    ON P.ProductID = D.ProductID
-
-LEFT JOIN Master_Unit U
-    ON U.UnitID = D.UnitID
-
-WHERE D.DocumentID = @DocumentID
-
-", con)
-
-                cmd.Parameters.AddWithValue("@DocumentID", documentID)
-
-                Using rd = cmd.ExecuteReader()
-
-                    While rd.Read()
-
-                        Dim dr As DataRow = InvoiceDetailsDT.NewRow()
-
-                        dr("ProductID") = rd("ProductID")
-                        dr("ProductCode") = rd("ProductCode")
-                        dr("ProductName") = rd("ProductName")
-                        dr("ProductTypeID") = rd("ProductTypeID")
-
-                        dr("UnitID") = rd("UnitID")
-                        dr("UnitCode") = rd("UnitCode")
-                        dr("UnitName") = rd("UnitName")
-
-                        dr("Quantity") = rd("OriginalQty")
-                        dr("ReturnQty") = rd("ReturnQty")
-
-                        dr("PieceSellPrice") = rd("UnitPrice")
-                        dr("DiscountRate") = rd("DiscountRate")
-                        dr("TaxRate") = rd("TaxRate")
-                        dr("TaxTypeID") = rd("TaxTypeID")
-
-                        If Not IsDBNull(rd("TargetStoreID")) Then
-                            dr("TargetStoreID") = rd("TargetStoreID")
-                        Else
-                            dr("TargetStoreID") = DBNull.Value
-                        End If
                         dr("SourceDocumentDetailID") = rd("SourceDocumentDetailID")
-
-                        ' 🔥 هذا كان ناقص
                         InvoiceDetailsDT.Rows.Add(dr)
-
                     End While
-
                 End Using
-                ' ✅ تحديد المخزن من التفاصيل
+
+                ' تعبئة الكمبو بعد تحميل البيانات
                 If InvoiceDetailsDT.Rows.Count > 0 Then
-
                     Dim firstRow As DataRow = InvoiceDetailsDT.Rows(0)
-
                     If Not IsDBNull(firstRow("TargetStoreID")) Then
                         Dim storeID As Integer = CInt(firstRow("TargetStoreID"))
-
+                        If cboTargetStoreID.DataSource Is Nothing OrElse cboTargetStoreID.Items.Count = 0 Then LoadStores()
                         cboTargetStoreID.SelectedValue = storeID
-
-                        ' تحميل منتجات هذا المخزن
                         ChangeTargetStore(storeID)
-
                     End If
-
                 End If
-
             End Using
 
         End Using
 
         IsLoadingInvoiceDetails = False
-
         btnSaveDraft.Text = "حفظ"
         ApplyInvoicePermission()
     End Sub

@@ -3,7 +3,7 @@ Imports System.Data.SqlClient
 
 Public Class frmStockTransactionSearch
     Inherits frmBaseSearch
-
+    Public Property CurrentMode As Integer
     Public Property SelectedTransactionID As Integer = 0
 
     Private Sub frmStockTransactionSearch_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -15,7 +15,43 @@ Public Class frmStockTransactionSearch
     ' تحميل كل الترانسكشنز
     ' =========================
     Private Sub LoadAllTransactions()
+
         Dim dt As New DataTable()
+
+        ' =========================
+        ' تحديد نوع العملية حسب المود
+        ' =========================
+        Dim operationTypeID As Integer = 0
+
+        Select Case CurrentMode
+            Case 1 ' TransferSend
+                operationTypeID = 10
+
+            Case 2 ' TransferReceive
+                operationTypeID = 10
+
+            Case 3 ' PurchaseReceive
+                operationTypeID = 7
+
+            Case 4 ' ProductionReceive
+                operationTypeID = 6
+
+            Case 5 ' CuttingReceive
+                operationTypeID = 11
+
+            Case 6 ' SalesReturnReceive
+                operationTypeID = 12
+
+            Case 7 ' PurchaseReturnSend
+                operationTypeID = 14
+
+            Case 8 ' CuttingWasteReceive
+                operationTypeID = 13
+
+            Case 9 ' PostSales
+                operationTypeID = 4   ' فقط للعرض حالياً
+        End Select
+
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
@@ -36,8 +72,11 @@ SELECT
 FROM dbo.Inventory_TransactionHeader h
 LEFT JOIN dbo.Workflow_OperationType ot
     ON ot.OperationTypeID = h.OperationTypeID
+WHERE h.OperationTypeID = @OperationTypeID
 ORDER BY h.TransactionDate DESC
 ", con)
+
+                cmd.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
 
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -47,8 +86,8 @@ ORDER BY h.TransactionDate DESC
 
         dgvSearch.AutoGenerateColumns = True
         dgvSearch.DataSource = dt
-    End Sub
 
+    End Sub
     Private Sub dgvSearch_CellMouseDoubleClick(sender As Object, e As DataGridViewCellMouseEventArgs)
         If e.RowIndex < 0 Then Exit Sub
 

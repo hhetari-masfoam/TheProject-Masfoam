@@ -469,7 +469,7 @@ Public Class frmProduction
         For Each colName In producedNumericCols
             If dgvProduced.Columns.Contains(colName) Then
                 With dgvProduced.Columns(colName)
-                    .DefaultCellStyle.Format = "N1"
+                    .DefaultCellStyle.Format = "N2"
                     .DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
                 End With
             End If
@@ -501,7 +501,7 @@ Public Class frmProduction
         For Each colName In calcNumericCols
             If dgvProductionCalculations.Columns.Contains(colName) Then
                 With dgvProductionCalculations.Columns(colName)
-                    .DefaultCellStyle.Format = "N1"
+                    .DefaultCellStyle.Format = "N2"
                     .DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
                 End With
             End If
@@ -655,7 +655,7 @@ Public Class frmProduction
         ' =========================
         ApplyGridVisualStyle()
         FormatProductionGridColumns()
-
+        FormatFormNumbers()
         ' =========================
         ' تهيئة فورم إنتاج جديد
         ' =========================
@@ -935,7 +935,7 @@ Public Class frmProduction
 
                 Dim result = cmd.ExecuteScalar()
                 If result IsNot Nothing AndAlso IsNumeric(result) Then
-                    txtPastProductAverageCost.Text = CDec(result).ToString("N1")
+                    txtPastProductAverageCost.Text = CDec(result).ToString("N2")
                 Else
                     txtPastProductAverageCost.Text = "0"
                 End If
@@ -1473,17 +1473,12 @@ ORDER BY VersionNo DESC
         Select Case CurrentSubCategoryID
             Case 9, 11
                 Return GetDec(txtProductionAmount.Text)
+
             Case 10
-                Dim totalVolume As Decimal = 0D
-                For Each rr As DataGridViewRow In dgvProduced.Rows
-                    If rr.IsNewRow Then Continue For
-                    totalVolume += GetDec(rr.Cells("colManTotalProductVolume").Value)
-                Next
-                Return totalVolume
+                Return GetDec(txtTotalProductionVolume.Text)
         End Select
         Return 0D
     End Function
-
     ' ===== خطأ 2: SelectedValueChanged مقفول دائمًا بسبب IsCleaningManualChange =====
     Private Sub cboCleaningChemical_SelectedValueChanged(
     sender As Object,
@@ -1537,6 +1532,37 @@ ORDER BY VersionNo DESC
         MarkAsDirty()
 
     End Sub
+
+    Private Sub dgvProduced_CellValueChanged(
+    sender As Object,
+    e As DataGridViewCellEventArgs
+) Handles dgvProduced.CellValueChanged
+
+        If IsFormLoading Then Exit Sub
+        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Exit Sub
+
+        Dim colName As String = dgvProduced.Columns(e.ColumnIndex).Name
+
+        If colName <> "colManLength" AndAlso
+       colName <> "colManWidth" AndAlso
+       colName <> "colManHeight" AndAlso
+       colName <> "colManQTY" Then Exit Sub
+        For Each r As DataGridViewRow In dgvProduced.Rows
+            RecalculateProducedRow(r)
+        Next
+        ResetManualOverridesToAuto()
+        RecalculateTotalProductionValue()
+        RecalculateActualQuantities()
+        FillAvailableStockInGrid()
+        RecalculateChemicalCost()
+
+        RecalculateProductionTotals()
+
+        MarkAsDirty()
+
+    End Sub
+
+
     Private Sub LoadProductionUnitFromProduct(productID As Integer)
 
         ' حماية أساسية
@@ -1819,12 +1845,24 @@ ORDER BY VersionNo DESC
         For Each colName In numericCols
             If dgvProductionCalculations.Columns.Contains(colName) Then
                 With dgvProductionCalculations.Columns(colName)
-                    .DefaultCellStyle.Format = "N1"
+                    .DefaultCellStyle.Format = "N2"
                     .DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
                 End With
             End If
         Next
+        txtProductionAmount.Text = GetDec(txtProductionAmount).ToString("N2")
+    End Sub
+    Private Sub FormatFormNumbers()
+        txtProductionAmount.Text = GetDec(txtProductionAmount.Text).ToString("N2")
+        txtCleaningChemicalQTY.Text = GetDec(txtCleaningChemicalQTY.Text).ToString("N2")
 
+    End Sub
+
+    Private Sub txtProductionAmount_Leave(sender As Object, e As EventArgs) Handles txtProductionAmount.Leave
+        txtProductionAmount.Text = GetDec(txtProductionAmount.Text).ToString("N2")
+    End Sub
+    Private Sub txtCleaningChemicalQTY_Leave(sender As Object, e As EventArgs) Handles txtCleaningChemicalQTY.Leave
+        txtCleaningChemicalQTY.Text = GetDec(txtCleaningChemicalQTY.Text).ToString("N2")
     End Sub
     Private Function GenerateManufacturedProductCode(
     baseProductCode As String,
@@ -1867,8 +1905,11 @@ ORDER BY VersionNo DESC
         Dim h As Decimal = GetDec(row.Cells("colManHeight").Value)
         Dim Quantity As Decimal = GetDec(row.Cells("colManQTY").Value)
 
-        If l <= 0 OrElse w <= 0 OrElse h <= 0 Then Exit Sub
-
+        If l <= 0 OrElse w <= 0 OrElse h <= 0 Then
+            row.Cells("colManProductVolume").Value = 0
+            row.Cells("colManTotalProductVolume").Value = 0
+            Exit Sub
+        End If
         Dim unitVolume As Decimal = l * w * h / 1000000D
         row.Cells("colManProductVolume").Value = unitVolume
 
@@ -1882,31 +1923,6 @@ ORDER BY VersionNo DESC
 
 
     ' ===== دالة: dgvProduced_CellValueChanged =====
-    Private Sub dgvProduced_CellValueChanged(
-    sender As Object,
-    e As DataGridViewCellEventArgs
-) Handles dgvProduced.CellValueChanged
-
-        If IsFormLoading Then Exit Sub
-        If e.RowIndex < 0 OrElse e.ColumnIndex < 0 Then Exit Sub
-
-        Dim colName As String = dgvProduced.Columns(e.ColumnIndex).Name
-
-        If colName <> "colManLength" AndAlso
-       colName <> "colManWidth" AndAlso
-       colName <> "colManHeight" AndAlso
-       colName <> "colManQTY" Then Exit Sub
-        For Each r As DataGridViewRow In dgvProduced.Rows
-            RecalculateProducedRow(r)
-        Next
-        RecalculateTotalProductionValue()
-        RecalculateActualQuantities()
-        RecalculateChemicalCost()
-        RecalculateProductionTotals()
-
-        MarkAsDirty()
-
-    End Sub
 
     Private Sub RefreshProducedGridAfterLoad()
 
@@ -1924,7 +1940,7 @@ ORDER BY VersionNo DESC
         Dim unitCost As Decimal = GetDec(txtProductUnitCost.Text)
         Dim pastAvg As Decimal = GetDec(txtPastProductAverageCost.Text)
 
-        txtDeviation.Text = (unitCost - pastAvg).ToString("N1")
+        txtDeviation.Text = (unitCost - pastAvg).ToString("N2")
 
     End Sub
     ' ===== دالة: txtProductionAmount_KeyPress =====
@@ -2030,8 +2046,11 @@ ORDER BY
         End If
 
         ' ⭐⭐⭐ تحديد ما إذا كنا في وضع الإدراج أو التعديل ⭐⭐⭐
-        Dim isUpdate As Boolean = (CurrentProductionID > 0 AndAlso CurrentStatusID = 2)
-        ' StatusID = 2 يعني "مسودة" (أو الحالة التي تسمح بالتعديل)
+        Dim currentStatus = GetProductionStatusFromDB(CurrentProductionID)
+
+        Dim mode = GetProductionEditMode(currentStatus)
+
+        Dim isUpdate As Boolean = (CurrentProductionID > 0)
 
         ' =========================
         ' تجهيز TVP – ProductionOutput
@@ -2150,117 +2169,97 @@ ORDER BY
         ' استدعاء الإجراء
         ' =========================
         Try
-            Using con As New SqlConnection(ConnStr)
-                Using cmd As New SqlCommand()
+            Dim service As New ProductionService(ConnStr)
 
-                    ' ⭐⭐⭐ اختيار الإجراء المناسب ⭐⭐⭐
-                    If isUpdate Then
-                        cmd.CommandText = "prod.UpdateProduction"  ' افترض أن اسم إجراء التحديث هكذا
-                        cmd.CommandType = CommandType.StoredProcedure
+            If isUpdate Then
 
-                        ' نضيف Parameter السند للتحديث
-                        cmd.Parameters.Add("@ProductionID", SqlDbType.Int).Value = CurrentProductionID
+                service.UpdateProduction(
+            CurrentProductionID,
+            dtpProductionDate.Value.Date,
+            CurrentBOMID,
+            SelectedProductID,
+            CInt(cboSourceStore.SelectedValue),
+            CInt(cboTargetStore.SelectedValue),
+            txtNotes.Text,
+            baseValue,
+            CurrentUserID,
+            GetDec(txtProductUnitCost.Text),
+            tvpOutput,
+            tvpCons
+        )
 
-                        ' باقي الـ Parameters نفسها
-                    Else
-                        cmd.CommandText = "prod.SaveProduction"
-                        cmd.CommandType = CommandType.StoredProcedure
-                    End If
+                MessageBox.Show("تم تحديث الإنتاج بنجاح", "تم",
+                MessageBoxButtons.OK, MessageBoxIcon.Information)
 
-                    cmd.Connection = con
+                LoadProduction(CurrentProductionID)
+                IsSaved = True
 
-                    ' =========================
-                    ' الـ Parameters المشتركة
-                    ' =========================
-                    cmd.Parameters.Add("@ProductionDate", SqlDbType.Date).Value = dtpProductionDate.Value.Date
-                    cmd.Parameters.Add("@BOMID", SqlDbType.Int).Value = CurrentBOMID
-                    cmd.Parameters.Add("@ProductID", SqlDbType.Int).Value = SelectedProductID
-                    cmd.Parameters.Add("@SourceProductionStoreID", SqlDbType.Int).Value = CInt(cboSourceStore.SelectedValue)
-                    cmd.Parameters.Add("@TargetProductionStoreID", SqlDbType.Int).Value = CInt(cboTargetStore.SelectedValue)
+            Else
 
-                    cmd.Parameters.Add("@Notes", SqlDbType.NVarChar, 500).Value =
-                If(String.IsNullOrWhiteSpace(txtNotes.Text), CType(DBNull.Value, Object), txtNotes.Text.Trim())
+                Dim newID As Integer = 0
+                Dim newCode As String = ""
 
-                    cmd.Parameters.Add("@ProductionBaseValue", SqlDbType.Decimal).Value = baseValue
-                    cmd.Parameters("@ProductionBaseValue").Precision = 18
-                    cmd.Parameters("@ProductionBaseValue").Scale = 6
+                service.SaveProduction(
+            dtpProductionDate.Value.Date,
+            CurrentBOMID,
+            SelectedProductID,
+            CInt(cboSourceStore.SelectedValue),
+            CInt(cboTargetStore.SelectedValue),
+            txtNotes.Text,
+            baseValue,
+            CurrentUserID,
+            GetDec(txtProductUnitCost.Text),
+            tvpOutput,
+            tvpCons,
+            newID,
+            newCode
+        )
 
-                    cmd.Parameters.Add("@CreatedByUserID", SqlDbType.Int).Value = CurrentUserID
+                CurrentProductionID = newID
+                txtProductionCode.Text = newCode
 
-                    Dim pOut = cmd.Parameters.AddWithValue("@ProductionOutput", tvpOutput)
-                    pOut.SqlDbType = SqlDbType.Structured
-                    pOut.TypeName = "prod.TVP_ProductionOutput"
+                MessageBox.Show("تم حفظ الإنتاج بنجاح", "تم",
+                MessageBoxButtons.OK, MessageBoxIcon.Information)
 
-                    Dim pCons = cmd.Parameters.AddWithValue("@ProductionConsumption", tvpCons)
-                    pCons.SqlDbType = SqlDbType.Structured
-                    pCons.TypeName = "prod.TVP_ProductionConsumption"
-
-                    ' ⭐⭐ Parameters للإخراج (فقط في حالة الإدراج) ⭐⭐
-                    If Not isUpdate Then
-                        Dim pID As SqlParameter = cmd.Parameters.Add("@NewProductionID", SqlDbType.Int)
-                        pID.Direction = ParameterDirection.Output
-
-                        Dim pCode As SqlParameter = cmd.Parameters.Add("@NewProductionCode", SqlDbType.NVarChar, 20)
-                        pCode.Direction = ParameterDirection.Output
-                    End If
-
-                    cmd.Parameters.Add("@BatchAvgCost", SqlDbType.Decimal).Value = GetDec(txtProductUnitCost.Text)
-                    cmd.Parameters("@BatchAvgCost").Precision = 18
-                    cmd.Parameters("@BatchAvgCost").Scale = 6
-
-                    con.Open()
-                    cmd.ExecuteNonQuery()
-
-                    ' =========================
-                    ' معالجة النتائج
-                    ' =========================
-                    If isUpdate Then
-                        ' ✅ تحديث ناجح
-                        MessageBox.Show("تم تحديث الإنتاج بنجاح", "تم",
-                                MessageBoxButtons.OK, MessageBoxIcon.Information)
-
-                        ' إعادة تحميل السند
-                        LoadProduction(CurrentProductionID)
-                        IsSaved = True
-                    Else
-                        ' ✅ إدراج ناجح
-                        If cmd.Parameters("@NewProductionID").Value Is Nothing OrElse IsDBNull(cmd.Parameters("@NewProductionID").Value) Then
-                            Throw New Exception("فشل حفظ الإنتاج: لم يتم إرجاع رقم السند من الإجراء.")
-                        End If
-
-                        Dim newID As Integer = CInt(cmd.Parameters("@NewProductionID").Value)
-                        If newID <= 0 Then
-                            Throw New Exception("فشل حفظ الإنتاج: رقم السند المُرجع غير صحيح.")
-                        End If
-
-                        Dim newCode As String = ""
-                        If cmd.Parameters("@NewProductionCode").Value IsNot Nothing AndAlso Not IsDBNull(cmd.Parameters("@NewProductionCode").Value) Then
-                            newCode = cmd.Parameters("@NewProductionCode").Value.ToString()
-                        End If
-
-                        CurrentProductionID = newID
-                        If Not String.IsNullOrWhiteSpace(newCode) Then
-                            txtProductionCode.Text = newCode
-                        End If
-
-                        MessageBox.Show("تم حفظ الإنتاج بنجاح", "تم",
-                                MessageBoxButtons.OK, MessageBoxIcon.Information)
-
-                        ' ⭐⭐⭐ فتح فورم جديد بعد الحفظ ⭐⭐⭐
-                    End If
-
-                End Using
-            End Using
+            End If
 
         Catch ex As Exception
             MessageBox.Show(ex.Message, "خطأ",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error)
+            MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
-
         RefreshWorkflowPolicy()
-
+        LoadProduction(CurrentProductionID)
     End Sub
     ' ===== دالة: btnSearch_Click =====
+
+
+    Private Sub dgvdgvProduced_CellClick(sender As Object, e As DataGridViewCellEventArgs) Handles dgvProduced.CellClick
+
+        If e.RowIndex < 0 Then Exit Sub
+
+        If dgvProduced.Columns(e.ColumnIndex).Name = "colDelete" Then
+
+            DeleteRow(e.RowIndex)
+
+        End If
+
+    End Sub
+    Private Sub DeleteRow(rowIndex As Integer)
+
+        Dim dt As DataTable = CType(dgvProduced.DataSource, DataTable)
+
+        If dt Is Nothing Then Exit Sub
+
+        ' 👇 تأكيد
+        If MessageBox.Show("هل تريد حذف السطر؟", "تأكيد",
+                           MessageBoxButtons.YesNo,
+                           MessageBoxIcon.Question) <> DialogResult.Yes Then Exit Sub
+
+        ' 👇 حذف منطقي من الـ DataTable فقط
+        dt.Rows(rowIndex).Delete()
+
+    End Sub
+
     Private Sub btnSearch_Click(
     sender As Object,
     e As EventArgs
@@ -2306,7 +2305,7 @@ ORDER BY
         ApplyCleaningUIState()
 
         ApplyUIByWorkflow()
-
+        FormatFormNumbers()
         IsSaved = True
         IsFormLoading = False
 
@@ -2826,22 +2825,22 @@ ORDER BY
             totalProductionCost += GetDec(r.Cells("colCalCost").Value)
         Next
 
-        txtTotalProductionVolume.Text = totalProductionVolume.ToString("N1")
-        txtTotalProductionQTY.Text = totalProductionQty.ToString("N1")
-        txtTotalChemicalConsumption.Text = totalChemicalQty.ToString("N1")
-        txtTotalProductionCost.Text = totalProductionCost.ToString("N1")
+        txtTotalProductionVolume.Text = totalProductionVolume.ToString("N2")
+        txtTotalProductionQTY.Text = totalProductionQty.ToString("N2")
+        txtTotalChemicalConsumption.Text = totalChemicalQty.ToString("N2")
+        txtTotalProductionCost.Text = totalProductionCost.ToString("N2")
 
 
         Select Case CurrentSubCategoryID
             Case 9, 10
                 txtProductUnitCost.Text =
                 If(totalProductionVolume > 0D,
-                   (totalProductionCost / totalProductionVolume).ToString("N1"),
+                   (totalProductionCost / totalProductionVolume).ToString("N2"),
                    "0.0")
             Case 11
                 txtProductUnitCost.Text =
                 If(totalProductionQty > 0D,
-                   (totalProductionCost / totalProductionQty).ToString("N1"),
+                   (totalProductionCost / totalProductionQty).ToString("N2"),
                    "0.0")
         End Select
 
@@ -2925,61 +2924,38 @@ ORDER BY
         Next
 
     End Sub
+    Private Enum EditModeType
+        DirectEdit
+        EngineEdit
+        NoEdit
+    End Enum
+
     Private Sub btnCancel_Click(sender As Object, e As EventArgs) Handles btnCancel.Click
 
-        ' =========================
-        ' حمايات أساسية
-        ' =========================
         If IsFormLoading Then Exit Sub
 
         If CurrentProductionID <= 0 Then
             MessageBox.Show("لا يوجد سند إنتاج محدد.", "تنبيه",
-                           MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                       MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Exit Sub
         End If
 
         ' =========================
-        ' جلب الحالة الحالية من الذاكرة (أو من قاعدة البيانات للتأكد)
+        ' تحديد نوع التعديل حسب الحالة
         ' =========================
-        Dim currentStatus As Integer = CurrentStatusID
+        Dim mode = GetProductionEditMode(CurrentStatusID)
 
-        ' للتأكد، نجلب آخر تحديث من قاعدة البيانات
-        Using con As New SqlConnection(ConnStr)
-            Using cmd As New SqlCommand("
-            SELECT StatusID, IsInventoryPosted 
-            FROM Production_Header 
-            WHERE ProductionID = @ProductionID", con)
-
-                cmd.Parameters.AddWithValue("@ProductionID", CurrentProductionID)
-                con.Open()
-
-                Using r = cmd.ExecuteReader()
-                    If r.Read() Then
-                        currentStatus = CInt(r("StatusID"))
-                        IsInventoryPosted = CBool(r("IsInventoryPosted"))
-                    Else
-                        MessageBox.Show("السند غير موجود في قاعدة البيانات.", "خطأ",
-                                       MessageBoxButtons.OK, MessageBoxIcon.Error)
-                        Exit Sub
-                    End If
-                End Using
-            End Using
-        End Using
-
-        ' =========================
-        ' التحقق من إمكانية الإلغاء
-        ' =========================
-        If IsInventoryPosted Then
-            MessageBox.Show("لا يمكن إلغاء إنتاج تم ترحيله مخزونياً.",
-                           "عملية غير مسموحة",
-                           MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        If mode = EditModeType.NoEdit Then
+            MessageBox.Show("لا يمكن إلغاء هذا السند.",
+                       "عملية غير مسموحة",
+                       MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Exit Sub
         End If
 
-        If currentStatus <> 2 Then
-            MessageBox.Show("لا يمكن إلغاء إنتاج في هذه الحالة.",
-                           "عملية غير مسموحة",
-                           MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        If mode = EditModeType.EngineEdit Then
+            MessageBox.Show("لا يمكن الغاء سند تم استلامه يجب الغاء الاستلام اولا .",
+                       "تنبيه",
+                       MessageBoxButtons.OK, MessageBoxIcon.Warning)
             Exit Sub
         End If
 
@@ -2987,61 +2963,79 @@ ORDER BY
         ' تأكيد المستخدم
         ' =========================
         Dim result = MessageBox.Show(
-            "هل أنت متأكد من إلغاء هذا الإنتاج؟" & vbCrLf &
-            "السند: " & txtProductionCode.Text,
-            "تأكيد الإلغاء",
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Question)
+        "هل أنت متأكد من إلغاء هذا الإنتاج؟" & vbCrLf &
+        "السند: " & txtProductionCode.Text,
+        "تأكيد الإلغاء",
+        MessageBoxButtons.YesNo,
+        MessageBoxIcon.Question)
 
         If result <> DialogResult.Yes Then Exit Sub
 
         ' =========================
-        ' تنفيذ الإلغاء
+        ' تنفيذ الإلغاء عبر Service
         ' =========================
         Try
-            Using con As New SqlConnection(ConnStr)
-                Using cmd As New SqlCommand("
-            -- التأكد من أن السند لم يتغير منذ آخر تحميل
-            IF NOT EXISTS (
-                SELECT 1 FROM Production_Header 
-                WHERE ProductionID = @ProductionID 
-                  AND StatusID = 2 
-                  AND IsInventoryPosted = 0
-            )
-            BEGIN
-                RAISERROR('لا يمكن إلغاء هذا السند. تأكد من أنه لم يتم تنفيذه أو إلغاؤه مسبقاً.', 16, 1);
-                RETURN;
-            END
 
-            UPDATE Production_Header 
-            SET StatusID = 10,
-                ModifiedAt = SYSDATETIME(),
-                ModifiedByUserID = @UserID
-            WHERE ProductionID = @ProductionID
-        ", con)
+            Dim service As New ProductionService(ConnStr)
 
-                    cmd.Parameters.AddWithValue("@ProductionID", CurrentProductionID)
-                    cmd.Parameters.AddWithValue("@UserID", CurrentUserID)
+            service.CancelProduction(CurrentProductionID, CurrentUserID)
 
-                    con.Open()
-                    cmd.ExecuteNonQuery()  ' ❌ لا حاجة لـ rowsAffected لأن RAISERROR سيرمي استثناء
-
-                End Using
-            End Using
-
-            ' إذا وصلنا هنا، يعني التحديث نجح
+            ' تحديث الحالة بعد الإلغاء
             CurrentStatusID = 10
-            IsInventoryPosted = False
+
             LoadProduction(CurrentProductionID)
 
             MessageBox.Show("تم إلغاء الإنتاج بنجاح.", "تم",
-                   MessageBoxButtons.OK, MessageBoxIcon.Information)
+               MessageBoxButtons.OK, MessageBoxIcon.Information)
 
-        Catch ex As SqlException
+        Catch ex As Exception
             MessageBox.Show(ex.Message, "خطأ",
-                   MessageBoxButtons.OK, MessageBoxIcon.Error)
+               MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
-        RefreshWorkflowPolicy()
 
+        RefreshWorkflowPolicy()
+        LoadProduction(CurrentProductionID)
     End Sub
+    Private Function GetProductionEditMode(statusID As Integer) As EditModeType
+
+        Select Case statusID
+
+            Case 1, 2, 5
+                Return EditModeType.DirectEdit
+
+            Case 6
+                Return EditModeType.EngineEdit
+
+            Case 10, 11
+                Return EditModeType.NoEdit
+
+            Case Else
+                Return EditModeType.NoEdit
+
+        End Select
+
+    End Function
+    Private Function GetProductionStatusFromDB(productionID As Integer) As Integer
+
+        Using con As New SqlConnection(ConnStr)
+            Using cmd As New SqlCommand("
+SELECT StatusID 
+FROM Production_Header
+WHERE ProductionID = @ID
+", con)
+
+                cmd.Parameters.AddWithValue("@ID", productionID)
+
+                con.Open()
+
+                Dim result = cmd.ExecuteScalar()
+
+                If result Is Nothing Then Return 0
+
+                Return CInt(result)
+
+            End Using
+        End Using
+
+    End Function
 End Class

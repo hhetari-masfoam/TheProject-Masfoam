@@ -11,7 +11,7 @@ Public Class frmProductSearch
     Public Property FilterValueID As Integer = 0
     Public Property TargetStoreID As Integer = 0
     Public Property CategoryID As Integer = 0
-    Public Property SourceStoreID As Integer = 0
+    '  Public Property SourceStoreID As Integer = 0
     Public Property OnlyWithBalance As Boolean = False
     Public Property ProductTypeID As Integer = 0
     Public Property ProductCategoryID As Integer = 0
@@ -46,15 +46,15 @@ SELECT
     p.ProductTypeID,
     p.ProductCategoryID,
     p.StorageUnitID
-FROM Master_Product p
-INNER JOIN Master_ProductType pt
+FROM md.Product p
+INNER JOIN md.ProductType pt
     ON pt.ProductTypeID = p.ProductTypeID
 WHERE p.IsActive = 1
 AND (
     @OnlyWithBalance = 0
  OR EXISTS (
         SELECT 1
-        FROM Inventory_Balance ib
+        FROM inv.Balance ib
         WHERE ib.ProductID = p.ProductID
           AND ib.StoreID = @SourceStoreID
           AND ib.QtyOnHand > 0

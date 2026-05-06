@@ -75,7 +75,7 @@ Public Module Workflow_OperationPolicyHelper
                     AllowEditCost,
                     AllowEditData,
                     EditMode
-                FROM Workflow_OperationStatusPolicy
+                FROM wf.OperationStatusPolicy
                 WHERE OperationTypeID = @OP
                   AND StatusID = @ST
                   AND IsActive = 1
@@ -151,7 +151,7 @@ Public Module Workflow_OperationPolicyHelper
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
                 SELECT StatusID
-                FROM Inventory_DocumentHeader
+                FROM inv.DocumentHeader
                 WHERE DocumentID = @ID
             ", con)
 
@@ -183,14 +183,14 @@ Public Module Workflow_OperationPolicyHelper
                 Case "PUR"
                     sql = "
 SELECT StatusID
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 "
 
                 Case "TRN"
                     sql = "
 SELECT StatusID
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID = @ID
 "
 
@@ -205,19 +205,19 @@ WHERE ProductionID = @ID
                 Case "CUT"
                     sql = "
 SELECT StatusID
-FROM Production_CuttingHeader
+FROM prod.CuttingHeader
 WHERE CuttingID = @ID
 "
                 Case "LOD"
                     sql = "
 SELECT StatusID
-FROM Production_CuttingHeader
+FROM prod.CuttingHeader
 WHERE CuttingID = @ID
 "
                 Case "SAL"
                     sql = "
 SELECT StatusID
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 "
 
@@ -225,20 +225,20 @@ WHERE DocumentID = @ID
                 Case "BUS"
                     sql = "
 SELECT StatusID
-FROM Business_SR
+FROM inv.SR
 WHERE SRID = @ID
 "
 
                 Case "SRT"
                     sql = "
 SELECT StatusID
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 "
                 Case "PRT"
                     sql = "
 SELECT StatusID
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 "
 
@@ -270,7 +270,7 @@ WHERE DocumentID = @ID
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT TOP (1) StatusID
-            FROM Workflow_StatusScope
+            FROM wf.StatusScope
             WHERE ScopeCode = @Scope
               AND IsInitial = 1
               AND IsActive = 1
@@ -296,7 +296,7 @@ WHERE DocumentID = @ID
         Using con As New SqlClient.SqlConnection(ConnStr)
             Using cmd As New SqlClient.SqlCommand(
             "SELECT StatusName
-             FROM Workflow_Status
+             FROM wf.Status
              WHERE StatusID = @ID
                AND IsActive = 1", con)
 
@@ -329,7 +329,7 @@ WHERE DocumentID = @ID
 
             Using cmd As New SqlCommand("
             SELECT OperationTypeID
-            FROM Workflow_OperationType
+            FROM wf.OperationType
             WHERE OperationCode = @Code
               AND IsActive = 1
         ", con)

@@ -186,7 +186,7 @@ Public Class frmCuttingWasteCalculator
 
             ' Stores
             ' Stores
-            Using cmd As New SqlCommand("SELECT StoreID, StoreName FROM dbo.Master_Store WHERE IsActive=1 ORDER BY StoreName", con)
+            Using cmd As New SqlCommand("SELECT StoreID, StoreName FROM md.Store WHERE IsActive=1 ORDER BY StoreName", con)
                 Dim dtStores As New DataTable()
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dtStores)
@@ -203,7 +203,7 @@ Public Class frmCuttingWasteCalculator
             ' Scrap products (CategoryID=4 assumed; adjust if needed)
             Using cmd As New SqlCommand("
 SELECT ProductID, ProductCode + N' - ' + ProductName AS DisplayName
-FROM dbo.Master_Product
+FROM md.Product
 WHERE IsActive=1 AND ProductCategoryID=4
 ORDER BY ProductCode
 ", con)
@@ -217,7 +217,7 @@ ORDER BY ProductCode
             End Using
 
             ' Waste types
-            Using cmd As New SqlCommand("SELECT WasteTypeCode, WasteTypeNameAr FROM dbo.System_WasteType WHERE IsActive=1 ORDER BY SortOrder, WasteTypeNameAr", con)
+            Using cmd As New SqlCommand("SELECT WasteTypeCode, WasteTypeNameAr FROM md.WasteType WHERE IsActive=1 ORDER BY SortOrder, WasteTypeNameAr", con)
                 Dim dt As New DataTable()
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -228,7 +228,7 @@ ORDER BY ProductCode
             End Using
 
             ' Calculation types
-            Using cmd As New SqlCommand("SELECT CalculationTypeCode, CalculationTypeNameAr FROM dbo.System_WasteCalculationType WHERE IsActive=1 ORDER BY SortOrder, CalculationTypeNameAr", con)
+            Using cmd As New SqlCommand("SELECT CalculationTypeCode, CalculationTypeNameAr FROM md.WasteCalculationType WHERE IsActive=1 ORDER BY SortOrder, CalculationTypeNameAr", con)
                 Dim dt As New DataTable()
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -493,7 +493,7 @@ ORDER BY ProductCode
             con.Open()
             Using cmd As New SqlCommand("
 SELECT UnitID, UnitName
-FROM dbo.Master_Unit
+FROM md.Unit
 ", con)
                 Using rd = cmd.ExecuteReader()
                     While rd.Read()
@@ -613,8 +613,8 @@ WITH Cons AS
     SELECT
         d.ProductID,
         SUM(d.Quantity) AS ConsumptionQty
-    FROM dbo.Inventory_TransactionHeader h
-    JOIN dbo.Inventory_TransactionDetails d
+    FROM inv.TransactionHeader h
+    JOIN inv.TransactionDetails d
         ON d.TransactionID = h.TransactionID
     WHERE
         h.OperationTypeID = 11
@@ -636,9 +636,9 @@ SELECT
     CAST(c.ConsumptionQty AS DECIMAL(18,6)) AS ConsumptionQty,
     CAST(ISNULL(b.QtyOnHand,0) AS DECIMAL(18,6)) AS AvailableQty
 FROM Cons c
-JOIN dbo.Master_Product p ON p.ProductID = c.ProductID
-LEFT JOIN dbo.Master_Unit u ON u.UnitID = p.StorageUnitID
-LEFT JOIN dbo.Inventory_Balance b ON b.StoreID=@SourceStoreID AND b.ProductID=c.ProductID
+JOIN md.Product p ON p.ProductID = c.ProductID
+LEFT JOIN md.Unit u ON u.UnitID = p.StorageUnitID
+LEFT JOIN inv.Balance b ON b.StoreID=@SourceStoreID AND b.ProductID=c.ProductID
 WHERE c.ConsumptionQty > 0
 ORDER BY p.ProductCode;
 
@@ -702,7 +702,7 @@ ORDER BY p.ProductCode;
             con.Open()
             Using cmd As New SqlClient.SqlCommand("
 SELECT CAST(ISNULL(SUM(QtyOnHand),0) AS DECIMAL(18,6))
-FROM dbo.Inventory_Balance
+FROM inv.Balance
 WHERE ProductID=@ProductID
 ", con)
                 cmd.Parameters.AddWithValue("@ProductID", scrapProductID)
@@ -718,7 +718,7 @@ WHERE ProductID=@ProductID
             If scrapUnitID = UNIT_KG Then
                 Using cmd As New SqlClient.SqlCommand("
 SELECT CAST(ISNULL(AvgCost,0) AS DECIMAL(18,6))
-FROM dbo.Master_Product
+FROM md.Product
 WHERE ProductID=@ProductID
 ", con)
                     cmd.Parameters.AddWithValue("@ProductID", scrapProductID)
@@ -730,7 +730,7 @@ WHERE ProductID=@ProductID
                 Dim baseID As Integer
                 Using cmdBase As New SqlClient.SqlCommand("
 SELECT ISNULL(BaseProductID, ProductID)
-FROM dbo.Master_Product
+FROM md.Product
 WHERE ProductID=@ProductID
 ", con)
                     cmdBase.Parameters.AddWithValue("@ProductID", scrapProductID)
@@ -739,7 +739,7 @@ WHERE ProductID=@ProductID
 
                 Using cmd As New SqlClient.SqlCommand("
 SELECT CAST(ISNULL(AvgCostPerM3,0) AS DECIMAL(18,6))
-FROM dbo.Master_FinalProductAvgCost
+FROM inv.FinalProductAvgCost
 WHERE BaseProductID=@BaseProductID
 ", con)
                     cmd.Parameters.AddWithValue("@BaseProductID", baseID)
@@ -923,7 +923,7 @@ WHERE BaseProductID=@BaseProductID
             If unitID = UNIT_KG Then
                 Using cmd As New SqlCommand("
 SELECT CAST(ISNULL(AvgCost,0) AS DECIMAL(18,6))
-FROM dbo.Master_Product
+FROM md.Product
 WHERE ProductID=@P
 ", con)
                     cmd.Parameters.AddWithValue("@P", productID)
@@ -934,7 +934,7 @@ WHERE ProductID=@P
                 Dim baseID As Integer
                 Using cmdBase As New SqlCommand("
 SELECT ISNULL(BaseProductID, ProductID)
-FROM dbo.Master_Product
+FROM md.Product
 WHERE ProductID=@P
 ", con)
                     cmdBase.Parameters.AddWithValue("@P", productID)
@@ -943,7 +943,7 @@ WHERE ProductID=@P
 
                 Using cmd As New SqlCommand("
 SELECT CAST(ISNULL(AvgCostPerM3,0) AS DECIMAL(18,6))
-FROM dbo.Master_FinalProductAvgCost
+FROM inv.FinalProductAvgCost
 WHERE BaseProductID=@B
 ", con)
                     cmd.Parameters.AddWithValue("@B", baseID)
@@ -1170,7 +1170,7 @@ WHERE BaseProductID=@B
     Private Function GetProductStorageUnitID(productID As Integer) As Integer
         Using con As New SqlConnection(ConnStr)
             con.Open()
-            Using cmd As New SqlCommand("SELECT StorageUnitID FROM dbo.Master_Product WHERE ProductID=@P", con)
+            Using cmd As New SqlCommand("SELECT StorageUnitID FROM md.Product WHERE ProductID=@P", con)
                 cmd.Parameters.AddWithValue("@P", productID)
                 Dim obj = cmd.ExecuteScalar()
                 If obj Is Nothing OrElse IsDBNull(obj) Then Throw New Exception("لم يتم العثور على وحدة الصنف.")
@@ -1467,8 +1467,8 @@ SELECT
     h.StatusID,
     ws.StatusCode,
     ws.StatusName
-FROM dbo.Inventory_WasteHeader h
-LEFT JOIN dbo.Workflow_Status ws ON ws.StatusID = h.StatusID
+FROM inv.WasteHeader h
+LEFT JOIN wf.Status ws ON ws.StatusID = h.StatusID
 WHERE h.WasteID=@WasteID
 ", con)
                     cmd.Parameters.AddWithValue("@WasteID", wasteID)
@@ -1556,8 +1556,8 @@ SELECT
     d.AvailableQty,
     d.Density,
     d.Notes
-FROM dbo.Inventory_WasteDetails d
-LEFT JOIN dbo.Master_Product p ON p.ProductID = d.ProductID
+FROM inv.WasteDetails d
+LEFT JOIN md.Product p ON p.ProductID = d.ProductID
 WHERE d.WasteID=@WasteID
 ORDER BY d.WasteDetailID
 ", con)

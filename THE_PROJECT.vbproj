@@ -88,18 +88,53 @@
     </Compile>
     <Compile Include="AEditFieldMapper.vb" />
     <Compile Include="AppConfig.vb" />
-    <Compile Include="ABaseOperationForm.Designer.vb">
-      <DependentUpon>ABaseOperationForm.vb</DependentUpon>
-    </Compile>
-    <Compile Include="ABaseOperationForm.vb" />
     <Compile Include="AppSession.vb" />
     <Compile Include="AuditHelper.vb" />
     <Compile Include="AvgCostData.vb" />
-    <Compile Include="CostCorrectionService_Old.vb" />
+    <Compile Include="CostCorrectionEngine.vb" />
+    <Compile Include="CostRevaluationService.vb" />
     <Compile Include="CurrentUser.vb" />
     <Compile Include="CuttingService.vb" />
     <Compile Include="CuttingWasteApplicationService.vb" />
     <Compile Include="DbConfig.vb" />
+    <Compile Include="finCashTransactionDetailModel.vb" />
+    <Compile Include="finCashTransactionModel.vb" />
+    <Compile Include="finCashTransactionService.vb" />
+    <Compile Include="finPaymentsService.vb" />
+    <Compile Include="finPaymentModel.vb" />
+    <Compile Include="finPostingModels.vb" />
+    <Compile Include="FinPostingRepository.vb" />
+    <Compile Include="FinPostingService.vb" />
+    <Compile Include="frmfinAccountStatment.Designer.vb">
+      <DependentUpon>frmfinAccountStatment.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmfinAccountStatment.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmfinAccountsSearch.Designer.vb">
+      <DependentUpon>frmfinAccountsSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmfinAccountsSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmfinPaymentsSearch.Designer.vb">
+      <DependentUpon>frmfinPaymentsSearch.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmfinPaymentsSearch.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmfinPaymentVouchers.Designer.vb">
+      <DependentUpon>frmfinPaymentVouchers.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmfinPaymentVouchers.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmTrialBalance.Designer.vb">
+      <DependentUpon>frmTrialBalance.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmTrialBalance.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="frmBaseSearch.Designer.vb">
       <DependentUpon>frmBaseSearch.vb</DependentUpon>
     </Compile>
@@ -118,16 +153,16 @@
     <Compile Include="frmBOMSearch.vb">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="frmfinChartOfAccounts.Designer.vb">
+      <DependentUpon>frmfinChartOfAccounts.vb</DependentUpon>
+    </Compile>
+    <Compile Include="frmfinChartOfAccounts.vb">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="frmCostCorrection.Designer.vb">
       <DependentUpon>frmCostCorrection.vb</DependentUpon>
     </Compile>
     <Compile Include="frmCostCorrection.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="frmCostCorrectionAdvanceAnalysis.Designer.vb">
-      <DependentUpon>frmCostCorrectionAdvanceAnalysis.vb</DependentUpon>
-    </Compile>
-    <Compile Include="frmCostCorrectionAdvanceAnalysis.vb">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="frmCutting.Designer.vb">
@@ -158,12 +193,6 @@
       <DependentUpon>frmCuttingWasteCalculatorSearch.vb</DependentUpon>
     </Compile>
     <Compile Include="frmCuttingWasteCalculatorSearch.vb">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="frmCostCorrection_old.Designer.vb">
-      <DependentUpon>frmCostCorrection_old.vb</DependentUpon>
-    </Compile>
-    <Compile Include="frmCostCorrection_old.vb">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="frmEngineEditConfirmation.Designer.vb">
@@ -332,7 +361,6 @@
     <Compile Include="HashHelper.vb" />
     <Compile Include="InventoryMovementDTO.vb" />
     <Compile Include="CostCorrectionModels.vb" />
-    <Compile Include="CostCorrectionService.vb" />
     <Compile Include="InventoryRepository.vb" />
     <Compile Include="ProductionService.vb" />
     <Compile Include="PurchaseApplicationService.vb" />
@@ -384,8 +412,20 @@
     <EmbeddedResource Include="ABaseEditMappingProvider.resx">
       <DependentUpon>ABaseEditMappingProvider.vb</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="ABaseOperationForm.resx">
-      <DependentUpon>ABaseOperationForm.vb</DependentUpon>
+    <EmbeddedResource Include="frmfinAccountStatment.resx">
+      <DependentUpon>frmfinAccountStatment.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmfinAccountsSearch.resx">
+      <DependentUpon>frmfinAccountsSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmfinPaymentsSearch.resx">
+      <DependentUpon>frmfinPaymentsSearch.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmfinPaymentVouchers.resx">
+      <DependentUpon>frmfinPaymentVouchers.vb</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmTrialBalance.resx">
+      <DependentUpon>frmTrialBalance.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmBaseSearch.resx">
       <DependentUpon>frmBaseSearch.vb</DependentUpon>
@@ -397,11 +437,11 @@
     <EmbeddedResource Include="frmBOMSearch.resx">
       <DependentUpon>frmBOMSearch.vb</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmfinChartOfAccounts.resx">
+      <DependentUpon>frmfinChartOfAccounts.vb</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmCostCorrection.resx">
       <DependentUpon>frmCostCorrection.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="frmCostCorrectionAdvanceAnalysis.resx">
-      <DependentUpon>frmCostCorrectionAdvanceAnalysis.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmCutting.resx">
       <DependentUpon>frmCutting.vb</DependentUpon>
@@ -414,9 +454,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="frmCuttingWasteCalculatorSearch.resx">
       <DependentUpon>frmCuttingWasteCalculatorSearch.vb</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="frmCostCorrection_old.resx">
-      <DependentUpon>frmCostCorrection_old.vb</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmEngineEditConfirmation.resx">
       <DependentUpon>frmEngineEditConfirmation.vb</DependentUpon>

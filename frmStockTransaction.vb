@@ -240,8 +240,8 @@ Public Class frmStockTransaction
             Using cmd As New SqlCommand("
 SELECT DISTINCT
     p.ProductCode
-FROM Inventory_Balance b
-INNER JOIN Master_Product p ON p.ProductID = b.ProductID
+FROM inv.Balance b
+INNER JOIN md.Product p ON p.ProductID = b.ProductID
 WHERE b.StoreID = @StoreID
   AND b.QtyOnHand > 0
 ORDER BY p.ProductCode
@@ -274,9 +274,9 @@ ORDER BY p.ProductCode
 SELECT DISTINCT
     p.ProductTypeID,
     pt.TypeName
-FROM Inventory_Balance b
-INNER JOIN Master_Product p ON p.ProductID = b.ProductID
-INNER JOIN Master_ProductType pt ON pt.ProductTypeID = p.ProductTypeID
+FROM inv.Balance b
+INNER JOIN md.Product p ON p.ProductID = b.ProductID
+INNER JOIN md.ProductType pt ON pt.ProductTypeID = p.ProductTypeID
 WHERE b.StoreID = @StoreID
   AND b.QtyOnHand > 0
   AND p.ProductCode = @Code
@@ -309,8 +309,8 @@ ORDER BY pt.TypeName
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
 SELECT TOP 1 p.ProductID
-FROM Inventory_Balance b
-INNER JOIN Master_Product p ON p.ProductID = b.ProductID
+FROM inv.Balance b
+INNER JOIN md.Product p ON p.ProductID = b.ProductID
 WHERE b.StoreID = @StoreID
   AND b.QtyOnHand > 0
   AND p.ProductCode = @Code
@@ -739,7 +739,7 @@ WHERE b.StoreID = @StoreID
             SELECT
                 ProductTypeID,
                 TypeName
-            FROM Master_ProductType
+            FROM md.ProductType
             WHERE IsActive = 1
             ORDER BY TypeName
         ", con)
@@ -879,8 +879,8 @@ WHERE b.StoreID = @StoreID
                     s.StoreID,
                     s.StoreName,
                     us.IsDefaultSend
-                FROM Master_Store s
-                INNER JOIN Security_UserStore us ON us.StoreID = s.StoreID
+                FROM md.Store s
+                INNER JOIN sec.UserStore us ON us.StoreID = s.StoreID
                 WHERE s.IsActive = 1
                   AND us.IsActive = 1
                   AND us.EmployeeID = @UserID
@@ -900,8 +900,8 @@ WHERE b.StoreID = @StoreID
                     s.StoreID,
                     s.StoreName,
                     us.IsDefaultReceive
-                FROM Master_Store s
-                INNER JOIN Security_UserStore us ON us.StoreID = s.StoreID
+                FROM md.Store s
+                INNER JOIN sec.UserStore us ON us.StoreID = s.StoreID
                 WHERE s.IsActive = 1
                   AND us.IsActive = 1
                   AND us.EmployeeID = @UserID
@@ -1037,28 +1037,28 @@ SELECT
     src.StoreName AS SourceStoreName,
     tgt.StoreName AS TargetStoreName
 
-FROM Inventory_TransactionHeader h
-INNER JOIN Workflow_Status s
+FROM inv.TransactionHeader h
+INNER JOIN wf.Status s
     ON s.StatusID = h.StatusID
-INNER JOIN Workflow_OperationType ot
+INNER JOIN wf.OperationType ot
     ON ot.OperationTypeID = h.OperationTypeID
 
-LEFT JOIN Inventory_DocumentHeader dh
+LEFT JOIN inv.DocumentHeader dh
     ON dh.DocumentID = h.SourceDocumentID
-LEFT JOIN Production_Header ph
+LEFT JOIN prod.ProductionHeader ph
     ON ph.ProductionID = h.SourceDocumentID
-LEFT JOIN Production_CuttingHeader ch
+LEFT JOIN prod.CuttingHeader ch
     ON ch.CuttingID = h.SourceDocumentID
-LEFT JOIN Inventory_WasteHeader wh
+LEFT JOIN inv.WasteHeader wh
     ON wh.WasteID = h.SourceDocumentID
-LEFT JOIN Logistics_LoadingOrder lo
+LEFT JOIN log.LoadingOrder lo
     ON lo.LOID = h.SourceDocumentID
 
 OUTER APPLY
 (
     SELECT TOP 1 st.StoreName
-    FROM Inventory_TransactionDetails d
-    INNER JOIN Master_Store st
+    FROM inv.TransactionDetails d
+    INNER JOIN md.Store st
         ON st.StoreID = d.SourceStoreID
     WHERE d.TransactionID = h.TransactionID
 ) src
@@ -1066,8 +1066,8 @@ OUTER APPLY
 OUTER APPLY
 (
     SELECT TOP 1 st.StoreName
-    FROM Inventory_TransactionDetails d
-    INNER JOIN Master_Store st
+    FROM inv.TransactionDetails d
+    INNER JOIN md.Store st
         ON st.StoreID = d.TargetStoreID
     WHERE d.TransactionID = h.TransactionID
 ) tgt
@@ -1146,36 +1146,36 @@ SELECT
     src.StoreName AS SourceStoreName,
     tgt.StoreName AS TargetStoreName
 
-FROM Inventory_TransactionHeader h
+FROM inv.TransactionHeader h
 
-INNER JOIN Workflow_Status s
+INNER JOIN wf.Status s
     ON s.StatusID = h.StatusID
 
-INNER JOIN Workflow_OperationType ot
+INNER JOIN wf.OperationType ot
     ON ot.OperationTypeID = h.OperationTypeID
 
 -- ربط المستندات
-LEFT JOIN Inventory_DocumentHeader dh
+LEFT JOIN inv.DocumentHeader dh
     ON dh.DocumentID = h.SourceDocumentID
 
-LEFT JOIN Production_Header ph
+LEFT JOIN prod.ProductionHeader ph
     ON ph.ProductionID = h.SourceDocumentID
 
-LEFT JOIN Production_CuttingHeader ch
+LEFT JOIN prod.CuttingHeader ch
     ON ch.CuttingID = h.SourceDocumentID
 
-LEFT JOIN Inventory_WasteHeader wh
+LEFT JOIN inv.WasteHeader wh
     ON wh.WasteID = h.SourceDocumentID
 
-LEFT JOIN Logistics_LoadingOrder lo
+LEFT JOIN log.LoadingOrder lo
     ON lo.LOID = h.SourceDocumentID
 
 -- المستودعات
 OUTER APPLY
 (
     SELECT TOP 1 st.StoreName
-    FROM Inventory_TransactionDetails d
-    INNER JOIN Master_Store st
+    FROM inv.TransactionDetails d
+    INNER JOIN md.Store st
         ON st.StoreID = d.SourceStoreID
     WHERE d.TransactionID = h.TransactionID
 ) src
@@ -1183,8 +1183,8 @@ OUTER APPLY
 OUTER APPLY
 (
     SELECT TOP 1 st.StoreName
-    FROM Inventory_TransactionDetails d
-    INNER JOIN Master_Store st
+    FROM inv.TransactionDetails d
+    INNER JOIN md.Store st
         ON st.StoreID = d.TargetStoreID
     WHERE d.TransactionID = h.TransactionID
 ) tgt
@@ -1203,7 +1203,7 @@ WHERE
 AND EXISTS
 (
     SELECT 1
-    FROM Inventory_TransactionDetails d
+    FROM inv.TransactionDetails d
     WHERE d.TransactionID = h.TransactionID
       AND d.SourceStoreID = @SourceStoreID
 )"
@@ -1214,7 +1214,7 @@ AND EXISTS
 AND EXISTS
 (
     SELECT 1
-    FROM Inventory_TransactionDetails d
+    FROM inv.TransactionDetails d
     WHERE d.TransactionID = h.TransactionID
       AND d.TargetStoreID = @TargetStoreID
 )"
@@ -1346,7 +1346,7 @@ AND EXISTS
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT QtyOnHand 
-             FROM Inventory_Balance 
+             FROM inv.Balance 
              WHERE ProductID = @P AND StoreID = @S", con)
 
                 cmd.Parameters.AddWithValue("@P", productID)
@@ -1447,8 +1447,8 @@ SELECT
     p.ProductName,
     p.StorageUnitID,
     u.UnitName
-FROM Master_Product p
-INNER JOIN Master_Unit u ON u.UnitID = p.StorageUnitID
+FROM md.Product p
+INNER JOIN md.Unit u ON u.UnitID = p.StorageUnitID
 WHERE p.ProductID = @PID
 ", con)
 
@@ -1598,8 +1598,8 @@ WHERE p.ProductID = @PID
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
 SELECT ISNULL(SUM(d.Quantity), 0)
-FROM Inventory_TransactionDetails d
-INNER JOIN Inventory_TransactionHeader h
+FROM inv.TransactionDetails d
+INNER JOIN inv.TransactionHeader h
     ON h.TransactionID = d.TransactionID
 WHERE d.ProductID = @PID
   AND d.SourceStoreID = @StoreID
@@ -1652,7 +1652,9 @@ WHERE d.ProductID = @PID
                     PostInventoryTransaction()
             End Select
         End If
+        SyncUIWithMode()
         LoadTransfersList()
+        ApplyDetailsGridAccess()
 
     End Sub
     Private Sub UpdateCurrentTransaction()
@@ -1694,7 +1696,7 @@ WHERE d.ProductID = @PID
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
                 SELECT StorageUnitID 
-                FROM Master_Product 
+                FROM md.Product 
                 WHERE ProductID = @ProductID", con)
 
                     cmd.Parameters.AddWithValue("@ProductID", productID)
@@ -1763,8 +1765,19 @@ WHERE d.ProductID = @PID
         For Each r As DataGridViewRow In dgvTransferDetails.Rows
             If r.IsNewRow Then Continue For
 
-            Dim qty As Decimal = Convert.ToDecimal(r.Cells("colTransferQty").Value)
-            If qty <= 0 Then Continue For
+            Dim qtyObj = r.Cells("colTransferQty").Value
+
+            If qtyObj Is Nothing OrElse IsDBNull(qtyObj) Then
+                MessageBox.Show("يوجد صف بدون كمية", "تنبيه")
+                Exit Sub
+            End If
+
+            Dim qty As Decimal = Convert.ToDecimal(qtyObj)
+
+            If qty <= 0 Then
+                MessageBox.Show("الكمية يجب أن تكون أكبر من صفر", "تنبيه")
+                Exit Sub
+            End If
 
             Dim productID As Integer = CInt(r.Cells("colProductID").Value)
             Dim unitID As Integer = 0
@@ -1773,7 +1786,7 @@ WHERE d.ProductID = @PID
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
                 SELECT StorageUnitID 
-                FROM Master_Product 
+                FROM md.Product 
                 WHERE ProductID = @ProductID", con)
 
                     cmd.Parameters.AddWithValue("@ProductID", productID)
@@ -1841,7 +1854,7 @@ WHERE d.ProductID = @PID
 
                     Using cmd As New SqlCommand("
 SELECT COUNT(*) 
-FROM Inventory_TransactionHeader 
+FROM inv.TransactionHeader 
 WHERE TransactionID = @ID 
   AND StatusID = 5 
   AND IsInventoryPosted = 0
@@ -1889,35 +1902,6 @@ WHERE TransactionID = @ID
         End Try
 
     End Sub
-    Protected Sub PostInventory(transactionID As Integer)
-
-        If transactionID <= 0 Then
-            MessageBox.Show("لا يوجد سند صالح", "تنبيه")
-            Exit Sub
-        End If
-
-        Using con As New SqlConnection(ConnStr)
-            Using cmd As New SqlCommand("dbo.sp_PostStockTransaction", con)
-                cmd.CommandType = CommandType.StoredProcedure
-                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
-                cmd.Parameters.AddWithValue("@UserID", CurrentUserID)
-
-                Try
-                    con.Open()
-                    cmd.ExecuteNonQuery()
-
-                    MessageBox.Show("تم الترحيل بنجاح", "تم")
-
-                    PrepareNewTransaction()
-                    LoadTransfersList()
-
-                Catch ex As Exception
-                    MessageBox.Show(ex.Message, "خطأ")
-                End Try
-            End Using
-        End Using
-
-    End Sub
     Protected Function IsTransactionEditable(tid As Integer) As Boolean
 
         If tid <= 0 Then Return False
@@ -1928,7 +1912,7 @@ WHERE TransactionID = @ID
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
 SELECT IsInventoryPosted
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID = @ID
 ", con)
 
@@ -2082,7 +2066,7 @@ WHERE TransactionID = @ID
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
                 SELECT TransactionID, TransactionDate
-                FROM Inventory_TransactionHeader
+                FROM inv.TransactionHeader
                 WHERE TransactionID = @ID
             ", con)
 
@@ -2120,9 +2104,9 @@ SELECT
     u.UnitName,
     d.SourceStoreID,
     d.TargetStoreID
-FROM Inventory_TransactionDetails d
-INNER JOIN Master_Product p ON p.ProductID = d.ProductID
-INNER JOIN Master_Unit u ON u.UnitID = p.StorageUnitID
+FROM inv.TransactionDetails d
+INNER JOIN md.Product p ON p.ProductID = d.ProductID
+INNER JOIN md.Unit u ON u.UnitID = p.StorageUnitID
 WHERE d.TransactionID = @ID
 "
 
@@ -2188,9 +2172,10 @@ WHERE d.TransactionID = @ID
             ' =====================================
             ' (5) باقي الكود كما هو
             ' =====================================
+            Dim colCode = CType(dgvTransferDetails.Columns("colProductCode"), DataGridViewComboBoxColumn)
+
             If CurrentMode = StockTransactionMode.PurchaseReceive Then
-                Dim colCode = CType(dgvTransferDetails.Columns("colProductCode"),
-                    DataGridViewComboBoxColumn)
+                
                 colCode.DataSource = LoadAllProductCodes()
                 colCode.DisplayMember = "ProductCode"
                 colCode.ValueMember = "ProductCode"
@@ -2219,13 +2204,12 @@ WHERE d.TransactionID = @ID
             End If
 
             ' تعبئة كمبوا كود الصنف
-            If sourceStoreID > 0 Then
-                Dim colCode = CType(dgvTransferDetails.Columns("colProductCode"), DataGridViewComboBoxColumn)
-                colCode.DataSource = LoadAllProductCodes()
-                colCode.DisplayMember = "ProductCode"
-                colCode.ValueMember = "ProductCode"
-                colCode.ValueType = GetType(String)
-            End If
+            ' تعبئة كمبوا كود الصنف (بدون شرط)
+
+            colCode.DataSource = LoadAllProductCodes()
+            colCode.DisplayMember = "ProductCode"
+            colCode.ValueMember = "ProductCode"
+            colCode.ValueType = GetType(String)
 
             ' ربط الجريد
             dgvTransferDetails.DataSource = dt
@@ -2286,7 +2270,7 @@ SELECT
     TransactionID,
     TransactionDate,
     Notes
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID = @TID
 ", con)
 
@@ -2303,7 +2287,7 @@ WHERE TransactionID = @TID
         End Using
 
         ' =========================
-        ' Details (متوافق مع Quantity + Master_Product)
+        ' Details (متوافق مع Quantity + md.Product)
         ' =========================
         Dim dt As DataTable = BuildEmptyDetailsTable()
 
@@ -2319,9 +2303,9 @@ SELECT
     u.UnitName,
     d.SourceStoreID,
     d.TargetStoreID
-FROM Inventory_TransactionDetails d
-INNER JOIN Master_Product p ON p.ProductID = d.ProductID
-INNER JOIN Master_Unit u ON u.UnitID = p.StorageUnitID
+FROM inv.TransactionDetails d
+INNER JOIN md.Product p ON p.ProductID = d.ProductID
+INNER JOIN md.Unit u ON u.UnitID = p.StorageUnitID
 WHERE d.TransactionID = @TID
 ORDER BY d.ProductID
 ", con)
@@ -2388,7 +2372,7 @@ ORDER BY d.ProductID
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT DISTINCT ProductCode
-            FROM Master_Product
+            FROM md.Product
             WHERE IsActive = 1
             ORDER BY ProductCode
         ", con)
@@ -2532,7 +2516,7 @@ e As FormClosingEventArgs) Handles Me.FormClosing
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand(
             "SELECT ProductName, StorageUnitID 
-             FROM Master_Product 
+             FROM md.Product 
              WHERE ProductID = @ID", con)
 
                     cmd.Parameters.AddWithValue("@ID", productID)
@@ -2581,20 +2565,6 @@ e As FormClosingEventArgs) Handles Me.FormClosing
 
     End Sub
 
-    Private Sub CancelTransaction(transactionID As Integer)
-
-        Using con As New SqlConnection(ConnStr)
-            Using cmd As New SqlCommand("dbo.sp_CancelStockTransaction", con)
-                cmd.CommandType = CommandType.StoredProcedure
-                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
-                cmd.Parameters.AddWithValue("@UserID", CurrentUserID)
-
-                con.Open()
-                cmd.ExecuteNonQuery()
-            End Using
-        End Using
-
-    End Sub
     Private Sub RefreshWorkflowUI()
 
         ' 🟢 حالة السند الجديد (إرسال فقط)
@@ -2619,7 +2589,7 @@ e As FormClosingEventArgs) Handles Me.FormClosing
                 SELECT 
                     IsInventoryPosted,
                     StatusID
-                FROM Inventory_TransactionHeader
+                FROM inv.TransactionHeader
                 WHERE TransactionID = @ID", con)
 
                     cmd.Parameters.AddWithValue("@ID", CurrentTransactionID)
@@ -2695,7 +2665,7 @@ e As FormClosingEventArgs) Handles Me.FormClosing
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT TransactionID
-            FROM Inventory_TransactionHeader
+            FROM inv.TransactionHeader
             WHERE TransactionID = @ID
         ", con)
 
@@ -3045,7 +3015,7 @@ frm As frmProductSearch
 SELECT
     UnitID,
     UnitName
-FROM Master_Unit
+FROM md.Unit
 WHERE IsActive = 1
 ORDER BY UnitName
 ", con)
@@ -3413,7 +3383,7 @@ ORDER BY UnitName
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
         SELECT COUNT(*)
-        FROM Inventory_TransactionHeader
+        FROM inv.TransactionHeader
         WHERE TransactionID = @ID
           AND StatusID = 6
           AND IsInventoryPosted = 1
@@ -3453,12 +3423,12 @@ ORDER BY UnitName
 
         ' استدعاء الدالة في الـ Engine
         Try
-            Dim engine As New TransactionEngine(ConnStr)
-            engine.ReverseReceiveTransaction(
-                CurrentTransactionID,
-                CurrentUserID,
-                reason
-            )
+            '           Dim engine As New TransactionEngine(ConnStr)
+            '          engine.ReverseReceiveTransaction(
+            '         CurrentTransactionID,
+            '        CurrentUserID,
+            '       reason
+            '      )
 
             MessageBox.Show("تم إلغاء الاستلام بنجاح", "نجاح",
                            MessageBoxButtons.OK, MessageBoxIcon.Information)

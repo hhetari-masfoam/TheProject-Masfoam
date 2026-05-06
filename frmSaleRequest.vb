@@ -32,7 +32,7 @@ Public Class frmSaleRequest
     ' =========================
     ' Fulfillment / Physical Status
     ' =========================
-    Private CurrentPolicy As EditPolicy
+    '   Private CurrentPolicy As EditPolicy
 
 
 
@@ -54,7 +54,7 @@ Public Class frmSaleRequest
         Using con As New SqlClient.SqlConnection(ConnStr)
             Using cmd As New SqlClient.SqlCommand(
             "SELECT TaxRate
-             FROM Master_TaxType
+             FROM md.TaxType
              WHERE TaxTypeID = @TaxTypeID
                AND IsActive = 1", con)
 
@@ -102,7 +102,7 @@ Public Class frmSaleRequest
             con.Open()
 
             Using cmd As New SqlClient.SqlCommand(
-            "SELECT TypeCode FROM Master_ProductType WHERE ProductTypeID = @ID", con)
+            "SELECT TypeCode FROM md.ProductType WHERE ProductTypeID = @ID", con)
 
                 cmd.Parameters.Add("@ID", SqlDbType.Int).Value = productTypeID
 
@@ -578,7 +578,7 @@ Public Class frmSaleRequest
 
             Dim sql As String =
             "SELECT MAX(SRCode) 
-             FROM Business_SR 
+             FROM inv.SR 
              WHERE SRCode LIKE 'SR-" & yy & "-%'"
 
             Using cmd As New SqlClient.SqlCommand(sql, con)
@@ -802,7 +802,7 @@ Public Class frmSaleRequest
         "SELECT 
             StoreID,
             StoreName
-         FROM Master_Store
+         FROM md.Store
          WHERE IsActive = 1
          ORDER BY StoreName"
 
@@ -827,8 +827,8 @@ Public Class frmSaleRequest
 
             Dim sql As String =
         "SELECT p.PartnerID, p.PartnerCode, p.PartnerName, p.Phone
-         FROM Master_Partner p
-         INNER JOIN Master_PartnerRole pr ON pr.PartnerID = p.PartnerID
+         FROM md.Partner p
+         INNER JOIN md.PartnerRole pr ON pr.PartnerID = p.PartnerID
          WHERE pr.RoleCode = 'CUSTOMER'
            AND p.IsActive = 1
          ORDER BY p.PartnerCode"
@@ -853,7 +853,7 @@ Public Class frmSaleRequest
 
             Dim sql As String =
         "SELECT TaxTypeID, TaxName
-         FROM Master_TaxType
+         FROM md.TaxType
          WHERE IsActive = 1
          ORDER BY TaxTypeID"
 
@@ -884,7 +884,7 @@ Public Class frmSaleRequest
 
             Dim sql As String =
         "SELECT TaxTypeID, TaxName
-         FROM Master_TaxType
+         FROM md.TaxType
          WHERE IsActive = 1
          ORDER BY TaxName"
 
@@ -962,7 +962,7 @@ Public Class frmSaleRequest
 
             Dim sql As String =
         "SELECT EmpCode, EmpName
-         FROM Security_Employee
+         FROM sec.Employee
          WHERE IsSalesRep = 1
            AND IsActive = 1
          ORDER BY EmpCode"
@@ -1030,7 +1030,7 @@ Public Class frmSaleRequest
 
             Dim sql As String =
         "SELECT ProductCode
-         FROM Master_Product
+         FROM md.Product
          WHERE IsActive = 1
         And ProductCategoryID=2
          ORDER BY ProductCode"
@@ -1125,7 +1125,7 @@ Public Class frmSaleRequest
 
             Dim sql As String =
         "SELECT UnitID, UnitName
-         FROM Master_Unit
+         FROM md.Unit
          WHERE IsActive = 1
          ORDER BY UnitName"
 
@@ -1158,7 +1158,7 @@ Public Class frmSaleRequest
         "SELECT 
     ProductTypeID,
     TypeName
-FROM Master_ProductType
+FROM md.ProductType
 WHERE IsActive = 1
 ORDER BY TypeName
 "
@@ -1858,7 +1858,7 @@ $"{baseProductCode}-{lStr}{wStr}{hStr}"
             con.Open()
 
             Using cmd As New SqlClient.SqlCommand(
-            "SELECT TOP 1 1 FROM Master_Product WHERE ProductCode = @Code", con)
+            "SELECT TOP 1 1 FROM md.Product WHERE ProductCode = @Code", con)
 
                 cmd.Parameters.AddWithValue("@Code", productCode.Trim())
 
@@ -2003,7 +2003,7 @@ CInt(r.Cells("colDetType").Value),                     ' ProductTypeID (رقم)
             con.Open()
 
             ' =====================================
-            ' 1) تحميل الهيدر من Business_SR
+            ' 1) تحميل الهيدر من inv.SR
             ' =====================================
             Using cmd As New SqlCommand("
 SELECT
@@ -2018,7 +2018,7 @@ SELECT
     PricePerM3,
     DiscountRate,
     Notes
-FROM dbo.Business_SR
+FROM inv.SR
 WHERE SRID = @SRID
 ", con)
 
@@ -2047,11 +2047,11 @@ WHERE SRID = @SRID
 
 
             ' =====================================
-            ' 2) تحميل الحالة من Business_SRD
+            ' 2) تحميل الحالة من inv.SRD
             ' =====================================
             Using cmd As New SqlCommand("
 SELECT TOP 1 BusinessStatusID
-FROM dbo.Business_SRD
+FROM inv.SRD
 WHERE SRID = @SRID
 ORDER BY CreatedAt DESC
 ", con)
@@ -2080,7 +2080,7 @@ ORDER BY CreatedAt DESC
 
 
             ' =====================================
-            ' 3) تحميل التفاصيل من Business_SRD
+            ' 3) تحميل التفاصيل من inv.SRD
             ' =====================================
             dgvSRDetails.Rows.Clear()
 
@@ -2100,7 +2100,7 @@ SELECT
     SellUnitID,
     BaseProductCode,
     TaxTypeID
-FROM dbo.Business_SRD
+FROM inv.SRD
 WHERE SRID = @SRID
 ", con)
 
@@ -2166,7 +2166,7 @@ WHERE SRID = @SRID
 
             Using cmd As New SqlClient.SqlCommand(
             "SELECT BaseProductID 
-             FROM Master_Product 
+             FROM md.Product 
              WHERE ProductCode = @Code", con)
 
                 cmd.Parameters.AddWithValue("@Code", productCode)
@@ -2241,7 +2241,7 @@ WHERE SRID = @SRID
     Private Function GetProductTypesTable() As DataTable
         Using con As New SqlClient.SqlConnection(ConnStr)
             Using da As New SqlClient.SqlDataAdapter(
-            "SELECT ProductTypeID, TypeName FROM Master_ProductType WHERE IsActive=1", con)
+            "SELECT ProductTypeID, TypeName FROM md.ProductType WHERE IsActive=1", con)
                 Dim dt As New DataTable
                 da.Fill(dt)
                 Return dt
@@ -2252,7 +2252,7 @@ WHERE SRID = @SRID
     Private Function GetUnitsTable() As DataTable
         Using con As New SqlClient.SqlConnection(ConnStr)
             Using da As New SqlClient.SqlDataAdapter(
-            "SELECT UnitID, UnitName FROM Master_Unit WHERE IsActive=1", con)
+            "SELECT UnitID, UnitName FROM md.Unit WHERE IsActive=1", con)
                 Dim dt As New DataTable
                 da.Fill(dt)
                 Return dt
@@ -2365,7 +2365,7 @@ WHERE SRID = @SRID
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-            "UPDATE Business_SR
+            "UPDATE inv.SR
              SET IsActive = 0
              WHERE SRID = @ID", con)
 
@@ -2384,7 +2384,7 @@ WHERE SRID = @SRID
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT StatusCode
-             FROM Workflow_Status
+             FROM wf.Status
              WHERE StatusID = @ID", con)
 
                 cmd.Parameters.Add("@ID", SqlDbType.Int).Value = statusID
@@ -2406,7 +2406,7 @@ WHERE SRID = @SRID
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
-INSERT INTO Business_SR
+INSERT INTO inv.SR
 (
     SRCode,
     SRDate,
@@ -2463,30 +2463,30 @@ SELECT SCOPE_IDENTITY();
         End Using
 
     End Sub
-    Private Function GetStatusNameByID(statusID As Integer) As String
+    '   Private Function GetStatusNameByID(statusID As Integer) As String
 
-        If statusID <= 0 Then Return ""
+    '      If statusID <= 0 Then Return ""
 
-        Using con As New SqlConnection(ConnStr)
-            Using cmd As New SqlCommand(
-            "SELECT StatusName
-             FROM Workflow_Status
-             WHERE StatusID = @ID
-               AND IsActive = 1", con)
+    '     Using con As New SqlConnection(ConnStr)
+    '        Using cmd As New SqlCommand(
+    '       "SELECT StatusName
+    '       FROM wf.Status
+    '      WHERE StatusID = @ID
+    '       AND IsActive = 1", con)
 
-                cmd.Parameters.Add("@ID", SqlDbType.Int).Value = statusID
-                con.Open()
+    '        cmd.Parameters.Add("@ID", SqlDbType.Int).Value = statusID
+    '       con.Open()
 
-                Dim obj = cmd.ExecuteScalar()
-                If obj Is Nothing OrElse IsDBNull(obj) Then
-                    Return ""
-                End If
+    'Dim obj = cmd.ExecuteScalar()
+    'If obj Is Nothing OrElse IsDBNull(obj) Then
+    'Return ""
+    'End If
 
-                Return obj.ToString()
-            End Using
-        End Using
+    'Return obj.ToString()
+    'End Using
+    'End Using
 
-    End Function
+    'End Function
     Private Function GetStatusCodeByID(statusID As Integer) As String
 
         If statusID <= 0 Then Return ""
@@ -2494,7 +2494,7 @@ SELECT SCOPE_IDENTITY();
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT StatusCode
-             FROM Workflow_Status
+             FROM wf.Status
              WHERE StatusID = @ID", con)
 
                 cmd.Parameters.Add("@ID", SqlDbType.Int).Value = statusID
@@ -2516,7 +2516,7 @@ SELECT SCOPE_IDENTITY();
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-            "SELECT ProductID FROM Master_Product WHERE ProductCode = @Code", con)
+            "SELECT ProductID FROM md.Product WHERE ProductCode = @Code", con)
 
                 cmd.Parameters.Add("@Code", SqlDbType.NVarChar, 50).Value = productCode
                 con.Open()
@@ -2627,7 +2627,7 @@ SELECT SCOPE_IDENTITY();
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
                 SELECT ProductID
-                FROM Master_Product
+                FROM md.Product
                 WHERE ProductCode = @Code
                   AND ProductTypeID = @TypeID
             ", con)
@@ -2688,7 +2688,7 @@ SELECT SCOPE_IDENTITY();
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
                 SELECT ProductID
-                FROM Master_Product
+                FROM md.Product
                 WHERE ProductCode = @Code
                   AND ProductTypeID = @TypeID
             ", con)

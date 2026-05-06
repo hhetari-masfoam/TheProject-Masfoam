@@ -20,28 +20,28 @@
     sr.PartnerID,
     sr.StoreID,
     sr.SalesRepCode
-FROM dbo.Business_SR sr
+FROM inv.SR sr
 
 OUTER APPLY
 (
     SELECT TOP 1 srd.BusinessStatusID
-    FROM dbo.Business_SRD srd
+    FROM inv.SRD srd
     WHERE srd.SRID = sr.SRID
     ORDER BY srd.CreatedAt DESC
 ) last_srd
-LEFT JOIN dbo.Workflow_Status bs
+LEFT JOIN wf.Status bs
     ON bs.StatusID = last_srd.BusinessStatusID
 
 OUTER APPLY
 (
     SELECT TOP 1 lo.LoadingStatusID
-    FROM dbo.Logistics_LoadingOrder lo
-    INNER JOIN dbo.Logistics_LoadingOrderDetail lod
+    FROM log.LoadingOrder lo
+    INNER JOIN log.LoadingOrderDetail lod
         ON lod.LOID = lo.LOID
     WHERE lod.SourceHeaderID = sr.SRID
     ORDER BY lo.CreatedAt DESC
 ) last_lo
-LEFT JOIN dbo.Workflow_Status fs
+LEFT JOIN wf.Status fs
     ON fs.StatusID = last_lo.LoadingStatusID
 
 WHERE sr.IsActive = 1

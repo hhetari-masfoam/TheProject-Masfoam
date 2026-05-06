@@ -23,8 +23,8 @@ SELECT
     LO.VehicleID,
     LO.LoadingStatusID,
     S.StatusName
-FROM dbo.Logistics_LoadingOrder LO
-LEFT JOIN dbo.Workflow_Status S
+FROM log.LoadingOrder LO
+LEFT JOIN wf.Status S
     ON S.StatusID = LO.LoadingStatusID
 ORDER BY LO.LOID DESC
 ", con)

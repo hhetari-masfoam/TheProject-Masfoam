@@ -1,6 +1,6 @@
 ﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _
-Partial Class BaseOperationForm
-    Inherits System.Windows.Forms.Form
+Partial Class frmFinPaymentsSearch
+    Inherits frmBaseSearch
 
     'Form overrides dispose to clean up the component list.
     <System.Diagnostics.DebuggerNonUserCode()> _
@@ -24,13 +24,13 @@ Partial Class BaseOperationForm
     Private Sub InitializeComponent()
         Me.SuspendLayout()
         '
-        'BaseOperationForm
+        'frmfinPaymentsSearch
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(7.0!, 16.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(800, 450)
-        Me.Name = "BaseOperationForm"
-        Me.Text = "BaseOperationForm"
+        Me.ClientSize = New System.Drawing.Size(1182, 553)
+        Me.Name = "frmfinPaymentsSearch"
+        Me.Text = "frmfinPaymentsSearch"
         Me.ResumeLayout(False)
 
     End Sub

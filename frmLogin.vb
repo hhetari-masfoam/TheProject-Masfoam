@@ -16,7 +16,7 @@ Public Class frmLogin
             Using con As New SqlConnection(AppConfig.MainConnectionString)
                 Using cmd As New SqlCommand("
                     SELECT EmployeeID, EmpName
-                    FROM Security_Employee
+                    FROM sec.Employee
                     WHERE IsSystemUser = 1
                       AND IsActive = 1
                     ORDER BY EmpName
@@ -52,7 +52,7 @@ Public Class frmLogin
         Using con As New SqlConnection(AppConfig.MainConnectionString)
             Using cmd As New SqlCommand("
                 SELECT EmployeeID, EmpName, LoginName, RoleID, IsAdmin
-                FROM Security_Employee
+                FROM sec.Employee
                 WHERE EmployeeID = @ID
                   AND PasswordHash = @Pwd
                   AND IsSystemUser = 1
@@ -110,7 +110,7 @@ Public Class frmLogin
 
         Using con As New SqlConnection(AppConfig.MainConnectionString)
             Using cmd As New SqlCommand("
-            UPDATE Security_Employee
+            UPDATE sec.Employee
             SET PasswordHash = @Hash,
                 MustChangePassword = 0
             WHERE EmployeeID = @ID

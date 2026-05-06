@@ -40,6 +40,7 @@ Partial Class frmLoadingBoard
         Me.colLoadingSRPartners = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colLoadingSRDates = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.dgvLoadingSRD = New System.Windows.Forms.DataGridView()
+        Me.colLoadingSRDDeleteFromThisLoadingOrder = New System.Windows.Forms.DataGridViewCheckBoxColumn()
         Me.colLoadingSRDCodes = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colLoadingSRDSRDID = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colLoadingOrderDetailID = New System.Windows.Forms.DataGridViewTextBoxColumn()
@@ -71,8 +72,9 @@ Partial Class frmLoadingBoard
         Me.colOpenLOsVehicleInfo = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colOpenLOsSupervisor = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.pnlOpenLOs = New System.Windows.Forms.Panel()
+        Me.btnDeletePostedLoading = New System.Windows.Forms.Button()
+        Me.btnEditPostedProduction = New System.Windows.Forms.Button()
         Me.btnSearch = New System.Windows.Forms.Button()
-        Me.btnRemoveSR = New System.Windows.Forms.Button()
         Me.btnCancel = New System.Windows.Forms.Button()
         Me.btnExportToInvoice = New System.Windows.Forms.Button()
         Me.btnCloseBoard = New System.Windows.Forms.Button()
@@ -260,7 +262,7 @@ Partial Class frmLoadingBoard
         Me.dgvLoadingSRD.AllowUserToDeleteRows = False
         Me.dgvLoadingSRD.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill
         Me.dgvLoadingSRD.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        Me.dgvLoadingSRD.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colLoadingSRDCodes, Me.colLoadingSRDSRDID, Me.colLoadingOrderDetailID, Me.colLoadingSRDSRID, Me.colLoadingSRDProductID, Me.colLoadingSRDID, Me.colLoadingSRDProductCode, Me.colLoadingSRDProductType, Me.colLoadingSRDBusinessStatusID, Me.colLoadingSRDBusinessStatusName, Me.colLoadingSRDFulfillmentStatusID, Me.colLoadingSRDFulfillmentStatusName, Me.colLoadingSRDQTY, Me.colLoadingSRDAvailableQTY, Me.colLoadingSRDLoadedBefore, Me.colLoadingSRDLoadedQTY, Me.colLoadingSRDRemainingQTY, Me.colLoadingSRDLoadedInThisLO})
+        Me.dgvLoadingSRD.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colLoadingSRDDeleteFromThisLoadingOrder, Me.colLoadingSRDCodes, Me.colLoadingSRDSRDID, Me.colLoadingOrderDetailID, Me.colLoadingSRDSRID, Me.colLoadingSRDProductID, Me.colLoadingSRDID, Me.colLoadingSRDProductCode, Me.colLoadingSRDProductType, Me.colLoadingSRDBusinessStatusID, Me.colLoadingSRDBusinessStatusName, Me.colLoadingSRDFulfillmentStatusID, Me.colLoadingSRDFulfillmentStatusName, Me.colLoadingSRDQTY, Me.colLoadingSRDAvailableQTY, Me.colLoadingSRDLoadedBefore, Me.colLoadingSRDLoadedQTY, Me.colLoadingSRDRemainingQTY, Me.colLoadingSRDLoadedInThisLO})
         Me.dgvLoadingSRD.Dock = System.Windows.Forms.DockStyle.Fill
         Me.dgvLoadingSRD.Location = New System.Drawing.Point(0, 0)
         Me.dgvLoadingSRD.Name = "dgvLoadingSRD"
@@ -270,6 +272,14 @@ Partial Class frmLoadingBoard
         Me.dgvLoadingSRD.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect
         Me.dgvLoadingSRD.Size = New System.Drawing.Size(1185, 490)
         Me.dgvLoadingSRD.TabIndex = 0
+        '
+        'colLoadingSRDDeleteFromThisLoadingOrder
+        '
+        Me.colLoadingSRDDeleteFromThisLoadingOrder.HeaderText = "الغاء تحميل الصف"
+        Me.colLoadingSRDDeleteFromThisLoadingOrder.MinimumWidth = 6
+        Me.colLoadingSRDDeleteFromThisLoadingOrder.Name = "colLoadingSRDDeleteFromThisLoadingOrder"
+        Me.colLoadingSRDDeleteFromThisLoadingOrder.Resizable = System.Windows.Forms.DataGridViewTriState.[True]
+        Me.colLoadingSRDDeleteFromThisLoadingOrder.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic
         '
         'colLoadingSRDCodes
         '
@@ -511,8 +521,9 @@ Partial Class frmLoadingBoard
         '
         'pnlOpenLOs
         '
+        Me.pnlOpenLOs.Controls.Add(Me.btnDeletePostedLoading)
+        Me.pnlOpenLOs.Controls.Add(Me.btnEditPostedProduction)
         Me.pnlOpenLOs.Controls.Add(Me.btnSearch)
-        Me.pnlOpenLOs.Controls.Add(Me.btnRemoveSR)
         Me.pnlOpenLOs.Controls.Add(Me.btnCancel)
         Me.pnlOpenLOs.Controls.Add(Me.btnExportToInvoice)
         Me.pnlOpenLOs.Controls.Add(Me.btnCloseBoard)
@@ -526,23 +537,32 @@ Partial Class frmLoadingBoard
         Me.pnlOpenLOs.Size = New System.Drawing.Size(597, 145)
         Me.pnlOpenLOs.TabIndex = 3
         '
+        'btnDeletePostedLoading
+        '
+        Me.btnDeletePostedLoading.Location = New System.Drawing.Point(265, 83)
+        Me.btnDeletePostedLoading.Name = "btnDeletePostedLoading"
+        Me.btnDeletePostedLoading.Size = New System.Drawing.Size(124, 34)
+        Me.btnDeletePostedLoading.TabIndex = 92
+        Me.btnDeletePostedLoading.Text = "حذف مرحل"
+        Me.btnDeletePostedLoading.UseVisualStyleBackColor = True
+        '
+        'btnEditPostedProduction
+        '
+        Me.btnEditPostedProduction.Location = New System.Drawing.Point(265, 43)
+        Me.btnEditPostedProduction.Name = "btnEditPostedProduction"
+        Me.btnEditPostedProduction.Size = New System.Drawing.Size(124, 34)
+        Me.btnEditPostedProduction.TabIndex = 93
+        Me.btnEditPostedProduction.Text = "تعديل مرحل"
+        Me.btnEditPostedProduction.UseVisualStyleBackColor = True
+        '
         'btnSearch
         '
-        Me.btnSearch.Location = New System.Drawing.Point(266, 47)
+        Me.btnSearch.Location = New System.Drawing.Point(265, 6)
         Me.btnSearch.Name = "btnSearch"
         Me.btnSearch.Size = New System.Drawing.Size(124, 34)
         Me.btnSearch.TabIndex = 8
         Me.btnSearch.Text = "بحث"
         Me.btnSearch.UseVisualStyleBackColor = True
-        '
-        'btnRemoveSR
-        '
-        Me.btnRemoveSR.Location = New System.Drawing.Point(265, 6)
-        Me.btnRemoveSR.Name = "btnRemoveSR"
-        Me.btnRemoveSR.Size = New System.Drawing.Size(124, 34)
-        Me.btnRemoveSR.TabIndex = 7
-        Me.btnRemoveSR.Text = "حذف طلب"
-        Me.btnRemoveSR.UseVisualStyleBackColor = True
         '
         'btnCancel
         '
@@ -670,6 +690,19 @@ Partial Class frmLoadingBoard
     Friend WithEvents colOpenLOsVehicleInfo As DataGridViewTextBoxColumn
     Friend WithEvents colOpenLOsSupervisor As DataGridViewTextBoxColumn
     Friend WithEvents btnExportToInvoice As Button
+    Friend WithEvents colLOsID As DataGridViewTextBoxColumn
+    Friend WithEvents colLOsCode As DataGridViewTextBoxColumn
+    Friend WithEvents colLOsDate As DataGridViewTextBoxColumn
+    Friend WithEvents colLOsDriverCode As DataGridViewComboBoxColumn
+    Friend WithEvents colLOsVehicale As DataGridViewComboBoxColumn
+    Friend WithEvents colLOsSupervisor As DataGridViewComboBoxColumn
+    Friend WithEvents colLOsNote As DataGridViewTextBoxColumn
+    Friend WithEvents colLOsStoreID As DataGridViewComboBoxColumn
+    Friend WithEvents btnCancel As Button
+    Friend WithEvents btnSearch As Button
+    Friend WithEvents btnDeletePostedLoading As Button
+    Friend WithEvents btnEditPostedProduction As Button
+    Friend WithEvents colLoadingSRDDeleteFromThisLoadingOrder As DataGridViewCheckBoxColumn
     Friend WithEvents colLoadingSRDCodes As DataGridViewTextBoxColumn
     Friend WithEvents colLoadingSRDSRDID As DataGridViewTextBoxColumn
     Friend WithEvents colLoadingOrderDetailID As DataGridViewTextBoxColumn
@@ -688,15 +721,4 @@ Partial Class frmLoadingBoard
     Friend WithEvents colLoadingSRDLoadedQTY As DataGridViewTextBoxColumn
     Friend WithEvents colLoadingSRDRemainingQTY As DataGridViewTextBoxColumn
     Friend WithEvents colLoadingSRDLoadedInThisLO As DataGridViewTextBoxColumn
-    Friend WithEvents colLOsID As DataGridViewTextBoxColumn
-    Friend WithEvents colLOsCode As DataGridViewTextBoxColumn
-    Friend WithEvents colLOsDate As DataGridViewTextBoxColumn
-    Friend WithEvents colLOsDriverCode As DataGridViewComboBoxColumn
-    Friend WithEvents colLOsVehicale As DataGridViewComboBoxColumn
-    Friend WithEvents colLOsSupervisor As DataGridViewComboBoxColumn
-    Friend WithEvents colLOsNote As DataGridViewTextBoxColumn
-    Friend WithEvents colLOsStoreID As DataGridViewComboBoxColumn
-    Friend WithEvents btnCancel As Button
-    Friend WithEvents btnRemoveSR As Button
-    Friend WithEvents btnSearch As Button
 End Class

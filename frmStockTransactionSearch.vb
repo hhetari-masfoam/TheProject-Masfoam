@@ -69,8 +69,8 @@ SELECT
     h.SentBy,
     h.ReceivedAt,
     h.ReceivedBy
-FROM dbo.Inventory_TransactionHeader h
-LEFT JOIN dbo.Workflow_OperationType ot
+FROM inv.TransactionHeader h
+LEFT JOIN wf.OperationType ot
     ON ot.OperationTypeID = h.OperationTypeID
 WHERE h.OperationTypeID = @OperationTypeID
 ORDER BY h.TransactionDate DESC

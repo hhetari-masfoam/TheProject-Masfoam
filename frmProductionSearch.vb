@@ -15,7 +15,7 @@ Public Class frmProductionSearch
                     ProductionID,
                     ProductionCode,
                     ProductionDate
-                FROM Production_Header
+                FROM prod.ProductionHeader
                 ORDER BY ProductionDate DESC
             ", con)
 

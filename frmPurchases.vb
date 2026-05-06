@@ -2,12 +2,9 @@
 Imports System.Windows.Forms.VisualStyles.VisualStyleElement
 
 Public Class frmPurchases
-    Inherits AABaseOperationForm
-
+    Private _isInternalChange As Boolean = False
     ' =========================
     ' دالة تحميل الكمبو الخاصة بالمشتريات (الموردين فقط)
-    Private _purchaseService As New PurchaseApplicationService(AppConfig.MainConnectionString)
-    Private CurrentStatusID As Integer = 0
     Protected CurrentUserID As Integer = 1
     Protected IsSaved As Boolean = False
     Protected InvoiceDetailsTable As DataTable
@@ -23,9 +20,16 @@ Public Class frmPurchases
     ' Inventory Posting State
     ' =========================
     Protected IsInventoryPosted As Boolean = False
-    Private _isPostedCorrectionEdit As Boolean = False
-    Private _deletedOriginalDetailIDs As New List(Of Integer)
+    ' وضع تعديل سند مرحل
+    Private IsPostedEditMode As Boolean = False
 
+    ' لتتبع السطور المحذوفة
+    Private DeletedDetailIDs As New List(Of Integer)
+    Private OriginalDocumentID As Integer = 0
+    Private OriginalDetailsTable As DataTable
+    Private _allProducts As DataTable
+    Private _allProductTypes As DataTable
+    Private _allUnits As DataTable
     Protected Overrides ReadOnly Property FormScopeCode As String
         Get
             Return "PUR"
@@ -58,13 +62,14 @@ SELECT
    p.VATRegistrationNumber,
    p.Phone,
    p.Address,
+    p.PartnerTypeID,
    a.City
-FROM Master_Partner p
-LEFT JOIN Master_PartnerAddress a 
+FROM md.Partner p
+LEFT JOIN md.PartnerAddress a 
     ON a.PartnerID = p.PartnerID
    AND a.IsDefault = 1
 WHERE p.IsActive = 1
-  AND p.PartnerCode LIKE '%CUS%'
+  AND p.PartnerTypeID =2 
 ORDER BY p.PartnerName
 "
                 Using cmd As New SqlCommand(query, con)
@@ -101,29 +106,26 @@ ORDER BY p.PartnerName
         Return (s = "true" OrElse s = "1" OrElse s = "yes")
     End Function
 
-    Private Function DumpRow(i As Integer, title As String) As String
-        If InvoiceDetailsTable Is Nothing Then Return title & ": InvoiceDetailsTable = Nothing"
-        If i < 0 OrElse i >= InvoiceDetailsTable.Rows.Count Then Return title & ": row out of range"
 
-        Dim r = InvoiceDetailsTable.Rows(i)
-        If r.RowState = DataRowState.Deleted Then Return title & ": row is Deleted"
+    Private Sub LoadUnits()
 
-        Dim s As New System.Text.StringBuilder()
-        s.AppendLine("==== " & title & " (Row " & i & ") ====")
-        s.AppendLine("IsUIGuarded=" & IsUIGuarded.ToString())
-        s.AppendLine("Quantity=" & ToDec(r("Quantity")).ToString("N2") &
-                 " UnitPrice=" & ToDec(r("UnitPrice")).ToString("N2"))
-        s.AppendLine("TaxRate=" & ToDec(r("TaxRate")).ToString("N2") &
-                 " IncludeTax=" & ToBool(r("IncludeTax")).ToString())
-        s.AppendLine("NetAmount=" & ToDec(r("NetAmount")).ToString("N2"))
-        s.AppendLine("TaxAmount=" & ToDec(r("TaxAmount")).ToString("N2"))
-        s.AppendLine("LineTotal=" & ToDec(r("LineTotal")).ToString("N2"))
-        s.AppendLine("HeaderTotals: Sub=" & txtSubTotal.Text &
-                 " VAT=" & txtVATTotal.Text &
-                 " Grand=" & txtGrandTotal.Text)
-        Return s.ToString()
-    End Function
+        Using con As New SqlConnection(ConnStr)
+            Using cmd As New SqlCommand("
+SELECT
+    UnitID,
+    UnitName
+FROM md.Unit
+WHERE IsActive = 1
+", con)
 
+                con.Open()
+                _allUnits = New DataTable()
+                _allUnits.Load(cmd.ExecuteReader())
+
+            End Using
+        End Using
+
+    End Sub
 
     Private Sub frmPurchases_Load(
     sender As Object,
@@ -137,40 +139,47 @@ ORDER BY p.PartnerName
             dgvInvoiceDetails.AutoGenerateColumns = False
             dgvInvoiceDetails.EditMode = DataGridViewEditMode.EditOnEnter
 
-            LoadUnitsForGrid()
+    
             InitInvoiceDetailsTable()
             LoadProductTypesForGrid()
             dgvInvoiceDetails.DataSource = InvoiceDetailsTable
             LoadProductsForGrid()
             LoadProductTypeFilterCombo()
-
+            LoadUnits()
             RemoveHandler InvoiceDetailsTable.RowChanged, AddressOf InvoiceDetailsTable_RowChanged
             AddHandler InvoiceDetailsTable.RowChanged, AddressOf InvoiceDetailsTable_RowChanged
 
             LoadPartnerComboBox()
             LoadPaymentMethodCombo()
             LoadPaymentTermCombo()
-            LoadSourceCombo()
             LoadTargetStoreCombo()
             LoadVATRateCombo()
+            FormatInvoiceGrid(dgvInvoiceDetails)
 
             If cboVATRate.DataSource IsNot Nothing Then
                 cboVATRate.SelectedValue = 1
             End If
 
-            colProductCode.DataPropertyName = "ProductCode"  ' ✅ الكود يُخزن في ProductCode
-            colProductID.DataPropertyName = "ProductID"      ' ✅ يبقى كما هو
+            colProductCode.DataPropertyName = "ProductID"
+            colProductID.DataPropertyName = "ProductID"
             colProductName.DataPropertyName = "ProductName"
             colProductType.DataPropertyName = "ProductTypeID"
 
-            colUnitID.DataPropertyName = "UnitID"
+            colUnitID.DataPropertyName = "UnitName"
             colQty.DataPropertyName = "Quantity"
             colUnitPrice.DataPropertyName = "UnitPrice"
             colVATRate.DataPropertyName = "TaxRate"
+            colTaxableAmount.DataPropertyName = "TaxableAmount"
             colVATAmount.DataPropertyName = "TaxAmount"
-            colTaxableAmount.DataPropertyName = "NetAmount"
             colTotalAmount.DataPropertyName = "LineTotal"
+            colProductType.DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton
+            Dim colCode = CType(dgvInvoiceDetails.Columns("colProductCode"), DataGridViewComboBoxColumn)
+            colCode.DisplayMember = "ProductCode"
+            colCode.ValueMember = "ProductID"
 
+            Dim colType = CType(dgvInvoiceDetails.Columns("colProductType"), DataGridViewComboBoxColumn)
+            colType.DisplayMember = "TypeName"
+            colType.ValueMember = "ProductTypeID"
             OpenNewMode()
 
         Finally
@@ -257,40 +266,17 @@ ORDER BY p.PartnerName
             ' (2) التأكد أن الكود موجود في الكمبوا
             ' =========================
             Dim comboCell = CType(row.Cells("colProductCode"), DataGridViewComboBoxCell)
-            Dim exists As Boolean = False
 
-            If comboCell.DataSource IsNot Nothing Then
-                Dim dt As DataTable = CType(comboCell.DataSource, DataTable)
-
-                For Each r As DataRow In dt.Rows
-                    If r("ProductCode").ToString() = f.SelectedProductCode Then
-                        exists = True
-                        Exit For
-                    End If
-                Next
-
-                ' إذا غير موجود، نضيفه مؤقتًا
-                If Not exists Then
-                    Dim newRow = dt.NewRow()
-                    newRow("ProductCode") = f.SelectedProductCode
-                    newRow("ProductID") = f.SelectedProductID
-                    dt.Rows.Add(newRow)
-                End If
-            End If
 
             ' =========================
             ' (3) تعيين الكود
             ' =========================
             dgvInvoiceDetails.CurrentCell = row.Cells("colProductCode")
-            row.Cells("colProductCode").Value = f.SelectedProductID
+            row.Cells("colProductCode").Value = f.SelectedProductCode
+
             ' تثبيت التغيير
             dgvInvoiceDetails.EndEdit()
             dgvInvoiceDetails.CommitEdit(DataGridViewDataErrorContexts.Commit)
-
-            ' =========================
-            ' (4) تحميل بقية البيانات
-            ' =========================
-            FillProductRow(e.RowIndex)
 
             ' =========================
             ' (5) حساب السطر
@@ -309,7 +295,7 @@ ORDER BY p.PartnerName
             SELECT
                 ProductTypeID,
                 TypeName
-            FROM Master_ProductType
+            FROM md.ProductType
             WHERE IsActive = 1
             ORDER BY TypeName
         ", con)
@@ -403,27 +389,10 @@ ORDER BY p.PartnerName
                 e.Row("SourceStoreID") = DBNull.Value   ' مشتريات دائمًا
 
             End If
-            If _isPostedCorrectionEdit Then
-                e.Row("IsChanged") = True
-            End If
+
         Finally
             ExitUIGuard()
         End Try
-
-    End Sub
-    Private Sub ApplyHeaderStoreToDetails()
-
-        If InvoiceDetailsTable Is Nothing Then Exit Sub
-        If cboTargetStore.SelectedValue Is Nothing _
-   OrElse Not IsNumeric(cboTargetStore.SelectedValue) Then Exit Sub
-
-        Dim storeID As Integer = CInt(cboTargetStore.SelectedValue)
-
-        For Each r As DataRow In InvoiceDetailsTable.Rows
-            If r.RowState <> DataRowState.Deleted Then
-                r("TargetStoreID") = storeID
-            End If
-        Next
 
     End Sub
 
@@ -447,7 +416,7 @@ ORDER BY p.PartnerName
         Dim result = ExecuteScalarValue(
         "
         SELECT TaxRate
-        FROM Master_TaxType
+        FROM md.TaxType
         WHERE TaxTypeID = @ID
         ",
         Sub(cmd)
@@ -485,7 +454,6 @@ ORDER BY p.PartnerName
 
             dtpDocumentDate.Enabled = True
             cboPartnerCode.Enabled = True
-            cboSource.Enabled = True
             cboPaymentMethod.Enabled = True
             cboPaymentTerm.Enabled = True
             cboTargetStore.Enabled = True
@@ -524,69 +492,179 @@ ORDER BY p.PartnerName
     e As DataGridViewCellEventArgs
 ) Handles dgvInvoiceDetails.CellValueChanged
 
-        '       If IsUIGuarded Then Exit Sub
+        If _isInternalChange Then Exit Sub
         If e.RowIndex < 0 Then Exit Sub
         If InvoiceDetailsTable Is Nothing Then Exit Sub
 
-        ' ⛔ لا تعديل بعد الترحيل
-        Dim currentStatus = GetDocumentStatusID(CurrentDocumentID)
-        Dim mode = GetEditMode(currentStatus)
+        Dim row = dgvInvoiceDetails.Rows(e.RowIndex)
+        If row Is Nothing OrElse row.IsNewRow Then Exit Sub
 
-        If mode = EditModeType.NoEdit Then Exit Sub
+        Dim colName As String = dgvInvoiceDetails.Columns(e.ColumnIndex).Name
 
-        Dim colName As String =
-        dgvInvoiceDetails.Columns(e.ColumnIndex).Name
+        Try
+            _isInternalChange = True
 
-        Select Case colName
+            Select Case colName
 
-            Case "colProductCode", "colProductType"
+                Case "colProductCode"
 
-                EnterUIGuard()
-                Try
-                    FillProductRow(e.RowIndex)
+                    Dim codeObj = row.Cells("colProductCode").Value
+                    If codeObj Is Nothing OrElse IsDBNull(codeObj) Then Exit Sub
+
+                    Dim selectedCodeProductID As Integer = CInt(codeObj)
+
+                    Dim drv As DataRowView = CType(row.DataBoundItem, DataRowView)
+
+                    drv("ProductID") = DBNull.Value
+                    drv("ProductTypeID") = DBNull.Value
+                    drv("ProductName") = ""
+                    drv("UnitID") = DBNull.Value
+                    drv("UnitName") = ""
+
+                    Dim typesTable = GetTypesByProductCode(selectedCodeProductID)
+                    If typesTable Is Nothing Then Exit Sub
+
+                    Dim typeIds = typesTable.AsEnumerable().
+                    Select(Function(r) r.Field(Of Integer)("ProductTypeID")).
+                    ToList()
+
+                    If typeIds.Count = 0 Then Exit Sub
+
+                    Dim combo = CType(row.Cells("colProductType"), DataGridViewComboBoxCell)
+                    Dim view As New DataView(_allProductTypes)
+
+                    Dim filter As String =
+                    String.Join(" OR ", typeIds.Select(Function(id) "ProductTypeID = " & id))
+
+                    view.RowFilter = filter
+
+                    combo.DataSource = view
+                    combo.DisplayMember = "TypeName"
+                    combo.ValueMember = "ProductTypeID"
+
+                    row.Cells("colProductType").Value = DBNull.Value
+
+                    If typeIds.Count = 1 Then
+                        Dim singleTypeID As Integer = typeIds(0)
+                        row.Cells("colProductType").Value = singleTypeID
+
+                        ApplyProductSelection(row, selectedCodeProductID, singleTypeID, e.RowIndex)
+                    Else
+                        dgvInvoiceDetails.CurrentCell = row.Cells("colProductType")
+                    End If
+
+                Case "colProductType"
+
+                    Dim codeObj = row.Cells("colProductCode").Value
+                    Dim typeObj = row.Cells("colProductType").Value
+
+                    If codeObj Is Nothing OrElse IsDBNull(codeObj) Then Exit Sub
+                    If typeObj Is Nothing OrElse IsDBNull(typeObj) Then Exit Sub
+
+                    Dim selectedCodeProductID As Integer = CInt(codeObj)
+                    Dim typeID As Integer = CInt(typeObj)
+
+                    ApplyProductSelection(row, selectedCodeProductID, typeID, e.RowIndex)
+
+                Case "colQty", "colUnitPrice", "colVATRate"
+
+                    dgvInvoiceDetails.CommitEdit(DataGridViewDataErrorContexts.Commit)
 
                     RecalculatePreview(
-                        PreviewRecalcScope.RowOnly,
-                        e.RowIndex
-                    )
+                    PreviewRecalcScope.RowOnly,
+                    e.RowIndex
+                )
 
-                Finally
-                    ExitUIGuard()
-                End Try
-            Case "colQty", "colUnitPrice", "colVATRate"
+            End Select
 
-                ' ⭐ تثبيت القيمة قبل الحساب
-                dgvInvoiceDetails.CommitEdit(
-                DataGridViewDataErrorContexts.Commit
-            )
+        Finally
+            _isInternalChange = False
+        End Try
 
-                ' 🔁 حساب Preview للسطر + الإجمالي
-                RecalculatePreview(
-                PreviewRecalcScope.RowOnly,
-                e.RowIndex
-            )
+    End Sub
+    Private Sub ApplyProductSelection(row As DataGridViewRow, codeProductID As Integer, typeID As Integer, rowIndex As Integer)
 
-        End Select
+        If row Is Nothing OrElse row.IsNewRow Then Exit Sub
+        If rowIndex < 0 Then Exit Sub
+        If InvoiceDetailsTable Is Nothing Then Exit Sub
+
+        Dim codeRow = _allProducts.AsEnumerable().
+        FirstOrDefault(Function(r) CInt(r("ProductID")) = codeProductID)
+
+        If codeRow Is Nothing Then Exit Sub
+
+        Dim productCode As String = codeRow("ProductCode").ToString()
+
+        Dim selected = _allProducts.AsEnumerable().
+        FirstOrDefault(Function(r) _
+            r("ProductCode").ToString() = productCode AndAlso
+            CInt(r("ProductTypeID")) = typeID)
+
+        If selected Is Nothing Then Exit Sub
+
+        Dim finalProductID As Integer = CInt(selected("ProductID"))
+
+        If IsDuplicateProduct(finalProductID, rowIndex) Then
+            MessageBox.Show("الصنف مكرر")
+            row.Cells("colProductType").Value = DBNull.Value
+            dgvInvoiceDetails.CurrentCell = row.Cells("colProductType")
+            Exit Sub
+        End If
+
+        Dim drv As DataRowView = CType(row.DataBoundItem, DataRowView)
+
+        drv("ProductID") = finalProductID
+        drv("ProductTypeID") = typeID
+        drv("ProductName") = selected("ProductName")
+
+        Dim unitID As Integer = CInt(selected("StorageUnitID"))
+        drv("UnitID") = unitID
+
+        Dim unitRow = _allUnits.AsEnumerable().
+        FirstOrDefault(Function(u) CInt(u("UnitID")) = unitID)
+
+        If unitRow IsNot Nothing Then
+            drv("UnitName") = unitRow("UnitName").ToString()
+        Else
+            drv("UnitName") = ""
+        End If
+
+        drv.EndEdit()
+
+        RecalculatePreview(PreviewRecalcScope.RowOnly, rowIndex)
+
+        dgvInvoiceDetails.CurrentCell = row.Cells("colQty")
 
     End Sub
 
-    Protected Sub NormalizeInvoiceGrid()
 
-        If InvoiceDetailsTable Is Nothing Then Exit Sub
+
+    Protected Sub NormalizeInvoiceGrid()
 
         For i As Integer = InvoiceDetailsTable.Rows.Count - 1 To 0 Step -1
 
             Dim r As DataRow = InvoiceDetailsTable.Rows(i)
 
-            ' 🟢 تجاهل المحذوف
             If r.RowState = DataRowState.Deleted Then Continue For
 
-            ' 🟢 حذف الصفوف الفارغة بالكامل
-            If IsDBNull(r("ProductID")) _
-           OrElse CInt(r("ProductID")) <= 0 _
-           OrElse ToDec(r("Quantity")) <= 0D Then
-
+            ' ❌ حذف إذا الصنف غير صالح
+            If IsDBNull(r("ProductID")) OrElse CInt(r("ProductID")) <= 0 Then
                 InvoiceDetailsTable.Rows.RemoveAt(i)
+                Continue For
+            End If
+
+            ' 🔥 الكمية صفر
+            If ToDec(r("Quantity")) <= 0D Then
+
+                If IsPostedEditMode Then
+                    ' ✅ لا نحذف → نخليه صفر (إلغاء)
+                    r("Quantity") = 0D
+
+                Else
+                    ' 🟢 قبل الترحيل → نحذف
+                    InvoiceDetailsTable.Rows.RemoveAt(i)
+                End If
+
             End If
 
         Next
@@ -602,7 +680,7 @@ ORDER BY p.PartnerName
                 TaxTypeID,
                 TaxName,
                 TaxRate
-            FROM Master_TaxType
+            FROM md.TaxType
             WHERE IsActive = 1
             ORDER BY TaxTypeID
         ", con)
@@ -636,13 +714,12 @@ ORDER BY p.PartnerName
         InvoiceDetailsTable = New DataTable()
 
         ' معلومات الصنف
-        InvoiceDetailsTable.Columns.Add("OriginalDetailID", GetType(Integer))
         InvoiceDetailsTable.Columns.Add("DetailID", GetType(Integer))
         InvoiceDetailsTable.Columns.Add("ProductID", GetType(Integer))
         InvoiceDetailsTable.Columns.Add("ProductCode", GetType(String))
         InvoiceDetailsTable.Columns.Add("ProductTypeID", GetType(Integer))
         InvoiceDetailsTable.Columns.Add("ProductName", GetType(String))
-
+        InvoiceDetailsTable.Columns.Add("UnitName", GetType(String))
         ' الكميات
         InvoiceDetailsTable.Columns.Add("Quantity", GetType(Decimal))
         InvoiceDetailsTable.Columns.Add("UnitID", GetType(Integer))
@@ -669,21 +746,42 @@ ORDER BY p.PartnerName
         ' المجاميع
         InvoiceDetailsTable.Columns.Add("NetAmount", GetType(Decimal))
         InvoiceDetailsTable.Columns.Add("LineTotal", GetType(Decimal))
-        InvoiceDetailsTable.Columns.Add("IsChanged", GetType(Boolean))
+
     End Sub
     ' =========================
     ' frmPurchases
     ' =========================
     Protected Sub ApplyEditPermissionByStatus()
-        Dim currentStatus = GetDocumentStatusID(CurrentDocumentID)
-        Dim mode = GetEditMode(currentStatus)
-        If CurrentDocumentID = 0 Then
-            dgvInvoiceDetails.ReadOnly = False
-            dgvInvoiceDetails.Enabled = True
-            btnSaveDraft.Enabled = True
-            btnCancel.Enabled = True
+        Dim statusID = GetDocumentStatusID(CurrentDocumentID)
+
+        If statusID = 6 AndAlso Not IsPostedEditMode Then
+
+            dgvInvoiceDetails.ReadOnly = True
+            dgvInvoiceDetails.Enabled = False
+
+            btnSaveDraft.Enabled = False
+            btnCancel.Enabled = False
+
             Exit Sub
         End If
+        ' 🔥 أهم شرط
+        If IsPostedEditMode Then
+            dgvInvoiceDetails.ReadOnly = False
+            dgvInvoiceDetails.Enabled = True
+
+            btnSaveDraft.Enabled = True
+            btnCancel.Enabled = True
+
+            Exit Sub
+
+        End If
+
+        ' =========================
+        ' الوضع الطبيعي
+        ' =========================
+        Dim currentStatus = GetDocumentStatusID(CurrentDocumentID)
+        Dim mode = GetEditMode(currentStatus)
+
         Select Case mode
 
             Case EditModeType.DirectEdit
@@ -696,7 +794,6 @@ ORDER BY p.PartnerName
 
             Case EditModeType.EngineEdit
 
-                ' 👇 نسمح بالتعديل في الشاشة
                 dgvInvoiceDetails.ReadOnly = False
                 dgvInvoiceDetails.Enabled = True
 
@@ -712,31 +809,6 @@ ORDER BY p.PartnerName
                 btnCancel.Enabled = False
 
         End Select
-
-    End Sub
-
-    Private Sub EnableEditForNewDocument()
-
-        ' 🆕 هذه الدالة تُستخدم فقط لسند جديد
-        If CurrentDocumentID <> 0 Then Exit Sub
-
-        dgvInvoiceDetails.Enabled = True
-        dgvInvoiceDetails.ReadOnly = False
-        dgvInvoiceDetails.AllowUserToAddRows = True
-        dgvInvoiceDetails.AllowUserToDeleteRows = True
-
-        btnSend.Enabled = True
-
-        dtpDocumentDate.Enabled = True
-        cboPartnerCode.Enabled = True
-        cboSource.Enabled = True
-        cboPaymentMethod.Enabled = True
-        cboPaymentTerm.Enabled = True
-        cboTargetStore.Enabled = True
-        txtNote.ReadOnly = False
-
-        ' 🔒 الحالة دائمًا مقفلة في UI
-
 
     End Sub
 
@@ -810,31 +882,40 @@ ByRef city As String
         ' =========================
         ' 6️⃣ Sub Total
         ' =========================
-        If String.IsNullOrWhiteSpace(txtSubTotal.Text) _
+        If Not IsPostedEditMode Then
+
+            If String.IsNullOrWhiteSpace(txtSubTotal.Text) _
        OrElse Val(txtSubTotal.Text) <= 0 Then
-            MessageBox.Show("إجمالي الأصناف غير صحيح")
-            txtSubTotal.Focus()
-            Return False
+                MessageBox.Show("إجمالي الأصناف غير صحيح")
+                txtSubTotal.Focus()
+                Return False
+            End If
         End If
 
         ' =========================
         ' 7️⃣ VAT Total
         ' =========================
-        If String.IsNullOrWhiteSpace(txtVATTotal.Text) _
+        If Not IsPostedEditMode Then
+
+            If String.IsNullOrWhiteSpace(txtVATTotal.Text) _
        OrElse Val(txtVATTotal.Text) < 0 Then
-            MessageBox.Show("قيمة الضريبة غير صحيحة")
-            txtVATTotal.Focus()
-            Return False
+                MessageBox.Show("قيمة الضريبة غير صحيحة")
+                txtVATTotal.Focus()
+                Return False
+            End If
         End If
 
         ' =========================
         ' 8️⃣ Grand Total
         ' =========================
-        If String.IsNullOrWhiteSpace(txtGrandTotal.Text) _
+        If Not IsPostedEditMode Then
+
+            If String.IsNullOrWhiteSpace(txtGrandTotal.Text) _
        OrElse Val(txtGrandTotal.Text) <= 0 Then
-            MessageBox.Show("الإجمالي النهائي غير صحيح")
-            txtGrandTotal.Focus()
-            Return False
+                MessageBox.Show("الإجمالي النهائي غير صحيح")
+                txtGrandTotal.Focus()
+                Return False
+            End If
         End If
 
         ' =========================
@@ -853,11 +934,14 @@ ByRef city As String
                 Return False
             End If
 
-            If IsDBNull(r("Quantity")) OrElse Val(r("Quantity")) <= 0 Then
-                MessageBox.Show("الكمية يجب أن تكون أكبر من صفر")
-                Return False
-            End If
+            If Not IsPostedEditMode Then
 
+                If IsDBNull(r("Quantity")) OrElse Val(r("Quantity")) <= 0 Then
+                    MessageBox.Show("الكمية يجب أن تكون أكبر من صفر")
+                    Return False
+                End If
+
+            End If
             If IsDBNull(r("UnitPrice")) OrElse Val(r("UnitPrice")) < 0 Then
                 MessageBox.Show("سعر الوحدة غير صحيح")
                 Return False
@@ -878,7 +962,7 @@ ByRef city As String
             SELECT
                 DocumentID,
                 DocumentNo
-            FROM Inventory_DocumentHeader
+            FROM inv.DocumentHeader
             WHERE DocumentTypeID = @DT
             ORDER BY DocumentDate DESC
         ", con)
@@ -890,7 +974,6 @@ ByRef city As String
             End Using
         End Using
 
-
     End Sub
     Protected Sub LoadPaymentMethodCombo()
 
@@ -898,7 +981,7 @@ ByRef city As String
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-        "SELECT PaymentMethodID, NameAr FROM Master_PaymentMethod WHERE IsActive = 1", con)
+        "SELECT PaymentMethodID, NameAr FROM md.PaymentMethod WHERE IsActive = 1", con)
 
                 con.Open()
                 dt.Load(cmd.ExecuteReader())
@@ -922,7 +1005,7 @@ ByRef city As String
                 PaymentTermID,
                 NameAr,
                 DueDays
-            FROM Master_PaymentTerm
+            FROM md.PaymentTerm
             WHERE IsActive = 1
             ORDER BY PaymentTermID
             ", con)
@@ -938,21 +1021,6 @@ ByRef city As String
         cboPaymentTerm.SelectedIndex = -1
 
     End Sub
-    Protected Sub LoadSourceCombo()
-
-        Dim dt As New DataTable
-        dt.Columns.Add("ID", GetType(Boolean))
-        dt.Columns.Add("Name", GetType(String))
-
-        dt.Rows.Add(False, "داخلي")
-        dt.Rows.Add(True, "خارجي")
-
-        cboSource.DataSource = dt
-        cboSource.DisplayMember = "Name"   ' داخلي / خارجي
-        cboSource.ValueMember = "ID"       ' False / True
-        cboSource.SelectedIndex = -1
-
-    End Sub
     Protected Sub LoadTargetStoreCombo()
 
         Dim dt As New DataTable()
@@ -962,7 +1030,7 @@ ByRef city As String
         SELECT
             StoreID,
             StoreName
-        FROM Master_Store
+        FROM md.Store
         WHERE IsActive = 1
         ORDER BY StoreName
         ", con)
@@ -981,8 +1049,6 @@ ByRef city As String
 
     Protected Sub LoadProductsForGrid()
 
-        Dim dt As New DataTable()
-
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
 SELECT
@@ -991,55 +1057,67 @@ SELECT
     ProductName,
     StorageUnitID,
     ProductTypeID
-FROM dbo.Master_Product
+FROM md.Product
 WHERE IsActive = 1
 ORDER BY ProductCode
 ", con)
 
                 con.Open()
-                dt.Load(cmd.ExecuteReader())
+                _allProducts = New DataTable()
+                _allProducts.Load(cmd.ExecuteReader())
+
             End Using
         End Using
 
+        ' أول تحميل للجريد
+        BindProductCodeGrid(_allProducts)
+
+    End Sub
+    Private Sub BindProductCodeGrid(dt As DataTable)
+
         Dim col =
-        CType(dgvInvoiceDetails.Columns("colProductCode"),
-              DataGridViewComboBoxColumn)
+    CType(dgvInvoiceDetails.Columns("colProductCode"),
+          DataGridViewComboBoxColumn)
 
         col.DataSource = dt
         col.DisplayMember = "ProductCode"
-        col.ValueMember = "ProductCode"
+        col.ValueMember = "ProductID"
+
+    End Sub
+    Private Sub cboProductFilter_SelectedIndexChanged(
+    sender As Object,
+    e As EventArgs
+) Handles cboProductFilter.SelectedIndexChanged
+
+        If _allProducts Is Nothing Then Exit Sub
+        If cboProductFilter.SelectedValue Is Nothing Then Exit Sub
+
+        Dim typeID As Integer
+
+        If TypeOf cboProductFilter.SelectedValue Is DataRowView Then
+            typeID = CInt(CType(cboProductFilter.SelectedValue, DataRowView)("ProductTypeID"))
+        ElseIf IsNumeric(cboProductFilter.SelectedValue) Then
+            typeID = CInt(cboProductFilter.SelectedValue)
+        Else
+            Exit Sub
+        End If
+
+        If typeID = 0 Then
+            BindProductCodeGrid(_allProducts)
+            Exit Sub
+        End If
+
+        Dim filtered = _allProducts.AsEnumerable().
+        Where(Function(r) CInt(r("ProductTypeID")) = typeID)
+
+        If filtered.Any() Then
+            BindProductCodeGrid(filtered.CopyToDataTable())
+        Else
+            BindProductCodeGrid(_allProducts.Clone())
+        End If
 
     End Sub
 
-    Private Sub LoadUnitsForGrid()
-
-        Dim dt As New DataTable()
-
-        Using con As New SqlConnection(ConnStr)
-            Using cmd As New SqlCommand("
-            SELECT
-                UnitID,
-                UnitName
-            FROM Master_Unit
-            WHERE IsActive = 1
-            ORDER BY UnitName
-        ", con)
-
-                con.Open()
-                dt.Load(cmd.ExecuteReader())
-
-            End Using
-        End Using
-
-        Dim col =
-        CType(dgvInvoiceDetails.Columns("colUnitID"),
-              DataGridViewComboBoxColumn)
-
-        col.DataSource = dt
-        col.DisplayMember = "UnitName"
-        col.ValueMember = "UnitID"
-
-    End Sub
 
     Private Sub cboPartnerCode_SelectedIndexChanged(
     sender As Object,
@@ -1103,8 +1181,7 @@ ORDER BY ProductCode
             IsInventoryPosted = False
             IsSaved = False
             CurrentMode = FormMode.NewMode
-            _isPostedCorrectionEdit = False
-            _deletedOriginalDetailIDs.Clear()
+
             ' =========================
             ' تصفير الهيدر
             ' =========================
@@ -1118,10 +1195,10 @@ ORDER BY ProductCode
             txtPhone.Clear()
             txtAddress.Clear()
             txtCity.Clear()
+            txtStatusName.Clear()
             btnSaveDraft.Text = "حفظ"
             cboPaymentMethod.SelectedIndex = -1
             cboPaymentTerm.SelectedIndex = -1
-            cboSource.SelectedIndex = -1
             cboTargetStore.SelectedIndex = -1
 
             txtNote.Clear()
@@ -1167,55 +1244,18 @@ ORDER BY ProductCode
     End Sub
 
 
-    Private Function GetNullableInt(value As Object) As Integer?
-
-        If value Is Nothing OrElse IsDBNull(value) Then
-            Return Nothing
-        End If
-
-        Dim s As String = value.ToString().Trim()
-
-        If s = "" Then
-            Return Nothing
-        End If
-
-        Dim i As Integer
-        If Integer.TryParse(s, i) Then
-            Return i
-        End If
-
-        Return Nothing
-
-    End Function
 
     ' ========================================
     ' شرط النوع عند الحفظ
     ' ========================================
-    Protected Function ValidateDocumentLines() As Boolean
+    Private Sub dgvInvoiceDetails_DataError(
+    sender As Object,
+    e As DataGridViewDataErrorEventArgs
+) Handles dgvInvoiceDetails.DataError
 
-        dgvInvoiceDetails.EndEdit()
-        dgvInvoiceDetails.CommitEdit(
-        DataGridViewDataErrorContexts.Commit
-    )
+        e.ThrowException = False
 
-        NormalizeInvoiceGrid()
-
-        If InvoiceDetailsTable Is Nothing _
-        OrElse InvoiceDetailsTable.Rows.Count = 0 Then
-            MessageBox.Show("لا توجد أصناف صالحة في الفاتورة.")
-            Return False
-        End If
-
-        For Each r As DataRow In InvoiceDetailsTable.Rows
-            If IsDBNull(r("ProductTypeID")) Then
-                MessageBox.Show("يجب تحديد نوع الصنف")
-                Return False
-            End If
-        Next
-
-        Return True
-
-    End Function
+    End Sub
     Protected Function ExecuteScalarValue(
     sql As String,
     parameters As Action(Of SqlCommand),
@@ -1249,62 +1289,52 @@ ORDER BY ProductCode
     End Function
 
 
-    ' =========================
-    ' إعادة حساب كل سطور الفاتورة بعد التحميل
-    ' =========================
-    ' ========================================
-    ' تعديل FillProductRow
-    ' ========================================
-    Protected Sub FillProductRow(rowIndex As Integer)
-
-        If InvoiceDetailsTable Is Nothing Then Exit Sub
-        If rowIndex < 0 Then Exit Sub
-
-        Dim row As DataGridViewRow = dgvInvoiceDetails.Rows(rowIndex)
-        If row Is Nothing OrElse row.IsNewRow Then Exit Sub
-
-        Dim drv As DataRowView = TryCast(row.DataBoundItem, DataRowView)
-        If drv Is Nothing Then Exit Sub
-
-        Dim productCodeObj = row.Cells("colProductCode").Value   ' ✅ الآن هي ProductCode
-        Dim productTypeObj = row.Cells("colProductType").Value
-
-        If productCodeObj Is Nothing OrElse IsDBNull(productCodeObj) Then Exit Sub
-        If productTypeObj Is Nothing OrElse IsDBNull(productTypeObj) Then Exit Sub
-
-        Dim productCode As String = productCodeObj.ToString()
-        Dim productTypeID As Integer = CInt(productTypeObj)
-        Dim col = CType(dgvInvoiceDetails.Columns("colProductCode"), DataGridViewComboBoxColumn)
-        Dim src As DataTable = CType(col.DataSource, DataTable)
-
-        Dim safeCode = productCode.Replace("'", "''")
-        Dim found() As DataRow =
-    src.Select("ProductCode = '" & safeCode & "' AND ProductTypeID = " & productTypeID)
-
-        If found.Length = 0 Then Exit Sub
-
-        Dim productID As Integer = CInt(found(0)("ProductID"))
-
-        drv("ProductID") = productID
-        drv("ProductName") = found(0)("ProductName").ToString()
-        drv("UnitID") = CInt(found(0)("StorageUnitID"))
-        drv.EndEdit()
-        dgvInvoiceDetails.CommitEdit(DataGridViewDataErrorContexts.Commit)
-        dgvInvoiceDetails.Refresh()
-
-    End Sub
-    Private Sub dgvInvoiceDetails_CurrentCellDirtyStateChanged(
+    Private Sub dgvInvoiceDetails_CellEndEdit(
     sender As Object,
-    e As EventArgs
-) Handles dgvInvoiceDetails.CurrentCellDirtyStateChanged
+    e As DataGridViewCellEventArgs
+) Handles dgvInvoiceDetails.CellEndEdit
 
-        If dgvInvoiceDetails.CurrentCell Is Nothing Then Exit Sub
+        If IsUIGuarded Then Exit Sub
+        If e.RowIndex < 0 Then Exit Sub
+        If InvoiceDetailsTable Is Nothing Then Exit Sub
 
         Dim colName As String =
-        dgvInvoiceDetails.Columns(dgvInvoiceDetails.CurrentCell.ColumnIndex).Name
+        dgvInvoiceDetails.Columns(e.ColumnIndex).Name
 
-        If colName = "colProductCode" OrElse colName = "colProductType" Then
-            dgvInvoiceDetails.CommitEdit(DataGridViewDataErrorContexts.Commit)
+        Select Case colName
+            Case "colQty", "colUnitPrice", "colVATRate"
+
+                dgvInvoiceDetails.EndEdit()
+                dgvInvoiceDetails.CommitEdit(DataGridViewDataErrorContexts.Commit)
+
+                RecalculatePreview(PreviewRecalcScope.RowOnly, e.RowIndex)
+                dgvInvoiceDetails.Refresh()
+        End Select
+
+    End Sub
+    Private Sub dgvInvoiceDetails_DefaultValuesNeeded(
+    sender As Object,
+    e As DataGridViewRowEventArgs
+) Handles dgvInvoiceDetails.DefaultValuesNeeded
+
+        If InvoiceDetailsTable Is Nothing Then Exit Sub
+        If InvoiceDetailsTable.Rows.Count = 0 Then Exit Sub
+
+        Dim lastIndex = InvoiceDetailsTable.Rows.Count - 1
+        Dim r = InvoiceDetailsTable.Rows(lastIndex)
+
+        If r.RowState = DataRowState.Deleted Then Exit Sub
+
+        ' 🔴 تحقق من اكتمال السطر
+        If IsDBNull(r("ProductID")) OrElse
+       IsDBNull(r("ProductTypeID")) OrElse
+       ToDec(r("Quantity")) <= 0 OrElse
+       ToDec(r("UnitPrice")) <= 0 Then
+
+            MessageBox.Show("يجب إكمال السطر الحالي أولاً")
+
+            ' 🔥 منع إنشاء السطر الجديد
+            dgvInvoiceDetails.CancelEdit()
         End If
 
     End Sub
@@ -1332,7 +1362,7 @@ SELECT
     StatusID,
     IsInventoryPosted,
     IsTaxInclusive
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 ", con)
 
@@ -1344,8 +1374,9 @@ WHERE DocumentID = @ID
 
                     CurrentDocumentID = CInt(r("DocumentID"))
 
-                    CurrentDocumentID = CInt(r("DocumentID"))
                     txtDocumentID.Text = r("DocumentNo").ToString()
+                    dtpDocumentDate.Value = CDate(r("DocumentDate"))
+
                     cboPartnerCode.SelectedValue = CInt(r("PartnerID"))
                     IsInventoryPosted = CBool(r("IsInventoryPosted"))
                     Dim includeTaxValue As Object = r("IsTaxInclusive")
@@ -1385,7 +1416,6 @@ WHERE DocumentID = @ID
             Using cmd As New SqlCommand("
 SELECT
     d.DetailID,
-d.CorrectionReferenceDetailID,
     d.ProductID,
     p.ProductCode,
     p.ProductName,
@@ -1410,8 +1440,8 @@ d.CorrectionReferenceDetailID,
     d.SourceStoreID,
     d.TargetStoreID
 
-FROM Inventory_DocumentDetails d
-INNER JOIN Master_Product p
+FROM inv.DocumentDetails d
+INNER JOIN md.Product p
     ON p.ProductID = d.ProductID
 WHERE d.DocumentID = @DocumentID
 ORDER BY d.DetailID
@@ -1434,11 +1464,6 @@ ORDER BY d.DetailID
             Dim newRow As DataRow = InvoiceDetailsTable.NewRow()
 
             ' ===== معلومات الصنف =====
-            If IsDBNull(r("CorrectionReferenceDetailID")) Then
-                newRow("OriginalDetailID") = r("DetailID") ' أول مرة
-            Else
-                newRow("OriginalDetailID") = r("CorrectionReferenceDetailID") ' تصحيح
-            End If
             newRow("DetailID") = r("DetailID")
             newRow("ProductID") = r("ProductID")
             newRow("ProductCode") = r("ProductCode").ToString()
@@ -1492,7 +1517,7 @@ ORDER BY d.DetailID
             Else
                 newRow("IncludeTax") = False
             End If
-            newRow("IsChanged") = False
+
             InvoiceDetailsTable.Rows.Add(newRow)
 
         Next
@@ -1502,26 +1527,18 @@ ORDER BY d.DetailID
         dgvInvoiceDetails.Refresh()
 
     End Sub
-    Protected Sub InferTargetStoreFromDetails()
 
+    Private Sub cboTargetStore_SelectedIndexChanged(
+    sender As Object,
+    e As EventArgs
+) Handles cboTargetStore.SelectedIndexChanged
+        If IsUIGuarded Then Exit Sub
         If InvoiceDetailsTable Is Nothing Then Exit Sub
-        If InvoiceDetailsTable.Rows.Count = 0 Then Exit Sub
-
-        For Each r As DataRow In InvoiceDetailsTable.Rows
-            If r.RowState <> DataRowState.Deleted AndAlso
-           Not IsDBNull(r("TargetStoreID")) Then
-
-                cboTargetStore.SelectedValue = CInt(r("TargetStoreID"))
-
-                ' 🔹 تحميل المنتجات (لم تعد تعتمد على المستودع)
-                LoadProductsForGrid()
-
-                Exit For
-            End If
-        Next
+        If cboTargetStore.SelectedValue Is Nothing Then Exit Sub
+        If Not IsNumeric(cboTargetStore.SelectedValue) Then Exit Sub
+        ApplyTargetStoreToDetails(CInt(cboTargetStore.SelectedValue))
 
     End Sub
-
     ' =========================
     ' منع التعديل في وضع العرض
     ' =========================
@@ -1547,23 +1564,6 @@ ORDER BY d.DetailID
 
     End Sub
 
-    Private Sub ApplyViewMode()
-
-        ' تعطيل الهيدر
-        dtpDocumentDate.Enabled = False
-        cboPartnerCode.Enabled = False
-        cboSource.Enabled = False
-        cboPaymentMethod.Enabled = False
-        cboPaymentTerm.Enabled = False
-        txtNote.ReadOnly = True
-        txtDocumentID.Enabled = False
-
-
-        ' تعطيل الجريد
-        ' الأزرار
-        btnSend.Enabled = False
-
-    End Sub
     Private Sub btnCancel_Click(sender As Object, e As EventArgs) Handles btnCancel.Click
 
         If CurrentDocumentID <= 0 Then Exit Sub
@@ -1587,9 +1587,7 @@ ORDER BY d.DetailID
         End Try
 
     End Sub
-    Protected Sub btnClose_Click(sender As Object, e As EventArgs)
-        Me.Close()
-    End Sub
+
     Private Sub btnSearch_Click(
     sender As Object,
     e As EventArgs
@@ -1605,18 +1603,50 @@ ORDER BY d.DetailID
         End Using
 
     End Sub
+    Private Sub ApplyTargetStoreToDetails(storeID As Integer)
+
+        If InvoiceDetailsTable Is Nothing Then Exit Sub
+
+        For Each r As DataRow In InvoiceDetailsTable.Rows
+            If r.RowState <> DataRowState.Deleted Then
+                r("TargetStoreID") = storeID
+            End If
+        Next
+
+    End Sub
     Protected Sub LoadDocument(documentID As Integer)
-        _isPostedCorrectionEdit = False
-        _deletedOriginalDetailIDs.Clear()
+
         EnterUIGuard()
         Try
             ' 🔎 تحميل الهيدر + التفاصيل
             LoadDocumentHeader(documentID)
             LoadDocumentDetails(documentID)
+            LoadTargetStoreCombo()
+
+            ' 🔥 توزيع المستودع من الهيدر إلى التفاصيل
+            ' 🔥 استخراج المستودع من أول سطر في التفاصيل
+            Dim firstRow = InvoiceDetailsTable.AsEnumerable().
+    FirstOrDefault(Function(r) _
+        r.RowState <> DataRowState.Deleted AndAlso
+        Not IsDBNull(r("TargetStoreID"))
+    )
+
+
+            If firstRow IsNot Nothing Then
+
+                Dim storeID As Integer = CInt(firstRow("TargetStoreID"))
+
+                ' 🔥 مهم: إعادة تعيين قبل التعيين
+                cboTargetStore.SelectedIndex = -1
+
+                cboTargetStore.SelectedValue = storeID
+
+                ' 🔥 الأهم: لا تعتمد على الحدث
+                ApplyTargetStoreToDetails(storeID)
+
+            End If
             LoadDocumentStatus(documentID)
             ApplyEditPermissionByStatus()
-            InferTargetStoreFromDetails()
-
             ' 🔎 مزامنة الحالة الحقيقية (StatusID)
             ' 🔎 تحميل حالة الترحيل من DB
 
@@ -1638,7 +1668,6 @@ ORDER BY d.DetailID
 
         Dim tvp As New DataTable()
 
-        ' مطابق تمامًا لجدول Inventory_DocumentDetails
         tvp.Columns.Add("ProductID", GetType(Integer))
         tvp.Columns.Add("UnitID", GetType(Integer))
         tvp.Columns.Add("Quantity", GetType(Decimal))
@@ -1654,10 +1683,15 @@ ORDER BY d.DetailID
         tvp.Columns.Add("TargetStoreID", GetType(Integer))
         tvp.Columns.Add("TaxTypeID", GetType(Integer))
         tvp.Columns.Add("TaxableAmount", GetType(Decimal))
-        tvp.Columns.Add("OriginalDetailID", GetType(Integer))
         tvp.Columns.Add("DetailID", GetType(Integer))
-        tvp.Columns.Add("IsChanged", GetType(Boolean))
-        For Each r As DataRow In InvoiceDetailsTable.Select("", "", DataViewRowState.CurrentRows)
+
+        ' 🔥 مهم جدا
+        tvp.Columns.Add("OriginalDetailID", GetType(Integer))
+
+        For Each r As DataRow In InvoiceDetailsTable.Rows
+
+            If r.RowState = DataRowState.Deleted Then Continue For
+
             If IsDBNull(r("TargetStoreID")) Then
                 Throw New ApplicationException("TargetStoreID غير محدد")
             End If
@@ -1675,19 +1709,23 @@ ORDER BY d.DetailID
             row("TaxRate") = ToDec(r("TaxRate"))
             row("TaxAmount") = ToDec(r("TaxAmount"))
             row("LineTotal") = ToDec(r("LineTotal"))
+
             row("SourceStoreID") =
             If(IsDBNull(r("SourceStoreID")), DBNull.Value, CInt(r("SourceStoreID")))
+
             row("TargetStoreID") = CInt(r("TargetStoreID"))
             row("TaxTypeID") = CInt(r("TaxTypeID"))
             row("TaxableAmount") = ToDec(r("TaxableAmount"))
-            row("OriginalDetailID") =
-    If(IsDBNull(r("OriginalDetailID")), DBNull.Value, r("OriginalDetailID"))
+
             row("DetailID") =
-If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
-            row("IsChanged") =
-    If(r.Table.Columns.Contains("IsChanged") AndAlso Not IsDBNull(r("IsChanged")),
-       CBool(r("IsChanged")),
-       False)
+            If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
+
+            row("OriginalDetailID") =
+            If(r.Table.Columns.Contains("OriginalDetailID") AndAlso
+               Not IsDBNull(r("OriginalDetailID")),
+               r("OriginalDetailID"),
+               DBNull.Value)
+
             tvp.Rows.Add(row)
 
         Next
@@ -1865,6 +1903,23 @@ If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
         Dim r As DataRow = InvoiceDetailsTable.Rows(rowIndex)
         If r.RowState = DataRowState.Deleted Then Exit Sub
 
+        ' =========================
+        ' 🔴 تحقق من الصنف
+        ' =========================
+        If IsDBNull(r("ProductID")) Then Exit Sub
+
+        If IsDBNull(r("ProductTypeID")) Then
+            MessageBox.Show("يجب اختيار نوع الصنف")
+            Exit Sub
+        End If
+
+        Dim productID As Integer = CInt(r("ProductID"))
+        Dim typeID As Integer = CInt(r("ProductTypeID"))
+
+
+        ' =========================
+        ' الحسابات (كما هي)
+        ' =========================
         Dim Quantity As Decimal = ToDec(r("Quantity"))
         Dim unitPrice As Decimal = ToDec(r("UnitPrice"))
         Dim discountRate As Decimal = ToDec(r("DiscountRate"))
@@ -1873,15 +1928,12 @@ If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
 
         Dim rate As Decimal = vatRatePct / 100D
 
-        ' 1️⃣ Gross
         Dim gross As Decimal = Quantity * unitPrice
         r("GrossAmount") = Math.Round(gross, 6)
 
-        ' 2️⃣ Discount
         Dim discountAmount As Decimal = gross * (discountRate / 100D)
         r("DiscountAmount") = Math.Round(discountAmount, 6)
 
-        ' 3️⃣ Taxable
         Dim taxable As Decimal = gross - discountAmount
         r("TaxableAmount") = Math.Round(taxable, 6)
 
@@ -1931,8 +1983,8 @@ If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT COUNT(1)
-            FROM Inventory_DocumentHeader h
-            INNER JOIN Workflow_OperationStatusPolicy p
+            FROM inv.DocumentHeader h
+            INNER JOIN wf.OperationStatusPolicy p
                 ON p.StatusID = h.StatusID
             WHERE h.DocumentID = @ID
               AND p.OperationTypeID = @OperationTypeID
@@ -1982,19 +2034,8 @@ If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
             End Using
 
             Dim service As New PurchaseApplicationService(ConnStr)
-            If IsCorrectionDocument(CurrentDocumentID) Then
+            service.SendPurchase(CurrentDocumentID, transactionCode, CurrentUserID)
 
-                service.SendCorrectionPurchase(
-    CurrentDocumentID,
-    transactionCode,
-    CurrentUserID,
-    _deletedOriginalDetailIDs
-)
-            Else
-
-                service.SendPurchase(CurrentDocumentID, transactionCode, CurrentUserID)
-
-            End If
             MessageBox.Show("تم إرسال السند وترحيله بنجاح", "تم")
 
             LoadDocument(CurrentDocumentID)
@@ -2012,7 +2053,7 @@ If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
         Dim currentStatus = GetDocumentStatusID(CurrentDocumentID)
         Dim mode = GetEditMode(currentStatus)
 
-        If mode = EditModeType.NoEdit Then
+        If mode = EditModeType.NoEdit AndAlso Not IsPostedEditMode Then
             MessageBox.Show("لا يمكن تعديل هذا السند")
             Exit Sub
         End If
@@ -2022,11 +2063,8 @@ If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
             ' Validation
             ' =========================
             If Not ValidateDocument() Then Exit Sub
-
-            ' ✅ تنظيف الجريد قبل التحقق
-            NormalizeInvoiceGrid()
-
             If Not ValidateDocumentLines() Then Exit Sub
+
 
             Using con As New SqlConnection(ConnStr)
                 con.Open()
@@ -2049,60 +2087,18 @@ If(IsDBNull(r("DetailID")), DBNull.Value, r("DetailID"))
                 End If
 
             End Using
+            Me.Validate()
+            dgvInvoiceDetails.EndEdit()
             ' =========================
             ' استدعاء السيرفس للحفظ
             ' =========================
             Dim service As New PurchaseApplicationService(ConnStr)
-            If _isPostedCorrectionEdit Then
-
-                Dim newDocID As Integer =
-        service.EditPostedPurchase(
-            oldDocumentID:=CurrentDocumentID,
-            documentNo:=txtDocumentID.Text,
-            documentDate:=dtpDocumentDate.Value,
-            partnerID:=CInt(cboPartnerCode.SelectedValue),
-            taxTypeID:=CInt(cboVATRate.SelectedValue),
-            paymentMethodID:=CInt(cboPaymentMethod.SelectedValue),
-            paymentTermID:=CInt(cboPaymentTerm.SelectedValue),
-            notes:=txtNote.Text,
-            isTaxInclusive:=chkIsTaxInclusive.Checked,
-            details:=BuildDocumentDetailsTVP(),
-            deletedOriginalDetailIDs:=_deletedOriginalDetailIDs,
-            userID:=CurrentUserID
-        )
-
-                _isPostedCorrectionEdit = False
-                _deletedOriginalDetailIDs.Clear()
-
-                MessageBox.Show("تم حفظ سند التصحيح بنجاح", "تم")
-                LoadDocument(newDocID)
-                Exit Sub
-
-            End If
             If CurrentDocumentID = 0 Then
 
+                ' 🆕 إنشاء سند جديد
                 CurrentDocumentID =
-service.SaveDraftDirect(
-    documentID:=0,
-    documentNo:=txtDocumentID.Text,
-    documentDate:=dtpDocumentDate.Value,
-    partnerID:=CInt(cboPartnerCode.SelectedValue),
-    taxTypeID:=CInt(cboVATRate.SelectedValue),
-    paymentMethodID:=CInt(cboPaymentMethod.SelectedValue),
-    paymentTermID:=CInt(cboPaymentTerm.SelectedValue),
-    notes:=txtNote.Text,
-    isTaxInclusive:=chkIsTaxInclusive.Checked,
-    details:=BuildDocumentDetailsTVP()
-)
-            Else
-
-
-                If mode = EditModeType.DirectEdit Then
-
-                    ' 🟢 تعديل مباشر
-                    CurrentDocumentID =
         service.SaveDraftDirect(
-            documentID:=CurrentDocumentID,
+            documentID:=0,
             documentNo:=txtDocumentID.Text,
             documentDate:=dtpDocumentDate.Value,
             partnerID:=CInt(cboPartnerCode.SelectedValue),
@@ -2114,23 +2110,79 @@ service.SaveDraftDirect(
             details:=BuildDocumentDetailsTVP()
         )
 
-                ElseIf mode = EditModeType.EngineEdit Then
+            Else
 
-                    ' 🔵 تعديل عبر المحرك
-                    service.UpdatePurchaseWithTransactionSync(
-            documentID:=CurrentDocumentID,
-            documentDate:=dtpDocumentDate.Value,
-            partnerID:=CInt(cboPartnerCode.SelectedValue),
-            taxTypeID:=CInt(cboVATRate.SelectedValue),
-            paymentMethodID:=CInt(cboPaymentMethod.SelectedValue),
-            paymentTermID:=CInt(cboPaymentTerm.SelectedValue),
-            notes:=txtNote.Text,
-            isTaxInclusive:=chkIsTaxInclusive.Checked,
-            details:=BuildDocumentDetailsTVP()
-        )
+                ' =========================================
+                ' 🔥 1) وضع تعديل سند مرحل (الأولوية القصوى)
+                ' =========================================
+                Dim statusID = GetDocumentStatusID(CurrentDocumentID)
+
+                ' =========================
+                ' 🔴 الحالة 6 (Received)
+                ' =========================
+                If statusID = 6 Then
+
+                    If Not IsPostedEditMode Then
+                        MessageBox.Show("لا يمكن تعديل سند مستلم إلا عبر وضع تعديل السند المرحل")
+                        Exit Sub
+                    End If
+
+                    ' ✅ تعديل عبر المحرك فقط
+                    CurrentDocumentID =
+                        service.SavePostedDocumentWithQueue(
+                            documentID:=CurrentDocumentID,
+                            documentNo:=txtDocumentID.Text,
+                            documentDate:=dtpDocumentDate.Value,
+                            partnerID:=CInt(cboPartnerCode.SelectedValue),
+                            taxTypeID:=CInt(cboVATRate.SelectedValue),
+                            paymentMethodID:=CInt(cboPaymentMethod.SelectedValue),
+                            paymentTermID:=CInt(cboPaymentTerm.SelectedValue),
+                            notes:=txtNote.Text,
+                            isTaxInclusive:=chkIsTaxInclusive.Checked,
+                            details:=BuildDocumentDetailsTVP(),
+                            originalDetails:=OriginalDetailsTable,
+                            scopeCode:=FormScopeCode
+                        )
+
+                    ' =========================
+                    ' 🟡 الحالة 5 (Sent)
+                    ' =========================
+                ElseIf statusID = 5 Then
+                    ' ✔ تعديل طبيعي لكن يشمل الترانسكشن
+                    CurrentDocumentID =
+                        service.SaveSentDocument(
+                            documentID:=CurrentDocumentID,
+                            documentNo:=txtDocumentID.Text,
+                            documentDate:=dtpDocumentDate.Value,
+                            partnerID:=CInt(cboPartnerCode.SelectedValue),
+                            taxTypeID:=CInt(cboVATRate.SelectedValue),
+                            paymentMethodID:=CInt(cboPaymentMethod.SelectedValue),
+                            paymentTermID:=CInt(cboPaymentTerm.SelectedValue),
+                            notes:=txtNote.Text,
+                            isTaxInclusive:=chkIsTaxInclusive.Checked,
+                            details:=BuildDocumentDetailsTVP()
+                        )
+
+                    ' =========================
+                    ' 🟢 باقي الحالات
+                    ' =========================
+                Else
+
+                    CurrentDocumentID =
+                        service.SaveDraftDirect(
+                            documentID:=CurrentDocumentID,
+                            documentNo:=txtDocumentID.Text,
+                            documentDate:=dtpDocumentDate.Value,
+                            partnerID:=CInt(cboPartnerCode.SelectedValue),
+                            taxTypeID:=CInt(cboVATRate.SelectedValue),
+                            paymentMethodID:=CInt(cboPaymentMethod.SelectedValue),
+                            paymentTermID:=CInt(cboPaymentTerm.SelectedValue),
+                            notes:=txtNote.Text,
+                            isTaxInclusive:=chkIsTaxInclusive.Checked,
+                            details:=BuildDocumentDetailsTVP()
+                        )
 
                 End If
-
             End If
             ' =========================
             ' تحويل الحالة عند أول حفظ فقط (كما كان)
@@ -2139,7 +2191,7 @@ service.SaveDraftDirect(
 
                 Using con As New SqlConnection(ConnStr)
                     Using cmd As New SqlCommand("
-                    UPDATE Inventory_DocumentHeader
+                    UPDATE inv.DocumentHeader
                     SET StatusID = 2
                     WHERE DocumentID = @DocumentID
                 ", con)
@@ -2154,9 +2206,11 @@ service.SaveDraftDirect(
                 RefreshFormStatus(CurrentDocumentID)
 
             End If
-
+            IsPostedEditMode = False
             MessageBox.Show("تم حفظ الفاتورة بنجاح", "تم")
             btnSaveDraft.Text = "تعديل"
+            btnSaveDraft.Enabled = False
+            LoadDocument(CurrentDocumentID)
         Catch ex As Exception
             MessageBox.Show(ex.Message, "خطأ")
         End Try
@@ -2168,7 +2222,7 @@ service.SaveDraftDirect(
 
             Dim sql As String = "
 SELECT StatusID 
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 "
 
@@ -2198,29 +2252,30 @@ WHERE DocumentID = @ID
     ' ========================================
     Protected Sub LoadProductTypesForGrid()
 
-        Dim dt As New DataTable()
-
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
 SELECT
     ProductTypeID,
     TypeCode,
     TypeName
-FROM dbo.Master_ProductType
+FROM md.ProductType
 WHERE IsActive = 1
 ORDER BY TypeName
 ", con)
 
                 con.Open()
-                dt.Load(cmd.ExecuteReader())
+                _allProductTypes = New DataTable()
+                _allProductTypes.Load(cmd.ExecuteReader())
+
             End Using
         End Using
 
+        ' 🔥 مهم: ربط مبدئي للجريد (optional)
         Dim col =
-        CType(dgvInvoiceDetails.Columns("colProductType"),
-              DataGridViewComboBoxColumn)
+    CType(dgvInvoiceDetails.Columns("colProductType"),
+          DataGridViewComboBoxColumn)
 
-        col.DataSource = dt
+        col.DataSource = _allProductTypes
         col.DisplayMember = "TypeName"
         col.ValueMember = "ProductTypeID"
 
@@ -2228,28 +2283,6 @@ ORDER BY TypeName
     ' ========================================
     ' فلترة الأنواع حسب الكود
     ' ========================================
-    Private Sub FilterProductTypeByCode(rowIndex As Integer)
-
-        Dim row = dgvInvoiceDetails.Rows(rowIndex)
-        If row Is Nothing OrElse row.IsNewRow Then Exit Sub
-
-        Dim productIDObj = row.Cells("colProductCode").Value
-        If productIDObj Is Nothing OrElse IsDBNull(productIDObj) Then Exit Sub
-
-        Dim src =
-        CType(CType(dgvInvoiceDetails.Columns("colProductCode"),
-              DataGridViewComboBoxColumn).DataSource, DataTable)
-
-        Dim productID As Integer = CInt(productIDObj)
-
-        Dim found = src.Select("ProductID = " & productID)
-        If found.Length = 0 Then Exit Sub
-
-        Dim typeID As Integer = CInt(found(0)("ProductTypeID"))
-
-        row.Cells("colProductType").Value = typeID
-
-    End Sub
     ' ========================================
     ' منع الخروج من السطر بدون نوع
     ' ========================================
@@ -2259,24 +2292,118 @@ ORDER BY TypeName
 ) Handles dgvInvoiceDetails.RowValidating
 
         If IsLoading OrElse IsUIGuarded Then Exit Sub
+
+        ' 🔴 حماية أساسية
+        If e.RowIndex < 0 Then Exit Sub
+        If InvoiceDetailsTable Is Nothing Then Exit Sub
+        If e.RowIndex >= InvoiceDetailsTable.Rows.Count Then Exit Sub
+
+        Dim row = dgvInvoiceDetails.Rows(e.RowIndex)
+        If row Is Nothing OrElse row.IsNewRow Then Exit Sub
+
+        Dim r As DataRow = InvoiceDetailsTable.Rows(e.RowIndex)
+
+        ' 🔥 الحماية الحقيقية (هذه هي المشكلة)
+        If r Is Nothing Then Exit Sub
+        If r.RowState = DataRowState.Deleted Then Exit Sub
+        If r.RowState = DataRowState.Detached Then Exit Sub
+
+        ' =========================
+        ' التحقق
+        ' =========================
+
+        If r.IsNull("ProductID") OrElse CInt(r("ProductID")) <= 0 Then
+
+            ' 🔴 إذا الكود موجود → المشكلة في النوع
+            If Not r.IsNull("ProductCode") Then
+                dgvInvoiceDetails.CurrentCell = row.Cells("colProductType")
+            Else
+                dgvInvoiceDetails.CurrentCell = row.Cells("colProductCode")
+            End If
+
+            e.Cancel = True
+            Exit Sub
+        End If
+        If r.IsNull("ProductTypeID") Then
+            dgvInvoiceDetails.CurrentCell = row.Cells("colProductType")
+            e.Cancel = True
+            Exit Sub
+        End If
+
+        If r.IsNull("Quantity") OrElse ToDec(r("Quantity")) <= 0 Then
+            dgvInvoiceDetails.CurrentCell = row.Cells("colQty")
+            e.Cancel = True
+            Exit Sub
+        End If
+
+    End Sub
+    Private Sub dgvInvoiceDetails_CellValidating(
+    sender As Object,
+    e As DataGridViewCellValidatingEventArgs
+) Handles dgvInvoiceDetails.CellValidating
+
+        If _isInternalChange Then Exit Sub
         If e.RowIndex < 0 Then Exit Sub
         If InvoiceDetailsTable Is Nothing Then Exit Sub
 
         Dim row = dgvInvoiceDetails.Rows(e.RowIndex)
         If row Is Nothing OrElse row.IsNewRow Then Exit Sub
 
-        ' 🟢 تجاهل الصفوف الفارغة (مهم)
-        Dim productVal = row.Cells("colProductCode").Value
-        If productVal Is Nothing OrElse IsDBNull(productVal) Then Exit Sub
+        If e.RowIndex >= InvoiceDetailsTable.Rows.Count Then Exit Sub
 
-        Dim typeVal = row.Cells("colProductType").Value
+        Dim r As DataRow = InvoiceDetailsTable.Rows(e.RowIndex)
 
-        If typeVal Is Nothing OrElse IsDBNull(typeVal) Then
-            MessageBox.Show("يجب اختيار نوع الصنف")
-            e.Cancel = True
+        If r Is Nothing Then Exit Sub
+        If r.RowState = DataRowState.Deleted OrElse r.RowState = DataRowState.Detached Then Exit Sub
+
+        Dim colName As String = dgvInvoiceDetails.Columns(e.ColumnIndex).Name
+
+        ' 🔴 منع الخروج من النوع إذا المنتج غير مكتمل
+        If colName = "colProductType" Then
+
+            If r.IsNull("ProductID") OrElse CInt(r("ProductID")) <= 0 Then
+                e.Cancel = True
+            End If
+
         End If
 
     End Sub
+    Private Sub dgvInvoiceDetails_CurrentCellChanged(
+    sender As Object,
+    e As EventArgs
+) Handles dgvInvoiceDetails.CurrentCellChanged
+
+        If _isInternalChange Then Exit Sub
+        If dgvInvoiceDetails.CurrentCell Is Nothing Then Exit Sub
+        If InvoiceDetailsTable Is Nothing Then Exit Sub
+
+        Dim rowIndex As Integer = dgvInvoiceDetails.CurrentCell.RowIndex
+        If rowIndex < 0 OrElse rowIndex >= InvoiceDetailsTable.Rows.Count Then Exit Sub
+
+        Dim r As DataRow = InvoiceDetailsTable.Rows(rowIndex)
+
+        If r Is Nothing Then Exit Sub
+        If r.RowState = DataRowState.Deleted OrElse r.RowState = DataRowState.Detached Then Exit Sub
+
+        ' 🔴 إذا المنتج غير مكتمل
+        If r.IsNull("ProductID") OrElse CInt(r("ProductID")) <= 0 Then
+
+            _isInternalChange = True
+            Try
+                If Not r.IsNull("ProductCode") Then
+                    dgvInvoiceDetails.CurrentCell = dgvInvoiceDetails.Rows(rowIndex).Cells("colProductType")
+                Else
+                    dgvInvoiceDetails.CurrentCell = dgvInvoiceDetails.Rows(rowIndex).Cells("colProductCode")
+                End If
+            Finally
+                _isInternalChange = False
+            End Try
+
+        End If
+
+    End Sub
+
+
     Private Enum EditModeType
         DirectEdit
         EngineEdit
@@ -2285,11 +2412,8 @@ ORDER BY TypeName
 
     Private Function GetEditMode(statusID As Integer) As EditModeType
 
-        If _isPostedCorrectionEdit Then
-            Return EditModeType.DirectEdit
-        End If
+        Select Case FormStatusID
 
-        Select Case statusID
             Case 1, 2
                 Return EditModeType.DirectEdit
 
@@ -2301,6 +2425,7 @@ ORDER BY TypeName
 
             Case Else
                 Return EditModeType.NoEdit
+
         End Select
 
     End Function
@@ -2308,23 +2433,26 @@ ORDER BY TypeName
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
-            SELECT StatusID
-            FROM Inventory_DocumentHeader
-            WHERE DocumentID = @ID
+            SELECT s.StatusID, s.StatusName
+            FROM inv.DocumentHeader h
+            INNER JOIN wf.Status s ON s.StatusID = h.StatusID
+            WHERE h.DocumentID = @ID
         ", con)
 
                 cmd.Parameters.AddWithValue("@ID", documentID)
 
                 con.Open()
 
-                Dim result = cmd.ExecuteScalar()
+                Using r = cmd.ExecuteReader()
 
-                If result IsNot Nothing AndAlso Not IsDBNull(result) Then
-                    FormStatusID = CInt(result)
-                Else
-                    Throw New Exception("لم يتم العثور على حالة السند")
-                End If
+                    If Not r.Read() Then
+                        Throw New Exception("لم يتم العثور على حالة السند")
+                    End If
 
+                    FormStatusID = CInt(r("StatusID"))
+                    txtStatusName.Text = r("StatusName").ToString()
+
+                End Using
             End Using
         End Using
 
@@ -2343,26 +2471,16 @@ ORDER BY TypeName
     Private Sub DeleteRow(rowIndex As Integer)
 
         Dim dt As DataTable = CType(dgvInvoiceDetails.DataSource, DataTable)
+
         If dt Is Nothing Then Exit Sub
 
+        ' 👇 تأكيد
         If MessageBox.Show("هل تريد حذف السطر؟", "تأكيد",
-                       MessageBoxButtons.YesNo,
-                       MessageBoxIcon.Question) <> DialogResult.Yes Then Exit Sub
+                           MessageBoxButtons.YesNo,
+                           MessageBoxIcon.Question) <> DialogResult.Yes Then Exit Sub
 
-        If rowIndex < 0 OrElse rowIndex >= dt.Rows.Count Then Exit Sub
-
-        Dim r As DataRow = dt.Rows(rowIndex)
-
-        If _isPostedCorrectionEdit Then
-            If Not IsDBNull(r("OriginalDetailID")) Then
-                Dim originalID As Integer = CInt(r("OriginalDetailID"))
-                If Not _deletedOriginalDetailIDs.Contains(originalID) Then
-                    _deletedOriginalDetailIDs.Add(originalID)
-                End If
-            End If
-        End If
-
-        dt.Rows.RemoveAt(rowIndex)
+        ' 👇 حذف منطقي من الـ DataTable فقط
+        dt.Rows(rowIndex).Delete()
 
     End Sub
     Private Function GetCancelActionFromStatus(statusID As Integer) As CancelActionType
@@ -2385,91 +2503,401 @@ ORDER BY TypeName
 
     End Function
 
-    Private Sub btnEditPostedPurchase_Click(sender As Object, e As EventArgs) Handles btnEditPostedPurchase.Click
+    Private Sub btnEditPostedPurchase_Click(
+    sender As Object,
+    e As EventArgs
+) Handles btnEditPostedPurchase.Click
 
         If CurrentDocumentID <= 0 Then
-            MessageBox.Show("لا يوجد سند محدد")
+            MessageBox.Show("لا يوجد سند مفتوح")
             Exit Sub
         End If
 
-        If FormStatusID <> 6 Then
-            MessageBox.Show("لا يمكن تعديل سند غير مستلم")
-            Exit Sub
+        ' =========================
+        ' تفعيل وضع تعديل سند مرحل
+        ' =========================
+        IsPostedEditMode = True
+        OriginalDetailsTable = InvoiceDetailsTable.Copy()
+        ' =========================
+        ' تجهيز جدول جديد
+        ' =========================
+        Dim newTable As DataTable = InvoiceDetailsTable.Clone()
+
+        ' إضافة عمود الربط
+        If Not newTable.Columns.Contains("OriginalDetailID") Then
+            newTable.Columns.Add("OriginalDetailID", GetType(Integer))
         End If
 
-        If MessageBox.Show("سيتم فتح السند بوضع التصحيح، هل تريد المتابعة؟",
-                       "تأكيد",
-                       MessageBoxButtons.YesNo) <> DialogResult.Yes Then Exit Sub
+        ' =========================
+        ' نسخ البيانات مع الربط
+        ' =========================
+        For Each r As DataRow In InvoiceDetailsTable.Rows
 
-        Try
-            _isPostedCorrectionEdit = True
-            _deletedOriginalDetailIDs.Clear()
+            If r.RowState = DataRowState.Deleted Then Continue For
 
-            ApplyEditPermissionByStatus()
-            btnSaveDraft.Text = "حفظ التصحيح"
+            Dim newRow As DataRow = newTable.NewRow()
 
-            MessageBox.Show("تم فتح السند بوضع التصحيح. عدّل ثم اضغط حفظ التصحيح.")
+            ' نسخ كل الأعمدة
+            For Each col As DataColumn In InvoiceDetailsTable.Columns
+                newRow(col.ColumnName) = r(col.ColumnName)
+            Next
 
-        Catch ex As Exception
-            MessageBox.Show(ex.Message)
-        End Try
+            ' ربط السطر بالقديم
+            If Not IsDBNull(r("DetailID")) Then
+                newRow("OriginalDetailID") = r("DetailID")
+            End If
+
+            ' ❗ لا تصفر DetailID
+            ' نحتاجه للتحديث
+
+            newTable.Rows.Add(newRow)
+
+        Next
+
+        ' =========================
+        ' استبدال الجدول
+        ' =========================
+        InvoiceDetailsTable = newTable
+        dgvInvoiceDetails.DataSource = InvoiceDetailsTable
+        dgvInvoiceDetails.Columns("colDelete").Visible = False
+        ' =========================
+        ' 🔥 فك القفل عن الفورم
+        ' =========================
+        SetFormEditable(True)
+        ApplyEditPermissionByStatus()
+        MessageBox.Show("تم تفعيل وضع تعديل السند المرحل")
 
     End Sub
-    Private Sub btnDeletePostedPurchase_Click(sender As Object, e As EventArgs) Handles btnDeletePostedPurchase.Click
-        If CurrentDocumentID <= 0 Then
-            MessageBox.Show("لا يوجد سند محدد")
-            Exit Sub
-        End If
+    Private Sub SetFormEditable(isEditable As Boolean)
 
-        If FormStatusID <> 6 Then
-            MessageBox.Show("لا يمكن إلغاء سند غير مستلم")
-            Exit Sub
-        End If
+        ' TextBoxes
+        txtNote.ReadOnly = Not isEditable
 
-        If MessageBox.Show("هل تريد إلغاء السند؟",
-                       "تأكيد",
-                       MessageBoxButtons.YesNo) <> DialogResult.Yes Then Exit Sub
+        ' Combos
+        cboPartnerCode.Enabled = isEditable
+        cboVATRate.Enabled = isEditable
+        cboPaymentMethod.Enabled = isEditable
+        cboPaymentTerm.Enabled = isEditable
 
-        Try
+        ' Grid
+        dgvInvoiceDetails.ReadOnly = Not isEditable
+        dgvInvoiceDetails.AllowUserToAddRows = isEditable
+        dgvInvoiceDetails.AllowUserToDeleteRows = isEditable
 
-            _purchaseService.CancelPostedPurchase(
-            CurrentDocumentID,
-            CurrentUserID
+    End Sub
+    Private Sub btnDeletePostedPurchase_Click(
+        sender As Object,
+        e As EventArgs
+    ) Handles btnDeletePostedPurchase.Click
+
+        If CurrentDocumentID <= 0 Then Exit Sub
+
+        Dim result = MessageBox.Show(
+            "سيتم إلغاء المستند بالكامل، هل أنت متأكد؟",
+            "تأكيد",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning
         )
 
-            MessageBox.Show("تم الإلغاء")
+        If result <> DialogResult.Yes Then Exit Sub
 
-            LoadDocument(CurrentDocumentID)
+        ' 🔥 ندخل وضع التعديل
+        btnEditPostedPurchase.PerformClick()
 
-        Catch ex As Exception
-            MessageBox.Show(ex.Message)
-        End Try
+        ' 🔥 نحول كل الكميات إلى صفر
+        For Each row As DataRow In InvoiceDetailsTable.Rows
+            row("Quantity") = 0D
+        Next
+
+        ' 🔥 تحديث الحساب
+        btnEditPostedPurchase.Enabled = False
+    End Sub
+
+    Private Sub FormatInvoiceGrid(dgv As DataGridView)
+
+        If dgv.Columns.Count = 0 Then Exit Sub
+
+        ' 🔥 إيقاف التحديث مؤقتًا
+        dgv.SuspendLayout()
+
+        ' =========================
+        ' 🎯 إعداد عام
+        ' =========================
+        dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None
+        dgv.RowHeadersVisible = False
+        dgv.AllowUserToResizeRows = False
+
+        ' =========================
+        ' 🧾 تسميات الأعمدة
+        ' =========================
+        dgv.Columns("colProductCode").HeaderText = "كود الصنف"
+        dgv.Columns("colProductType").HeaderText = "النوع"
+        dgv.Columns("colProductName").HeaderText = "اسم الصنف"
+        dgv.Columns("colUnitID").HeaderText = "الوحدة"
+        dgv.Columns("colQty").HeaderText = "الكمية"
+        dgv.Columns("colUnitPrice").HeaderText = "السعر"
+        dgv.Columns("colTaxableAmount").HeaderText = "المبلغ"
+        dgv.Columns("colVATRate").HeaderText = "الضريبة %"
+        dgv.Columns("colVATAmount").HeaderText = "مبلغ الضريبة"
+        dgv.Columns("colTotalAmount").HeaderText = "الإجمالي"
+        dgv.Columns("colDelete").HeaderText = "حذف"
+
+        ' =========================
+        ' 📏 عرض الأعمدة
+        ' =========================
+        dgv.Columns("colProductSearch").Width = 60
+
+        dgv.Columns("colProductCode").Width = 140
+        dgv.Columns("colProductType").Width = 80
+        dgv.Columns("colProductName").Width = 160
+        dgv.Columns("colUnitID").Width = 90
+        dgv.Columns("colQty").Width = 80
+        dgv.Columns("colUnitPrice").Width = 80
+        dgv.Columns("colTaxableAmount").Width = 100
+        dgv.Columns("colVATRate").Width = 70
+        dgv.Columns("colVATAmount").Width = 100
+        dgv.Columns("colTotalAmount").Width = 110
+        dgv.Columns("colDelete").Width = 80
+
+        ' =========================
+        ' 🔢 تنسيق الأرقام
+        ' =========================
+        Dim numericCols = {
+        "colQty",
+        "colUnitPrice",
+        "colTaxableAmount",
+        "colVATRate",
+        "colVATAmount",
+        "colTotalAmount"
+    }
+
+        For Each colName In numericCols
+            If dgv.Columns.Contains(colName) Then
+                dgv.Columns(colName).DefaultCellStyle.Format = "N2"
+                dgv.Columns(colName).DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight
+            End If
+        Next
+
+        ' =========================
+        ' 🔤 محاذاة النصوص
+        ' =========================
+        dgv.Columns("colProductName").DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft
+        dgv.Columns("colProductCode").DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter
+        dgv.Columns("colProductType").DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter
+        dgv.Columns("colUnitID").DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter
+
+        ' =========================
+        ' 🙈 إخفاء الأعمدة التقنية
+        ' =========================
+        If dgv.Columns.Contains("colProductID") Then
+            dgv.Columns("colProductID").Visible = False
+        End If
+
+        ' =========================
+        ' 🎨 تحسين الشكل
+        ' =========================
+        dgv.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter
+        dgv.EnableHeadersVisualStyles = False
+        dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.LightGray
+        dgv.ColumnHeadersDefaultCellStyle.Font = New Font("Tahoma", 9, FontStyle.Bold)
+
+        dgv.Columns("colProductSearch").Visible = False
+        dgv.Columns("colProductName").ReadOnly = True
+        dgv.Columns("colUnitID").ReadOnly = True
+        ' =========================
+        ' 🔥 تشغيل التحديث
+        ' =========================
+        dgv.ResumeLayout()
 
     End Sub
-    Private Function IsCorrectionDocument(documentID As Integer) As Boolean
+    Private Function HasDuplicateProduct(
+    productID As Integer,
+    productTypeID As Integer,
+    currentRowIndex As Integer
+) As Boolean
 
-        Using con As New SqlConnection(ConnStr)
-            Using cmd As New SqlCommand("
-SELECT ISNULL(IsCorrection,0)
-FROM Inventory_DocumentHeader
-WHERE DocumentID = @ID
-", con)
+        If InvoiceDetailsTable Is Nothing Then Return False
 
-                cmd.Parameters.AddWithValue("@ID", documentID)
+        For i As Integer = 0 To InvoiceDetailsTable.Rows.Count - 1
 
-                con.Open()
+            If i = currentRowIndex Then Continue For
 
-                Dim result = cmd.ExecuteScalar()
+            Dim r As DataRow = InvoiceDetailsTable.Rows(i)
 
-                If result Is Nothing Then Return False
+            If r.RowState = DataRowState.Deleted Then Continue For
 
-                Return CBool(result)
+            If IsDBNull(r("ProductID")) OrElse IsDBNull(r("ProductTypeID")) Then Continue For
 
-            End Using
-        End Using
+            If CInt(r("ProductID")) = productID _
+        AndAlso CInt(r("ProductTypeID")) = productTypeID Then
+
+                Return True
+            End If
+
+        Next
+
+        Return False
 
     End Function
+    Private Function FinalizeRowAfterProductChange(rowIndex As Integer) As Boolean
 
+        If rowIndex < 0 OrElse rowIndex >= dgvInvoiceDetails.Rows.Count Then Return False
+
+        Dim row = dgvInvoiceDetails.Rows(rowIndex)
+        If row Is Nothing OrElse row.IsNewRow Then Return False
+
+        Dim drv As DataRowView = TryCast(row.DataBoundItem, DataRowView)
+        If drv Is Nothing Then Return False
+
+        ' 🔴 لا تكمل إذا الصنف غير موجود
+        If IsDBNull(drv("ProductID")) Then Return False
+
+        ' =========================
+        ' منع التكرار (بعد اكتمال النوع)
+        ' =========================
+        If Not IsDBNull(drv("ProductID")) AndAlso
+       Not IsDBNull(drv("ProductTypeID")) Then
+
+            Dim productID As Integer = CInt(drv("ProductID"))
+            Dim typeID As Integer = CInt(drv("ProductTypeID"))
+
+            If HasDuplicateProduct(productID, typeID, rowIndex) Then
+
+                MessageBox.Show("لا يمكن إدخال نفس الصنف (نفس النوع) أكثر من مرة")
+
+                EnterUIGuard()
+                Try
+                    row.Cells("colProductType").Value = DBNull.Value
+
+                    drv("ProductTypeID") = DBNull.Value
+                    drv("ProductName") = ""
+                    drv("UnitID") = DBNull.Value
+                    drv("UnitName") = ""
+
+                    drv("GrossAmount") = 0D
+                    drv("TaxableAmount") = 0D
+                    drv("TaxAmount") = 0D
+                    drv("NetAmount") = 0D
+                    drv("LineTotal") = 0D
+
+                    drv.EndEdit()
+                Finally
+                    ExitUIGuard()
+                End Try
+
+                dgvInvoiceDetails.CurrentCell = row.Cells("colProductType")
+
+                dgvInvoiceDetails.Refresh()
+                RecalculatePreview(PreviewRecalcScope.TotalsOnly)
+
+                Return False
+
+            End If
+        End If
+
+        ' =========================
+        ' الحساب
+        ' =========================
+        If Not IsDBNull(drv("ProductTypeID")) Then
+            RecalculatePreview(PreviewRecalcScope.RowOnly, rowIndex)
+        End If
+
+        dgvInvoiceDetails.Refresh()
+        Return True
+
+    End Function
+    Protected Function ValidateDocumentLines() As Boolean
+
+        dgvInvoiceDetails.EndEdit()
+        dgvInvoiceDetails.CommitEdit(DataGridViewDataErrorContexts.Commit)
+
+        NormalizeInvoiceGrid()
+
+        If InvoiceDetailsTable Is Nothing _
+           OrElse InvoiceDetailsTable.Rows.Count = 0 Then
+            MessageBox.Show("لا توجد أصناف صالحة في الفاتورة.")
+            Return False
+        End If
+
+        Dim seen As New HashSet(Of Integer)
+
+        For Each r As DataRow In InvoiceDetailsTable.Rows
+
+            If r.RowState = DataRowState.Deleted Then Continue For
+
+            If IsDBNull(r("ProductTypeID")) Then
+                MessageBox.Show("يجب تحديد نوع الصنف")
+                Return False
+            End If
+
+            If IsDBNull(r("ProductID")) Then
+                MessageBox.Show("يوجد صنف غير محدد")
+                Return False
+            End If
+
+            Dim productID As Integer = CInt(r("ProductID"))
+
+            If seen.Contains(productID) Then
+                MessageBox.Show("لا يمكن تكرار نفس الصنف داخل التفاصيل")
+                Return False
+            End If
+
+            seen.Add(productID)
+        Next
+
+        Return True
+
+    End Function
+    Private Function GetTypesByProductCode(productID As Integer) As DataTable
+
+        Dim selected = _allProducts.AsEnumerable().
+        FirstOrDefault(Function(r) CInt(r("ProductID")) = productID)
+
+        If selected Is Nothing Then Return Nothing
+
+        Dim code As String = selected("ProductCode").ToString()
+
+        Dim typeIds = _allProducts.AsEnumerable().
+        Where(Function(r) r("ProductCode").ToString() = code).
+        Select(Function(r) CInt(r("ProductTypeID"))).
+        Distinct().
+        ToList()
+
+        Dim result As DataTable = _allProductTypes.Clone()
+
+        For Each typeId As Integer In typeIds
+            Dim typeRow = _allProductTypes.AsEnumerable().
+            FirstOrDefault(Function(r) CInt(r("ProductTypeID")) = typeId)
+
+            If typeRow IsNot Nothing Then
+                result.ImportRow(typeRow)
+            End If
+        Next
+
+        Return result
+
+    End Function
+    Private Function IsDuplicateProduct(productID As Integer, currentRow As Integer) As Boolean
+
+        For i = 0 To InvoiceDetailsTable.Rows.Count - 1
+
+            If i = currentRow Then Continue For
+
+            Dim r = InvoiceDetailsTable.Rows(i)
+            If r.RowState = DataRowState.Deleted Then Continue For
+
+            If Not IsDBNull(r("ProductID")) Then
+                If CInt(r("ProductID")) = productID Then
+                    Return True
+                End If
+            End If
+
+        Next
+
+        Return False
+
+
+    End Function
 End Class
 
 

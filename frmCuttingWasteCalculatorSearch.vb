@@ -22,8 +22,8 @@ SELECT TOP (1000)
     h.TargetStoreID,
     h.ScrapProductID,
     h.CalculatedAt
-FROM dbo.Inventory_WasteHeader AS h
-LEFT JOIN dbo.Workflow_Status AS ws
+FROM inv.WasteHeader AS h
+LEFT JOIN wf.Status AS ws
     ON ws.StatusID = h.StatusID
 WHERE h.OperationTypeID = 13
 ORDER BY h.WasteID DESC;

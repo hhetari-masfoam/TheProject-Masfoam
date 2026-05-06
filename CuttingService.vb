@@ -9,16 +9,16 @@ Public Class CuttingService
     End Sub
 
     Public Function SaveCuttingWITHMIX(
-        ByRef CuttingID As Integer,
-        CuttingCode As String,
-        CutDate As Date,
-        BaseProductID As Integer,
-        ConsumedVolume_m3 As Decimal,
-        SourceStoreID As Integer,
-        Notes As String,
-        UserID As Integer,
-        Outputs As DataTable
-    ) As Boolean
+                                                                                ByRef CuttingID As Integer,
+                                                                                CuttingCode As String,
+                                                                                CutDate As Date,
+                                                                                BaseProductID As Integer,
+                                                                                ConsumedVolume_m3 As Decimal,
+                                                                                SourceStoreID As Integer,
+                                                                                Notes As String,
+                                                                                UserID As Integer,
+                                                                                Outputs As DataTable
+                                                                            ) As Boolean
 
         Using con As New SqlConnection(ConnStr)
             con.Open()
@@ -36,14 +36,14 @@ Public Class CuttingService
                     If CuttingID = 0 Then
 
                         Dim cmdInsert As New SqlCommand("
-INSERT INTO Production_CuttingHeader
-(CuttingCode,CutDate,Notes,StatusID,CreatedBy,CreatedAt,IsInventoryPosted,
- BaseProductID,ConsumedVolume_m3,SourceStoreID)
-VALUES
-(@CuttingCode,@CutDate,@Notes,2,@UserID,GETDATE(),0,
- @BaseProductID,@ConsumedVolume_m3,@SourceStoreID);
-SELECT SCOPE_IDENTITY();
-", con, tran)
+                                                                        INSERT INTO prod.CuttingHeader
+                                                                        (CuttingCode,CutDate,Notes,StatusID,CreatedBy,CreatedAt,IsInventoryPosted,
+                                                                         BaseProductID,ConsumedVolume_m3,SourceStoreID)
+                                                                        VALUES
+                                                                        (@CuttingCode,@CutDate,@Notes,2,@UserID,GETDATE(),0,
+                                                                         @BaseProductID,@ConsumedVolume_m3,@SourceStoreID);
+                                                                        SELECT SCOPE_IDENTITY();
+                                                                        ", con, tran)
 
                         cmdInsert.Parameters.AddWithValue("@CuttingCode", CuttingCode)
                         cmdInsert.Parameters.AddWithValue("@CutDate", CutDate)
@@ -58,14 +58,14 @@ SELECT SCOPE_IDENTITY();
                     Else
 
                         Dim cmdUpdate As New SqlCommand("
-UPDATE Production_CuttingHeader
-SET CutDate=@CutDate,
-    Notes=@Notes,
-    BaseProductID=@BaseProductID,
-    ConsumedVolume_m3=@ConsumedVolume_m3,
-    SourceStoreID=@SourceStoreID
-WHERE CuttingID=@CuttingID
-", con, tran)
+                                                                        UPDATE prod.CuttingHeader
+                                                                        SET CutDate=@CutDate,
+                                                                            Notes=@Notes,
+                                                                            BaseProductID=@BaseProductID,
+                                                                            ConsumedVolume_m3=@ConsumedVolume_m3,
+                                                                            SourceStoreID=@SourceStoreID
+                                                                        WHERE CuttingID=@CuttingID
+                                                                        ", con, tran)
 
                         cmdUpdate.Parameters.AddWithValue("@CutDate", CutDate)
                         cmdUpdate.Parameters.AddWithValue("@Notes", Notes)
@@ -82,8 +82,8 @@ WHERE CuttingID=@CuttingID
                     ' حذف القديم
                     ' =========================
                     Dim cmdDel As New SqlCommand("
-DELETE FROM Production_CuttingOutput WHERE CutID=@ID
-", con, tran)
+                                                                        DELETE FROM prod.CuttingOutput WHERE CutID=@ID
+                                                                        ", con, tran)
                     cmdDel.Parameters.AddWithValue("@ID", CuttingID)
                     cmdDel.ExecuteNonQuery()
 
@@ -93,22 +93,22 @@ DELETE FROM Production_CuttingOutput WHERE CutID=@ID
                     For Each r As DataRow In Outputs.Rows
 
                         Dim cmd As New SqlCommand("
-INSERT INTO Production_CuttingOutput
-(CutID,ProductID,QtyPieces,IsMix,Notes,
- Length_cm,Width_cm,Height_cm,
- PieceVolume_m3,TotalVolume_m3,
- ProductTypeID,OutProductCode,
- UnitCost,TotalCost,
- SourceStoreID,TargetStoreID,IsInventoryPosted)
-VALUES
-(@CutID,@ProductID,@QtyPieces,@IsMix,@Notes,
- @L,@W,@H,@PV,@TV,
- @TypeID,@Code,
- 0,0,
- @SourceStoreID,
- CASE WHEN @IsMix=1 THEN @SourceStoreID ELSE @TargetStoreID END,
- 0)
-", con, tran)
+                                                                        INSERT INTO prod.CuttingOutput
+                                                                        (CutID,ProductID,QtyPieces,IsMix,Notes,
+                                                                         Length_cm,Width_cm,Height_cm,
+                                                                         PieceVolume_m3,TotalVolume_m3,
+                                                                         ProductTypeID,OutProductCode,
+                                                                         UnitCost,TotalCost,
+                                                                         SourceStoreID,TargetStoreID,IsInventoryPosted)
+                                                                        VALUES
+                                                                        (@CutID,@ProductID,@QtyPieces,@IsMix,@Notes,
+                                                                         @L,@W,@H,@PV,@TV,
+                                                                         @TypeID,@Code,
+                                                                         0,0,
+                                                                         @SourceStoreID,
+                                                                         CASE WHEN @IsMix=1 THEN @SourceStoreID ELSE @TargetStoreID END,
+                                                                         0)
+                                                                        ", con, tran)
 
                         cmd.Parameters.AddWithValue("@CutID", CuttingID)
                         cmd.Parameters.AddWithValue("@ProductID", r("ProductID"))
@@ -132,8 +132,8 @@ VALUES
                     ' AvgCost
                     ' =========================
                     Dim cmdAvg As New SqlCommand("
-SELECT AvgCostPerM3 FROM Master_FinalProductAvgCost WHERE BaseProductID=@ID
-", con, tran)
+                                                                        SELECT AvgCostPerM3 FROM inv.FinalProductAvgCost WHERE BaseProductID=@ID
+                                                                        ", con, tran)
 
                     cmdAvg.Parameters.AddWithValue("@ID", BaseProductID)
                     Dim obj = cmdAvg.ExecuteScalar()
@@ -148,11 +148,11 @@ SELECT AvgCostPerM3 FROM Master_FinalProductAvgCost WHERE BaseProductID=@ID
                     ' حساب الكميات
                     ' =========================
                     Dim cmdQty As New SqlCommand("
-SELECT 
-SUM(TotalVolume_m3),
-SUM(CASE WHEN IsMix=0 THEN TotalVolume_m3 ELSE 0 END)
-FROM Production_CuttingOutput WHERE CutID=@ID
-", con, tran)
+                                                                        SELECT 
+                                                                        SUM(TotalVolume_m3),
+                                                                        SUM(CASE WHEN IsMix=0 THEN TotalVolume_m3 ELSE 0 END)
+                                                                        FROM prod.CuttingOutput WHERE CutID=@ID
+                                                                        ", con, tran)
 
                     cmdQty.Parameters.AddWithValue("@ID", CuttingID)
 
@@ -169,21 +169,21 @@ FROM Production_CuttingOutput WHERE CutID=@ID
                     ' تحديث التكلفة
                     ' =========================
                     Dim cmdCost As New SqlCommand("
-UPDATE Production_CuttingOutput
-SET UnitCost = TotalVolume_m3*@Cost/NULLIF(QtyPieces,0),
-    TotalCost = TotalVolume_m3*@Cost
-WHERE CutID=@ID AND IsMix=0
-", con, tran)
+                                                                        UPDATE prod.CuttingOutput
+                                                                        SET UnitCost = TotalVolume_m3*@Cost/NULLIF(QtyPieces,0),
+                                                                            TotalCost = TotalVolume_m3*@Cost
+                                                                        WHERE CutID=@ID AND IsMix=0
+                                                                        ", con, tran)
 
                     cmdCost.Parameters.AddWithValue("@Cost", OutAvgCost)
                     cmdCost.Parameters.AddWithValue("@ID", CuttingID)
                     cmdCost.ExecuteNonQuery()
 
                     Dim cmdMix As New SqlCommand("
-UPDATE Production_CuttingOutput
-SET UnitCost=0,TotalCost=0
-WHERE CutID=@ID AND IsMix=1
-", con, tran)
+                                                                        UPDATE prod.CuttingOutput
+                                                                        SET UnitCost=0,TotalCost=0
+                                                                        WHERE CutID=@ID AND IsMix=1
+                                                                        ", con, tran)
 
                     cmdMix.Parameters.AddWithValue("@ID", CuttingID)
                     cmdMix.ExecuteNonQuery()
@@ -192,10 +192,10 @@ WHERE CutID=@ID AND IsMix=1
                     ' Flags
                     ' =========================
                     Dim cmdFlag As New SqlCommand("
-UPDATE Production_CuttingHeader
-SET IsInventoryPosted=0
-WHERE CuttingID=@ID
-", con, tran)
+                                                                        UPDATE prod.CuttingHeader
+                                                                        SET IsInventoryPosted=0
+                                                                        WHERE CuttingID=@ID
+                                                                        ", con, tran)
 
                     cmdFlag.Parameters.AddWithValue("@ID", CuttingID)
                     cmdFlag.ExecuteNonQuery()
@@ -216,10 +216,10 @@ WHERE CuttingID=@ID
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
-SELECT StatusID 
-FROM Production_CuttingHeader 
-WHERE CuttingID=@ID
-", con)
+                                                                        SELECT StatusID 
+                                                                        FROM prod.CuttingHeader 
+                                                                        WHERE CuttingID=@ID
+                                                                        ", con)
 
                 cmd.Parameters.AddWithValue("@ID", cuttingID)
 
@@ -251,10 +251,10 @@ WHERE CuttingID=@ID
                     Dim OperationTypeID As Integer
                     Dim PeriodID As Integer
 
-                    ' (1)
+                    ' (1) قراءة بيانات القص
                     Using cmd As New SqlCommand("
 SELECT BaseProductID, SourceStoreID, ConsumedVolume_m3
-FROM Production_CuttingHeader
+FROM prod.CuttingHeader
 WHERE CuttingID=@ID
 ", con, tran)
 
@@ -271,10 +271,10 @@ WHERE CuttingID=@ID
                         End Using
                     End Using
 
-                    ' (2)
+                    ' (2) تكلفة الخام
                     Using cmd As New SqlCommand("
 SELECT ISNULL(AvgCostPerM3,0)
-FROM Master_FinalProductAvgCost
+FROM inv.FinalProductAvgCost
 WHERE BaseProductID=@ID
 ", con, tran)
 
@@ -282,10 +282,10 @@ WHERE BaseProductID=@ID
                         BaseAvgCostPerM3 = Convert.ToDecimal(cmd.ExecuteScalar())
                     End Using
 
-                    ' (3)
+                    ' (3) نوع العملية
                     Using cmd As New SqlCommand("
 SELECT OperationTypeID
-FROM Workflow_OperationType
+FROM wf.OperationType
 WHERE OperationCode='CUT' AND IsActive=1
 ", con, tran)
 
@@ -294,6 +294,7 @@ WHERE OperationCode='CUT' AND IsActive=1
                         OperationTypeID = Convert.ToInt32(obj)
                     End Using
 
+                    ' (4) الفترة المالية
                     Using cmd As New SqlCommand("
 SELECT PeriodID
 FROM cfg.FiscalPeriod
@@ -306,9 +307,9 @@ AND IsOpen=1
                         PeriodID = Convert.ToInt32(obj)
                     End Using
 
-                    ' (4) Header
+                    ' (5) إنشاء الهيدر
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_TransactionHeader
+INSERT INTO inv.TransactionHeader
 (TransactionDate,SourceDocumentID,OperationTypeID,PeriodID,StatusID,
  IsFinancialPosted,CreatedBy,CreatedAt,SentAt,SentBy,IsInventoryPosted)
 VALUES
@@ -325,17 +326,19 @@ SELECT SCOPE_IDENTITY();
                         TransactionID = Convert.ToInt32(cmd.ExecuteScalar())
                     End Using
 
-                    ' (5) RAW
+                    ' (6) RAW
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_TransactionDetails
-(TransactionID,ProductID,Quantity,UnitID,UnitCost,CostAmount,
- SourceStoreID,TargetStoreID,SourceDocumentDetailID,ReferenceDetailID,
- CreatedAt,CreatedBy,CorrectionReferenceDetailID)
+INSERT INTO inv.TransactionDetails
+(
+TransactionID,ProductID,Quantity,UnitID,UnitCost,CostAmount,
+SourceStoreID,TargetStoreID,SourceDocumentDetailID,ReferenceDetailID,
+CreatedAt,CreatedBy,CorrectionReferenceDetailID,IsCorrection,CorrectionRunID
+)
 VALUES
 (@TID,@PID,@Q,
- (SELECT StorageUnitID FROM Master_Product WHERE ProductID=@PID),
+ (SELECT StorageUnitID FROM md.Product WHERE ProductID=@PID),
  @Cost,@Amount,
- @Source,NULL,@CutID,NULL,@Now,@User,NULL)
+ @Source,NULL,@CutID,NULL,@Now,@User,NULL,0,NULL)
 ", con, tran)
 
                         cmd.Parameters.AddWithValue("@TID", TransactionID)
@@ -351,9 +354,14 @@ VALUES
                         cmd.ExecuteNonQuery()
                     End Using
 
-                    ' (6) GOOD
+                    ' (7) GOOD
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_TransactionDetails
+INSERT INTO inv.TransactionDetails
+(
+TransactionID,ProductID,Quantity,UnitID,UnitCost,CostAmount,
+SourceStoreID,TargetStoreID,SourceDocumentDetailID,ReferenceDetailID,
+CreatedAt,CreatedBy,CorrectionReferenceDetailID,IsCorrection,CorrectionRunID
+)
 SELECT
 @TID,
 o.ProductID,
@@ -367,9 +375,11 @@ o.CutOutputID,
 NULL,
 @Now,
 @User,
+NULL,
+0,
 NULL
-FROM Production_CuttingOutput o
-INNER JOIN Master_Product p ON p.ProductID=o.ProductID
+FROM prod.CuttingOutput o
+INNER JOIN md.Product p ON p.ProductID=o.ProductID
 WHERE o.CutID=@CutID AND o.IsMix=0
 ", con, tran)
 
@@ -381,9 +391,14 @@ WHERE o.CutID=@CutID AND o.IsMix=0
                         cmd.ExecuteNonQuery()
                     End Using
 
-                    ' (7) MIX
+                    ' (8) MIX
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_TransactionDetails
+INSERT INTO inv.TransactionDetails
+(
+TransactionID,ProductID,Quantity,UnitID,UnitCost,CostAmount,
+SourceStoreID,TargetStoreID,SourceDocumentDetailID,ReferenceDetailID,
+CreatedAt,CreatedBy,CorrectionReferenceDetailID,IsCorrection,CorrectionRunID
+)
 SELECT
 @TID,
 o.ProductID,
@@ -397,9 +412,11 @@ o.CutOutputID,
 NULL,
 @Now,
 @User,
+NULL,
+0,
 NULL
-FROM Production_CuttingOutput o
-INNER JOIN Master_Product p ON p.ProductID=o.ProductID
+FROM prod.CuttingOutput o
+INNER JOIN md.Product p ON p.ProductID=o.ProductID
 WHERE o.CutID=@CutID AND o.IsMix=1
 ", con, tran)
 
@@ -411,9 +428,9 @@ WHERE o.CutID=@CutID AND o.IsMix=1
                         cmd.ExecuteNonQuery()
                     End Using
 
-                    ' (8)
+                    ' (9) تحديث الحالة
                     Using cmd As New SqlCommand("
-UPDATE Production_CuttingHeader
+UPDATE prod.CuttingHeader
 SET StatusID=5, IsInventoryPosted=0
 WHERE CuttingID=@ID
 ", con, tran)
@@ -428,6 +445,7 @@ WHERE CuttingID=@ID
                     tran.Rollback()
                     Throw
                 End Try
+
             End Using
         End Using
 
@@ -443,7 +461,7 @@ WHERE CuttingID=@ID
                 Try
                     ' 1- حذف الحجز القديم
                     Using cmd As New SqlCommand("
-DELETE FROM Inventory_Reservation
+DELETE FROM inv.Reservation
 WHERE SourceID=@ID AND SourceOperationTypeID=11
 ", con, tran)
 
@@ -453,7 +471,7 @@ WHERE SourceID=@ID AND SourceOperationTypeID=11
 
                     ' 2- إدخال الحجز الجديد (الخام فقط)
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_Reservation
+INSERT INTO inv.Reservation
 (
     ProductID,
     SourceStoreID,
@@ -477,8 +495,8 @@ SELECT
     @UserID,
     1,
     h.CuttingID
-FROM Production_CuttingHeader h
-LEFT JOIN Master_FinalProductAvgCost f
+FROM prod.CuttingHeader h
+LEFT JOIN inv.FinalProductAvgCost f
     ON f.BaseProductID = h.BaseProductID
 WHERE h.CuttingID = @ID
 ", con, tran)
@@ -508,11 +526,11 @@ SELECT
     -
     ISNULL((
         SELECT SUM(ReservedQty)
-        FROM Inventory_Reservation
+        FROM inv.Reservation
         WHERE ProductID=@P AND SourceStoreID=@S
           AND ReservationStatusID=1
     ),0)
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P AND StoreID=@S
 ", con)
 
@@ -525,5 +543,186 @@ WHERE ProductID=@P AND StoreID=@S
         End Using
 
     End Function
+    Private Sub BuildCuttingCorrectionQueue(
+    oldTable As DataTable,
+    newTable As DataTable,
+    scopeCode As String,
+    con As SqlConnection,
+    tran As SqlTransaction
+)
 
+        Dim eps As Decimal = 0.000001D
+
+        For i As Integer = 0 To newTable.Rows.Count - 1
+
+            Dim oldRow = oldTable.Rows(i)
+            Dim newRow = newTable.Rows(i)
+
+            Dim oldQty As Decimal = CDec(oldRow("Qty"))
+            Dim newQty As Decimal = CDec(newRow("Qty"))
+
+            If Math.Abs(oldQty - newQty) <= eps AndAlso newQty <> 0 Then Continue For
+
+            Dim productID As Integer = CInt(newRow("ProductID"))
+
+            ' 🔥 الربط الصحيح من oldTable
+            Dim transactionDetailID As Integer = CInt(oldRow("TransactionDetailID"))
+            Dim startLedgerID As Integer = CInt(oldRow("LedgerID"))
+            Dim documentDetailID As Integer = CInt(oldRow("DocumentDetailID"))
+
+            Using cmd As New SqlCommand("
+INSERT INTO inv.CorrectionQueue
+(TransactionDetailID, DocumentDetailID, StartLedgerID,
+ ProductID, ChangeType, StatusID, NewQuantity, ScopeCode, CreatedAt)
+VALUES
+(@TDID, @DocID, @LedgerID,
+ @ProductID, 'EDIT', 22, @Qty, @Scope, GETDATE())
+", con, tran)
+
+                cmd.Parameters.AddWithValue("@TDID", transactionDetailID)
+                cmd.Parameters.AddWithValue("@DocID", documentDetailID)
+                cmd.Parameters.AddWithValue("@LedgerID", startLedgerID)
+                cmd.Parameters.AddWithValue("@ProductID", productID)
+                cmd.Parameters.AddWithValue("@Qty", newQty)
+                cmd.Parameters.AddWithValue("@Scope", scopeCode)
+
+                cmd.ExecuteNonQuery()
+            End Using
+
+        Next
+
+    End Sub
+
+
+    Public Sub HandlePostedCuttingEdit(
+    cuttingID As Integer,
+    oldTable As DataTable,
+    newTable As DataTable
+)
+
+        Using con As New SqlConnection(ConnStr)
+            con.Open()
+
+            Using tran = con.BeginTransaction()
+
+                Try
+
+                    ' 🔥 استخراج CuttingID
+
+                    ' 🔥 بناء Queue
+                    BuildCuttingCorrectionQueue(oldTable, newTable, "CUT", con, tran)
+
+                    ' 🔥 تحديث الحجز
+
+                    tran.Commit()
+
+                Catch ex As Exception
+                    tran.Rollback()
+                    Throw
+                End Try
+
+            End Using
+        End Using
+
+    End Sub
+    Public Function IsCuttingInCorrectionQueue(cuttingID As Integer) As Boolean
+
+        Using con As New SqlConnection(ConnStr)
+            Using cmd As New SqlCommand("
+SELECT TOP 1 1
+FROM inv.CorrectionQueue q
+INNER JOIN inv.TransactionDetails d
+    ON d.DetailID = q.TransactionDetailID
+INNER JOIN inv.TransactionHeader h
+    ON h.TransactionID = d.TransactionID
+WHERE h.SourceDocumentID = @CuttingID
+  AND h.OperationTypeID = 11
+  AND q.StatusID IN (22, 23)
+", con)
+
+                cmd.Parameters.AddWithValue("@CuttingID", cuttingID)
+
+                con.Open()
+                Dim obj = cmd.ExecuteScalar()
+                Return obj IsNot Nothing
+            End Using
+        End Using
+
+    End Function
+    Public Sub ValidatePostedCuttingEdit(
+    cuttingID As Integer,
+    oldTable As DataTable,
+    newTable As DataTable
+)
+
+        Dim newConsumed As Decimal = 0D
+        Dim oldConsumed As Decimal = 0D
+        Dim productID As Integer = 0
+        Dim storeID As Integer = 0
+
+        Using con As New SqlConnection(ConnStr)
+            Using cmd As New SqlCommand("
+SELECT BaseProductID, SourceStoreID, ConsumedVolume_m3
+FROM prod.CuttingHeader
+WHERE CuttingID = @ID
+", con)
+
+                cmd.Parameters.AddWithValue("@ID", cuttingID)
+                con.Open()
+
+                Using rd = cmd.ExecuteReader()
+                    If rd.Read() Then
+                        productID = rd.GetInt32(0)
+                        storeID = rd.GetInt32(1)
+                        oldConsumed = rd.GetDecimal(2) ' 🔥 هذا هو الصح
+                    Else
+                        Throw New Exception("لم يتم العثور على سند القص")
+                    End If
+                End Using
+            End Using
+        End Using
+
+        For Each r As DataRow In newTable.Rows
+            newConsumed += Convert.ToDecimal(r("Qty"))
+        Next
+
+        Dim extraRawNeeded As Decimal = newConsumed - oldConsumed
+        If extraRawNeeded <= 0 Then Exit Sub
+
+        Using con As New SqlConnection(ConnStr)
+            Using cmd As New SqlCommand("
+SELECT BaseProductID, SourceStoreID
+FROM prod.CuttingHeader
+WHERE CuttingID = @ID
+", con)
+
+                cmd.Parameters.AddWithValue("@ID", cuttingID)
+
+                con.Open()
+
+
+                Using rd = cmd.ExecuteReader()
+                    If rd.Read() Then
+                        productID = rd.GetInt32(0)
+                        storeID = rd.GetInt32(1)
+                    Else
+                        Throw New Exception("لم يتم العثور على سند القص")
+                    End If
+                End Using
+
+                Dim available As Decimal = GetAvailableQty(productID, storeID)
+
+                If available < extraRawNeeded Then
+                    Throw New Exception(
+                        "لا يمكن حفظ التعديل على السند المرحل لأن الزيادة المطلوبة في الخام (" &
+                        extraRawNeeded.ToString("N3") &
+                        ") أكبر من المتاح (" &
+                        available.ToString("N3") & ")."
+                    )
+                End If
+
+            End Using
+        End Using
+
+    End Sub
 End Class

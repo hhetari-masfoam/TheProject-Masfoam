@@ -39,7 +39,7 @@ Public Class TransactionRepository
         Using cmd As New SqlCommand("
 DECLARE @Now DATETIME2(7) = SYSDATETIME();
 
-INSERT INTO Inventory_TransactionHeader
+INSERT INTO inv.TransactionHeader
 (
     TransactionDate,
     SourceDocumentID,
@@ -107,18 +107,18 @@ SELECT
 
         ELSE 0
     END
-FROM dbo.Master_Product p
-LEFT JOIN dbo.Master_Product baseP
+FROM md.Product p
+LEFT JOIN md.Product baseP
     ON baseP.ProductID = p.BaseProductID
 OUTER APPLY (
     SELECT TOP (1) f.AvgCostPerM3
-    FROM dbo.Master_FinalProductAvgCost f
+    FROM inv.FinalProductAvgCost f
     WHERE f.BaseProductID = p.ProductID
     ORDER BY f.LastUpdated DESC
 ) fpSelf
 OUTER APPLY (
     SELECT TOP (1) f.AvgCostPerM3forFG
-    FROM dbo.Master_FinalProductAvgCost f
+    FROM inv.FinalProductAvgCost f
     WHERE f.BaseProductID = p.BaseProductID
     ORDER BY f.LastUpdated DESC
 ) fpBase
@@ -177,7 +177,7 @@ WHERE p.ProductID = @ProductID
             ' 1) INSERT + الحصول على DetailID
             '========================================
             Using cmd As New SqlCommand("
-        INSERT INTO Inventory_TransactionDetails
+        INSERT INTO inv.TransactionDetails
         (
             TransactionID,
             ProductID,
@@ -224,7 +224,7 @@ WHERE p.ProductID = @ProductID
             ' 2) SELF LINK (🔥 المهم)
             '========================================
             Using cmdUpdate As New SqlCommand("
-        UPDATE Inventory_TransactionDetails
+        UPDATE inv.TransactionDetails
         SET SourceDocumentDetailID = @DetailID
         WHERE DetailID = @DetailID
         ", con, tran)
@@ -244,7 +244,7 @@ WHERE p.ProductID = @ProductID
 )
 
         Using cmd As New SqlCommand("
-        UPDATE Inventory_TransactionHeader
+        UPDATE inv.TransactionHeader
         SET SourceDocumentID = @TransactionID
         WHERE TransactionID = @TransactionID", con, tran)
 
@@ -270,14 +270,14 @@ WHERE p.ProductID = @ProductID
    ========================= */
 IF NOT EXISTS (
     SELECT 1
-    FROM dbo.Inventory_TransactionHeader
+    FROM inv.TransactionHeader
     WHERE TransactionID = @TransactionID
 )
     THROW 60000, 'Invalid Transaction', 1;
 
 IF EXISTS (
     SELECT 1
-    FROM dbo.Inventory_TransactionHeader
+    FROM inv.TransactionHeader
     WHERE TransactionID = @TransactionID
       AND IsInventoryPosted = 1
 )
@@ -286,7 +286,7 @@ BEGIN
 END
 
 /* =========================
-   ✅ Fill posting cost into Inventory_TransactionDetails BEFORE ledger
+   ✅ Fill posting cost into inv.TransactionDetails BEFORE ledger
    UnitID(M3)=8
    ========================= */
 DECLARE @M3UnitID INT = 8;
@@ -315,20 +315,20 @@ DECLARE @M3UnitID INT = 8;
 
             ELSE 0
         END
-    FROM dbo.Inventory_TransactionDetails d
-    INNER JOIN dbo.Master_Product p
+    FROM inv.TransactionDetails d
+    INNER JOIN md.Product p
         ON p.ProductID = d.ProductID
-    LEFT JOIN dbo.Master_Product baseP
+    LEFT JOIN md.Product baseP
         ON baseP.ProductID = p.BaseProductID
     OUTER APPLY (
         SELECT TOP (1) f.AvgCostPerM3
-        FROM dbo.Master_FinalProductAvgCost f
+        FROM inv.FinalProductAvgCost f
         WHERE f.BaseProductID = p.ProductID
         ORDER BY f.LastUpdated DESC
     ) fpSelfTop
     OUTER APPLY (
         SELECT TOP (1) f.AvgCostPerM3forFG
-        FROM dbo.Master_FinalProductAvgCost f
+        FROM inv.FinalProductAvgCost f
         WHERE f.BaseProductID = p.BaseProductID
         ORDER BY f.LastUpdated DESC
     ) fpBaseTop
@@ -338,7 +338,7 @@ UPDATE d
 SET
     d.UnitCost = c.UnitCost,
     d.CostAmount = d.Quantity * c.UnitCost
-FROM dbo.Inventory_TransactionDetails d
+FROM inv.TransactionDetails d
 INNER JOIN CostRule c
     ON c.DetailID = d.DetailID
 WHERE d.TransactionID = @TransactionID
@@ -347,7 +347,7 @@ WHERE d.TransactionID = @TransactionID
 /* ✅ Safety: prevent posting with zero cost */
 IF EXISTS (
     SELECT 1
-    FROM dbo.Inventory_TransactionDetails
+    FROM inv.TransactionDetails
     WHERE TransactionID = @TransactionID
       AND (ISNULL(UnitCost,0) = 0 OR ISNULL(CostAmount,0) = 0)
 )
@@ -388,9 +388,9 @@ END
             p.StorageUnitID,
             h.SourceDocumentID as SourceDocumentID,
             h.OperationTypeID
-        FROM Inventory_TransactionDetails d
-        INNER JOIN Master_Product p ON p.ProductID = d.ProductID
-        INNER JOIN Inventory_TransactionHeader h ON h.TransactionID = d.TransactionID
+        FROM inv.TransactionDetails d
+        INNER JOIN md.Product p ON p.ProductID = d.ProductID
+        INNER JOIN inv.TransactionHeader h ON h.TransactionID = d.TransactionID
         WHERE d.TransactionID = @TransactionID"
 
         Dim cmd As New SqlCommand(sql, con, tran)

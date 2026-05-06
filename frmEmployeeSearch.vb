@@ -22,7 +22,7 @@ Public Class frmEmployeeSearch
     e.EmpCode,
     e.EmpName,
     e.Mobile
-FROM Security_Employee e
+FROM sec.Employee e
 WHERE e.IsSalesRep = 1
   AND e.IsActive = 1
 ORDER BY e.EmpName"

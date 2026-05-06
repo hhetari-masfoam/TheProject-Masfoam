@@ -9,7 +9,7 @@ Public Class WorkflowEngine
 
         Using cmd As New SqlCommand("
         SELECT OperationTypeID
-        FROM Workflow_OperationType
+        FROM wf.OperationType
         WHERE OperationCode = @OperationCode
           AND IsActive = 1", con, tran)
 
@@ -53,7 +53,7 @@ Public Class WorkflowEngine
     ''' </summary>
     Public Sub UpdateTransactionStatus(transactionID As Integer, statusID As Integer, userID As Integer, con As SqlConnection, tran As SqlTransaction)
         Dim sql = "
-        UPDATE Inventory_TransactionHeader 
+        UPDATE inv.TransactionHeader 
         SET StatusID = @StatusID,
             IsInventoryPosted = 0,
             CreatedBy = @UserID,

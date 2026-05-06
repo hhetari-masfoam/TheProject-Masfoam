@@ -23,11 +23,11 @@ Partial Class frmCostCorrection
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
         Me.pnlControls = New System.Windows.Forms.Panel()
+        Me.btnShowTransactionCorrection = New System.Windows.Forms.Button()
         Me.txtStatusName = New System.Windows.Forms.TextBox()
         Me.btnAdvanceAnalysis = New System.Windows.Forms.Button()
         Me.btnExcute = New System.Windows.Forms.Button()
         Me.btnNew = New System.Windows.Forms.Button()
-        Me.btnAffectedOperations = New System.Windows.Forms.Button()
         Me.btnPreveiw = New System.Windows.Forms.Button()
         Me.btnCancel = New System.Windows.Forms.Button()
         Me.btnSearch = New System.Windows.Forms.Button()
@@ -38,7 +38,10 @@ Partial Class frmCostCorrection
         Me.SplitContainer3 = New System.Windows.Forms.SplitContainer()
         Me.dgvCorrectionQueue = New System.Windows.Forms.DataGridView()
         Me.SplitContainer2 = New System.Windows.Forms.SplitContainer()
+        Me.dgvRebuildGraph = New System.Windows.Forms.DataGridView()
         Me.dgvSimulation = New System.Windows.Forms.DataGridView()
+        Me.SplitContainer4 = New System.Windows.Forms.SplitContainer()
+        Me.dgvTransactionPreview = New System.Windows.Forms.DataGridView()
         Me.pnlControls.SuspendLayout()
         CType(Me.dgvAffectedOperations, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -47,23 +50,30 @@ Partial Class frmCostCorrection
         Me.SplitContainer1.SuspendLayout()
         CType(Me.SplitContainer3, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer3.Panel1.SuspendLayout()
+        Me.SplitContainer3.Panel2.SuspendLayout()
         Me.SplitContainer3.SuspendLayout()
         CType(Me.dgvCorrectionQueue, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.SplitContainer2, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SplitContainer2.Panel1.SuspendLayout()
         Me.SplitContainer2.Panel2.SuspendLayout()
         Me.SplitContainer2.SuspendLayout()
+        CType(Me.dgvRebuildGraph, System.ComponentModel.ISupportInitialize).BeginInit()
         CType(Me.dgvSimulation, System.ComponentModel.ISupportInitialize).BeginInit()
+        CType(Me.SplitContainer4, System.ComponentModel.ISupportInitialize).BeginInit()
+        Me.SplitContainer4.Panel1.SuspendLayout()
+        Me.SplitContainer4.Panel2.SuspendLayout()
+        Me.SplitContainer4.SuspendLayout()
+        CType(Me.dgvTransactionPreview, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
         'pnlControls
         '
         Me.pnlControls.BackColor = System.Drawing.SystemColors.Info
+        Me.pnlControls.Controls.Add(Me.btnShowTransactionCorrection)
         Me.pnlControls.Controls.Add(Me.txtStatusName)
         Me.pnlControls.Controls.Add(Me.btnAdvanceAnalysis)
         Me.pnlControls.Controls.Add(Me.btnExcute)
         Me.pnlControls.Controls.Add(Me.btnNew)
-        Me.pnlControls.Controls.Add(Me.btnAffectedOperations)
         Me.pnlControls.Controls.Add(Me.btnPreveiw)
         Me.pnlControls.Controls.Add(Me.btnCancel)
         Me.pnlControls.Controls.Add(Me.btnSearch)
@@ -75,6 +85,15 @@ Partial Class frmCostCorrection
         Me.pnlControls.Name = "pnlControls"
         Me.pnlControls.Size = New System.Drawing.Size(134, 1055)
         Me.pnlControls.TabIndex = 5
+        '
+        'btnShowTransactionCorrection
+        '
+        Me.btnShowTransactionCorrection.Location = New System.Drawing.Point(7, 389)
+        Me.btnShowTransactionCorrection.Name = "btnShowTransactionCorrection"
+        Me.btnShowTransactionCorrection.Size = New System.Drawing.Size(115, 58)
+        Me.btnShowTransactionCorrection.TabIndex = 23
+        Me.btnShowTransactionCorrection.Text = "ترانسكشن"
+        Me.btnShowTransactionCorrection.UseVisualStyleBackColor = True
         '
         'txtStatusName
         '
@@ -113,21 +132,10 @@ Partial Class frmCostCorrection
         Me.btnNew.Text = "جديد"
         Me.btnNew.UseVisualStyleBackColor = False
         '
-        'btnAffectedOperations
-        '
-        Me.btnAffectedOperations.BackColor = System.Drawing.SystemColors.Control
-        Me.btnAffectedOperations.Location = New System.Drawing.Point(7, 341)
-        Me.btnAffectedOperations.Margin = New System.Windows.Forms.Padding(4)
-        Me.btnAffectedOperations.Name = "btnAffectedOperations"
-        Me.btnAffectedOperations.Size = New System.Drawing.Size(115, 58)
-        Me.btnAffectedOperations.TabIndex = 0
-        Me.btnAffectedOperations.Text = "العمليات المتاثرة"
-        Me.btnAffectedOperations.UseVisualStyleBackColor = False
-        '
         'btnPreveiw
         '
         Me.btnPreveiw.BackColor = System.Drawing.SystemColors.Control
-        Me.btnPreveiw.Location = New System.Drawing.Point(7, 407)
+        Me.btnPreveiw.Location = New System.Drawing.Point(7, 323)
         Me.btnPreveiw.Margin = New System.Windows.Forms.Padding(4)
         Me.btnPreveiw.Name = "btnPreveiw"
         Me.btnPreveiw.Size = New System.Drawing.Size(115, 58)
@@ -189,7 +197,7 @@ Partial Class frmCostCorrection
         Me.dgvAffectedOperations.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvAffectedOperations.RowHeadersWidth = 51
         Me.dgvAffectedOperations.RowTemplate.Height = 26
-        Me.dgvAffectedOperations.Size = New System.Drawing.Size(1448, 328)
+        Me.dgvAffectedOperations.Size = New System.Drawing.Size(1448, 153)
         Me.dgvAffectedOperations.TabIndex = 0
         '
         'SplitContainer1
@@ -207,7 +215,7 @@ Partial Class frmCostCorrection
         '
         Me.SplitContainer1.Panel2.Controls.Add(Me.SplitContainer2)
         Me.SplitContainer1.Size = New System.Drawing.Size(1448, 1055)
-        Me.SplitContainer1.SplitterDistance = 320
+        Me.SplitContainer1.SplitterDistance = 338
         Me.SplitContainer1.TabIndex = 9
         '
         'SplitContainer3
@@ -220,8 +228,12 @@ Partial Class frmCostCorrection
         'SplitContainer3.Panel1
         '
         Me.SplitContainer3.Panel1.Controls.Add(Me.dgvCorrectionQueue)
-        Me.SplitContainer3.Size = New System.Drawing.Size(1448, 320)
-        Me.SplitContainer3.SplitterDistance = 291
+        '
+        'SplitContainer3.Panel2
+        '
+        Me.SplitContainer3.Panel2.Controls.Add(Me.dgvAffectedOperations)
+        Me.SplitContainer3.Size = New System.Drawing.Size(1448, 338)
+        Me.SplitContainer3.SplitterDistance = 181
         Me.SplitContainer3.TabIndex = 8
         '
         'dgvCorrectionQueue
@@ -235,7 +247,7 @@ Partial Class frmCostCorrection
         Me.dgvCorrectionQueue.RowHeadersWidth = 51
         Me.dgvCorrectionQueue.RowTemplate.Height = 26
         Me.dgvCorrectionQueue.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect
-        Me.dgvCorrectionQueue.Size = New System.Drawing.Size(1448, 291)
+        Me.dgvCorrectionQueue.Size = New System.Drawing.Size(1448, 181)
         Me.dgvCorrectionQueue.TabIndex = 7
         '
         'SplitContainer2
@@ -247,14 +259,26 @@ Partial Class frmCostCorrection
         '
         'SplitContainer2.Panel1
         '
-        Me.SplitContainer2.Panel1.Controls.Add(Me.dgvAffectedOperations)
+        Me.SplitContainer2.Panel1.Controls.Add(Me.dgvRebuildGraph)
         '
         'SplitContainer2.Panel2
         '
-        Me.SplitContainer2.Panel2.Controls.Add(Me.dgvSimulation)
-        Me.SplitContainer2.Size = New System.Drawing.Size(1448, 731)
-        Me.SplitContainer2.SplitterDistance = 328
+        Me.SplitContainer2.Panel2.Controls.Add(Me.SplitContainer4)
+        Me.SplitContainer2.Size = New System.Drawing.Size(1448, 713)
+        Me.SplitContainer2.SplitterDistance = 319
         Me.SplitContainer2.TabIndex = 1
+        '
+        'dgvRebuildGraph
+        '
+        Me.dgvRebuildGraph.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        Me.dgvRebuildGraph.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.dgvRebuildGraph.Location = New System.Drawing.Point(0, 0)
+        Me.dgvRebuildGraph.Name = "dgvRebuildGraph"
+        Me.dgvRebuildGraph.RightToLeft = System.Windows.Forms.RightToLeft.Yes
+        Me.dgvRebuildGraph.RowHeadersWidth = 51
+        Me.dgvRebuildGraph.RowTemplate.Height = 26
+        Me.dgvRebuildGraph.Size = New System.Drawing.Size(1448, 319)
+        Me.dgvRebuildGraph.TabIndex = 0
         '
         'dgvSimulation
         '
@@ -266,8 +290,37 @@ Partial Class frmCostCorrection
         Me.dgvSimulation.RightToLeft = System.Windows.Forms.RightToLeft.Yes
         Me.dgvSimulation.RowHeadersWidth = 51
         Me.dgvSimulation.RowTemplate.Height = 26
-        Me.dgvSimulation.Size = New System.Drawing.Size(1448, 399)
+        Me.dgvSimulation.Size = New System.Drawing.Size(1448, 195)
         Me.dgvSimulation.TabIndex = 0
+        '
+        'SplitContainer4
+        '
+        Me.SplitContainer4.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.SplitContainer4.Location = New System.Drawing.Point(0, 0)
+        Me.SplitContainer4.Name = "SplitContainer4"
+        Me.SplitContainer4.Orientation = System.Windows.Forms.Orientation.Horizontal
+        '
+        'SplitContainer4.Panel1
+        '
+        Me.SplitContainer4.Panel1.Controls.Add(Me.dgvSimulation)
+        '
+        'SplitContainer4.Panel2
+        '
+        Me.SplitContainer4.Panel2.Controls.Add(Me.dgvTransactionPreview)
+        Me.SplitContainer4.Size = New System.Drawing.Size(1448, 390)
+        Me.SplitContainer4.SplitterDistance = 195
+        Me.SplitContainer4.TabIndex = 1
+        '
+        'dgvTransactionPreview
+        '
+        Me.dgvTransactionPreview.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        Me.dgvTransactionPreview.Dock = System.Windows.Forms.DockStyle.Fill
+        Me.dgvTransactionPreview.Location = New System.Drawing.Point(0, 0)
+        Me.dgvTransactionPreview.Name = "dgvTransactionPreview"
+        Me.dgvTransactionPreview.RowHeadersWidth = 51
+        Me.dgvTransactionPreview.RowTemplate.Height = 26
+        Me.dgvTransactionPreview.Size = New System.Drawing.Size(1448, 191)
+        Me.dgvTransactionPreview.TabIndex = 0
         '
         'frmCostCorrection
         '
@@ -287,6 +340,7 @@ Partial Class frmCostCorrection
         CType(Me.SplitContainer1, System.ComponentModel.ISupportInitialize).EndInit()
         Me.SplitContainer1.ResumeLayout(False)
         Me.SplitContainer3.Panel1.ResumeLayout(False)
+        Me.SplitContainer3.Panel2.ResumeLayout(False)
         CType(Me.SplitContainer3, System.ComponentModel.ISupportInitialize).EndInit()
         Me.SplitContainer3.ResumeLayout(False)
         CType(Me.dgvCorrectionQueue, System.ComponentModel.ISupportInitialize).EndInit()
@@ -294,7 +348,13 @@ Partial Class frmCostCorrection
         Me.SplitContainer2.Panel2.ResumeLayout(False)
         CType(Me.SplitContainer2, System.ComponentModel.ISupportInitialize).EndInit()
         Me.SplitContainer2.ResumeLayout(False)
+        CType(Me.dgvRebuildGraph, System.ComponentModel.ISupportInitialize).EndInit()
         CType(Me.dgvSimulation, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.SplitContainer4.Panel1.ResumeLayout(False)
+        Me.SplitContainer4.Panel2.ResumeLayout(False)
+        CType(Me.SplitContainer4, System.ComponentModel.ISupportInitialize).EndInit()
+        Me.SplitContainer4.ResumeLayout(False)
+        CType(Me.dgvTransactionPreview, System.ComponentModel.ISupportInitialize).EndInit()
         Me.ResumeLayout(False)
 
     End Sub
@@ -308,11 +368,14 @@ Partial Class frmCostCorrection
     Friend WithEvents btnClose As Button
     Private WithEvents btnNew As Button
     Friend WithEvents dgvAffectedOperations As DataGridView
-    Friend WithEvents btnAffectedOperations As Button
     Friend WithEvents SplitContainer1 As SplitContainer
     Friend WithEvents dgvSimulation As DataGridView
     Friend WithEvents SplitContainer2 As SplitContainer
     Friend WithEvents btnAdvanceAnalysis As Button
     Friend WithEvents dgvCorrectionQueue As DataGridView
     Friend WithEvents SplitContainer3 As SplitContainer
+    Friend WithEvents dgvRebuildGraph As DataGridView
+    Friend WithEvents btnShowTransactionCorrection As Button
+    Friend WithEvents SplitContainer4 As SplitContainer
+    Friend WithEvents dgvTransactionPreview As DataGridView
 End Class

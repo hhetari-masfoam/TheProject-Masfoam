@@ -106,7 +106,7 @@ Public Class CuttingWasteApplicationService
                         ' Existing document: PeriodStart must not change
                         Using cmd As New SqlCommand("
 SELECT PeriodStartDate
-FROM dbo.Inventory_WasteHeader
+FROM inv.WasteHeader
 WHERE WasteID=@W
 ", con, tran)
                             cmd.Parameters.AddWithValue("@W", header.WasteID)
@@ -188,6 +188,11 @@ WHERE WasteID=@W
         End Using
 
     End Function
+    Public Class SendWasteResult
+        Public Property WasteID As Integer
+        Public Property WasteCode As String
+        Public Property TransactionID As Integer
+    End Class
     Public Function ExecuteWasteInstant(
     header As WasteHeaderDraft,
     totals As WasteTotals,
@@ -285,20 +290,20 @@ WHERE WasteID=@W
                     ' IN detail (scrap) with UnitCost = WasteAvgCost ✅
                     Dim scrapQty As Decimal = If(scrapUnitID = UNIT_KG, totals.TotalWasteWeightKG, totals.TotalWasteVolumeM3)
                     InsertTransactionInDetail(
-                    con, tran,
-                    transactionID:=transactionID,
-                    scrapProductID:=header.ScrapProductID,
-                    qty:=scrapQty,
-                    unitID:=scrapUnitID,
-                    unitCost:=header.WasteAvgCost,
-                    targetStoreID:=header.TargetStoreID,
-                    nowDt:=nowDt,
-                    userID:=userID
-                )
-
+                        con, tran,
+                        transactionID:=transactionID,
+                        scrapProductID:=header.ScrapProductID,
+                        qty:=scrapQty,
+                        unitID:=scrapUnitID,
+                        unitCost:=header.WasteAvgCost,
+                        targetStoreID:=header.TargetStoreID,
+                        wasteID:=wasteID,   ' 🔥 أهم سطر
+                        nowDt:=nowDt,
+                        userID:=userID
+                    )
                     ' Link waste to transaction + set SentAt/SentBy (truth)
                     Using cmd As New SqlCommand("
-UPDATE dbo.Inventory_WasteHeader
+UPDATE inv.WasteHeader
 SET TransactionID=@T,
     StatusID=@StatusID,
     SentAt=@Now,
@@ -313,7 +318,7 @@ WHERE WasteID=@W
                         cmd.ExecuteNonQuery()
                     End Using
                     Using cmd As New SqlCommand("
-UPDATE Inventory_TransactionHeader
+UPDATE inv.TransactionHeader
 SET PostingDate = SYSDATETIME()
 WHERE TransactionID = @T
 ", con, tran)
@@ -338,11 +343,7 @@ WHERE TransactionID = @T
             End Using
         End Using
     End Function
-    Public Class SendWasteResult
-        Public Property WasteID As Integer
-        Public Property WasteCode As String
-        Public Property TransactionID As Integer
-    End Class
+
     Public Function SendWaste(wasteID As Integer, userID As Integer) As SendWasteResult
         Using con As New SqlConnection(_connStr)
             con.Open()
@@ -394,20 +395,20 @@ WHERE TransactionID = @T
                     Dim wasteAvgCost As Decimal = GetWasteAvgCost(con, tran, wasteID)
 
                     InsertTransactionInDetail(
-                    con, tran,
-                    transactionID:=transactionID,
-                    scrapProductID:=hdr.ScrapProductID,
-                    qty:=scrapQty,
-                    unitID:=scrapUnitID,
-                    unitCost:=wasteAvgCost,
-                    targetStoreID:=hdr.TargetStoreID,
-                    nowDt:=nowDt,
-                    userID:=userID
-                )
-
+                        con, tran,
+                        transactionID:=transactionID,
+                        scrapProductID:=hdr.ScrapProductID,
+                        qty:=scrapQty,
+                        unitID:=scrapUnitID,
+                        unitCost:=wasteAvgCost,
+                        targetStoreID:=hdr.TargetStoreID,
+                        wasteID:=wasteID,   ' 🔥
+                        nowDt:=nowDt,
+                        userID:=userID
+                    )
                     ' Update waste to SENT + link transaction
                     Using cmd As New SqlCommand("
-UPDATE dbo.Inventory_WasteHeader
+UPDATE inv.WasteHeader
 SET StatusID=@NewStatus,
     SentAt=@Now,
     SentBy=@UserID,
@@ -442,7 +443,7 @@ WHERE WasteID=@WasteID
     Private Function GetWasteAvgCost(con As SqlConnection, tran As SqlTransaction, wasteID As Integer) As Decimal
         Using cmd As New SqlCommand("
 SELECT CAST(ISNULL(WasteAvgCost,0) AS DECIMAL(18,6))
-FROM dbo.Inventory_WasteHeader
+FROM inv.WasteHeader
 WHERE WasteID=@W
 ", con, tran)
             cmd.Parameters.AddWithValue("@W", wasteID)
@@ -463,7 +464,7 @@ WHERE WasteID=@W
 
                     Using cmd As New SqlCommand("
 SELECT StatusID, ISNULL(TransactionID,0) AS TransactionID, SentAt
-FROM dbo.Inventory_WasteHeader
+FROM inv.WasteHeader
 WHERE WasteID=@WasteID
 ", con, tran)
                         cmd.Parameters.AddWithValue("@WasteID", wasteID)
@@ -490,7 +491,7 @@ WHERE WasteID=@WasteID
                         Dim trnPosted As Boolean
                         Using cmd As New SqlCommand("
 SELECT ISNULL(IsInventoryPosted,0)
-FROM dbo.Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T
 ", con, tran)
                             cmd.Parameters.AddWithValue("@T", trnID)
@@ -502,7 +503,7 @@ WHERE TransactionID=@T
                         End If
 
                         Using cmd As New SqlCommand("
-UPDATE dbo.Inventory_TransactionHeader
+UPDATE inv.TransactionHeader
 SET StatusID=@NewStatus
 WHERE TransactionID=@T
 ", con, tran)
@@ -517,7 +518,7 @@ WHERE TransactionID=@T
 
                     ' Cancel waste header
                     Using cmd As New SqlCommand("
-UPDATE dbo.Inventory_WasteHeader
+UPDATE inv.WasteHeader
 SET StatusID=@StatusID,
     CancelledAt=SYSDATETIME(),
     CancelledBy=@UserID,
@@ -556,7 +557,7 @@ WHERE WasteID=@WasteID
                                       scrapUnitID As Integer, userID As Integer) As Integer
 
         Using cmd As New SqlCommand("
-INSERT INTO dbo.Inventory_WasteHeader
+INSERT INTO inv.WasteHeader
 (
  WasteCode, OperationTypeID,
  PeriodStartDate, PeriodEndDate,
@@ -625,7 +626,7 @@ VALUES
                                  scrapUnitID As Integer, userID As Integer)
 
         Using cmd As New SqlCommand("
-UPDATE dbo.Inventory_WasteHeader
+UPDATE inv.WasteHeader
 SET
  PeriodStartDate=@From,
  PeriodEndDate=@To,
@@ -689,7 +690,7 @@ WHERE WasteID=@WasteID
     Private Function GetWasteDetailUnitCost(con As SqlConnection, tran As SqlTransaction, wasteDetailID As Integer) As Decimal
         Using cmd As New SqlCommand("
 SELECT CAST(ISNULL(UnitCost,0) AS DECIMAL(18,6))
-FROM dbo.Inventory_WasteDetails
+FROM inv.WasteDetails
 WHERE WasteDetailID=@D
 ", con, tran)
             cmd.Parameters.AddWithValue("@D", wasteDetailID)
@@ -700,7 +701,7 @@ WHERE WasteDetailID=@D
     End Function
 
     Private Sub DeleteWasteDetails(con As SqlConnection, tran As SqlTransaction, wasteID As Integer)
-        Using cmd As New SqlCommand("DELETE FROM dbo.Inventory_WasteDetails WHERE WasteID=@WasteID", con, tran)
+        Using cmd As New SqlCommand("DELETE FROM inv.WasteDetails WHERE WasteID=@WasteID", con, tran)
             cmd.Parameters.AddWithValue("@WasteID", wasteID)
             cmd.ExecuteNonQuery()
         End Using
@@ -739,7 +740,7 @@ WHERE WasteDetailID=@D
         Dim costAmount As Decimal = Math.Round(unitCost * wasteQty, 6)
 
         Using cmd As New SqlCommand("
-INSERT INTO dbo.Inventory_WasteDetails
+INSERT INTO inv.WasteDetails
 (
  WasteID, ProductID, UnitID,
  ConsumptionQty, WastePercent, WasteQty,
@@ -794,7 +795,7 @@ VALUES
                                             statusID As Integer,
                                             userID As Integer) As Integer
         Using cmd As New SqlCommand("
-INSERT INTO dbo.Inventory_TransactionHeader
+INSERT INTO inv.TransactionHeader
 (
  TransactionDate,
  SourceDocumentID,
@@ -846,7 +847,7 @@ SELECT SCOPE_IDENTITY();
     userID As Integer
 )
         Using cmd As New SqlCommand("
-INSERT INTO dbo.Inventory_TransactionDetails
+INSERT INTO inv.TransactionDetails
 (
  TransactionID,
  ProductID,
@@ -874,7 +875,7 @@ SELECT
  NULL,
  @Now,
  @UserID
-FROM dbo.Inventory_WasteDetails d
+FROM inv.WasteDetails d
 WHERE d.WasteID = @WasteID
   AND d.WasteQty > 0
 ", con, tran)
@@ -889,21 +890,24 @@ WHERE d.WasteID = @WasteID
     End Sub
 
     Private Sub InsertTransactionInDetail(
-    con As SqlConnection,
-    tran As SqlTransaction,
-    transactionID As Integer,
-    scrapProductID As Integer,
-    qty As Decimal,
-    unitID As Integer,
-    unitCost As Decimal,
-    targetStoreID As Integer,
-    nowDt As DateTime,
-    userID As Integer
-)
-        Dim costAmount As Decimal = Math.Round(qty * unitCost, 6, MidpointRounding.AwayFromZero)
+        con As SqlConnection,
+        tran As SqlTransaction,
+        transactionID As Integer,
+        scrapProductID As Integer,
+        qty As Decimal,
+        unitID As Integer,
+        unitCost As Decimal,
+        targetStoreID As Integer,
+        wasteID As Integer,   ' 🔥 جديد
+        nowDt As DateTime,
+        userID As Integer
+    )
+
+        Dim costAmount As Decimal =
+            Math.Round(qty * unitCost, 6, MidpointRounding.AwayFromZero)
 
         Using cmd As New SqlCommand("
-INSERT INTO dbo.Inventory_TransactionDetails
+INSERT INTO inv.TransactionDetails
 (
  TransactionID,
  ProductID,
@@ -926,27 +930,32 @@ VALUES
  @UnitID,
  @UnitCost,
  @CostAmount,
- NULL,
+ NULL,              -- IN
  @TargetStoreID,
- 0,
- NULL,
+ NULL,              -- 🔥 مهم جدًا
+ @WasteID,          -- 🔥 الربط الصحيح
  @Now,
  @UserID
 )
 ", con, tran)
+
             cmd.Parameters.AddWithValue("@TransactionID", transactionID)
             cmd.Parameters.AddWithValue("@ScrapProductID", scrapProductID)
             cmd.Parameters.AddWithValue("@Qty", qty)
             cmd.Parameters.AddWithValue("@UnitID", unitID)
-
             cmd.Parameters.AddWithValue("@UnitCost", unitCost)
             cmd.Parameters.AddWithValue("@CostAmount", costAmount)
 
             cmd.Parameters.AddWithValue("@TargetStoreID", targetStoreID)
+
+            cmd.Parameters.AddWithValue("@WasteID", wasteID)   ' 🔥
             cmd.Parameters.AddWithValue("@Now", nowDt)
             cmd.Parameters.AddWithValue("@UserID", userID)
+
             cmd.ExecuteNonQuery()
+
         End Using
+
     End Sub
 #End Region
 
@@ -982,7 +991,7 @@ $"
 SELECT
     b.ProductID,
     CAST(ISNULL(b.QtyOnHand,0) AS DECIMAL(18,6)) AS AvailableQty
-FROM dbo.Inventory_Balance b
+FROM inv.Balance b
 WHERE b.StoreID = @StoreID
   AND b.ProductID IN ({String.Join(",", inParams)});
 "
@@ -1031,7 +1040,7 @@ $"
 WITH Res AS
 (
     SELECT ProductID, SourceStoreID AS StoreID, SUM(ReservedQty) AS ReservedQty
-    FROM dbo.Inventory_Reservation
+    FROM inv.Reservation
     WHERE ReleasedAt IS NULL
       AND ReservationStatusID = {RES_STATUS_ACTIVE}
       AND SourceStoreID = @StoreID
@@ -1041,7 +1050,7 @@ WITH Res AS
 SELECT
     b.ProductID,
     CAST(ISNULL(b.QtyOnHand,0) - ISNULL(r.ReservedQty,0) AS DECIMAL(18,6)) AS AvailableQty
-FROM dbo.Inventory_Balance b
+FROM inv.Balance b
 LEFT JOIN Res r
     ON r.StoreID = b.StoreID AND r.ProductID = b.ProductID
 WHERE b.StoreID = @StoreID
@@ -1077,7 +1086,7 @@ WHERE b.StoreID = @StoreID
                                   costAtReserve As Decimal,
                                   userID As Integer)
         Using cmd As New SqlCommand("
-INSERT INTO dbo.Inventory_Reservation
+INSERT INTO inv.Reservation
 (
  ProductID, SourceStoreID, ReservedQty,
  SourceOperationTypeID, SourceID, CostAtReserve,
@@ -1120,7 +1129,7 @@ VALUES
     End Sub
 
     Private Function GetWasteStatus(con As SqlConnection, tran As SqlTransaction, wasteID As Integer) As Integer
-        Using cmd As New SqlCommand("SELECT StatusID FROM dbo.Inventory_WasteHeader WHERE WasteID=@W", con, tran)
+        Using cmd As New SqlCommand("SELECT StatusID FROM inv.WasteHeader WHERE WasteID=@W", con, tran)
             cmd.Parameters.AddWithValue("@W", wasteID)
             Dim obj = cmd.ExecuteScalar()
             If obj Is Nothing OrElse IsDBNull(obj) Then Throw New Exception("مستند الهالك غير موجود.")
@@ -1129,7 +1138,7 @@ VALUES
     End Function
 
     Private Function GetWasteTransactionID(con As SqlConnection, tran As SqlTransaction, wasteID As Integer) As Integer
-        Using cmd As New SqlCommand("SELECT ISNULL(TransactionID,0) FROM dbo.Inventory_WasteHeader WHERE WasteID=@W", con, tran)
+        Using cmd As New SqlCommand("SELECT ISNULL(TransactionID,0) FROM inv.WasteHeader WHERE WasteID=@W", con, tran)
             cmd.Parameters.AddWithValue("@W", wasteID)
             Return CInt(cmd.ExecuteScalar())
         End Using
@@ -1159,7 +1168,7 @@ SELECT
  ISNULL(TransactionID,0) AS TransactionID,
  ISNULL(TotalWasteWeight_kg,0) AS TotalWasteWeightKG,
  ISNULL(TotalWasteVolume_m3,0) AS TotalWasteVolumeM3
-FROM dbo.Inventory_WasteHeader
+FROM inv.WasteHeader
 WHERE WasteID=@W
 ", con, tran)
             cmd.Parameters.AddWithValue("@W", wasteID)
@@ -1182,7 +1191,7 @@ WHERE WasteID=@W
     Private Function GetProductStorageUnitID(con As SqlConnection, tran As SqlTransaction, productID As Integer) As Integer
         Using cmd As New SqlCommand("
 SELECT StorageUnitID
-FROM dbo.Master_Product
+FROM md.Product
 WHERE ProductID=@P
 ", con, tran)
             cmd.Parameters.AddWithValue("@P", productID)
@@ -1227,7 +1236,7 @@ ORDER BY StartDate DESC
         If unitID = UNIT_KG Then
             Using cmd As New SqlCommand("
 SELECT CAST(ISNULL(AvgCost,0) AS DECIMAL(18,6))
-FROM dbo.Master_Product
+FROM md.Product
 WHERE ProductID=@P
 ", con, tran)
                 cmd.Parameters.AddWithValue("@P", productID)
@@ -1240,7 +1249,7 @@ WHERE ProductID=@P
             Dim baseID As Integer
             Using cmdBase As New SqlCommand("
 SELECT ISNULL(BaseProductID, ProductID)
-FROM dbo.Master_Product
+FROM md.Product
 WHERE ProductID=@P
 ", con, tran)
                 cmdBase.Parameters.AddWithValue("@P", productID)
@@ -1250,7 +1259,7 @@ WHERE ProductID=@P
 
             Using cmd As New SqlCommand("
 SELECT CAST(ISNULL(AvgCostPerM3,0) AS DECIMAL(18,6))
-FROM dbo.Master_FinalProductAvgCost
+FROM inv.FinalProductAvgCost
 WHERE BaseProductID=@B
 ", con, tran)
                 cmd.Parameters.AddWithValue("@B", baseID)
@@ -1268,8 +1277,8 @@ WHERE BaseProductID=@B
     Private Sub DeleteAllReservationsForWaste(con As SqlConnection, tran As SqlTransaction, wasteID As Integer)
         Using cmd As New SqlCommand("
 DELETE R
-FROM dbo.Inventory_Reservation R
-INNER JOIN dbo.Inventory_WasteDetails D
+FROM inv.Reservation R
+INNER JOIN inv.WasteDetails D
     ON R.SourceID = D.WasteDetailID
 WHERE D.WasteID = @WasteID
   AND R.SourceOperationTypeID = @Op
@@ -1292,7 +1301,7 @@ WHERE D.WasteID = @WasteID
 
                     Using cmd As New SqlCommand("
 SELECT StatusID, ISNULL(TransactionID,0) AS TransactionID
-FROM dbo.Inventory_WasteHeader
+FROM inv.WasteHeader
 WHERE WasteID=@WasteID
 ", con, tran)
                         cmd.Parameters.AddWithValue("@WasteID", wasteID)
@@ -1311,7 +1320,7 @@ WHERE WasteID=@WasteID
 
                     ' 2) Delete details
                     Using cmd As New SqlCommand("
-DELETE FROM dbo.Inventory_WasteDetails
+DELETE FROM inv.WasteDetails
 WHERE WasteID=@WasteID
 ", con, tran)
                         cmd.Parameters.AddWithValue("@WasteID", wasteID)
@@ -1320,7 +1329,7 @@ WHERE WasteID=@WasteID
 
                     ' 3) Delete header
                     Using cmd As New SqlCommand("
-DELETE FROM dbo.Inventory_WasteHeader
+DELETE FROM inv.WasteHeader
 WHERE WasteID=@WasteID
   AND StatusID=@StatusID
 ", con, tran)
@@ -1351,7 +1360,7 @@ WHERE WasteID=@WasteID
         ' 1) منع وجود مستند مفتوح آخر لنفس المخزن (2/5/6) غير المستند الحالي
         Using cmdOpen As New SqlCommand("
 SELECT TOP 1 WasteID, WasteCode, StatusID, PeriodStartDate, PeriodEndDate
-FROM dbo.Inventory_WasteHeader
+FROM inv.WasteHeader
 WHERE SourceStoreID = @StoreID
   AND StatusID IN (2,5)
   AND WasteID <> @CurrentWasteID
@@ -1387,7 +1396,7 @@ ORDER BY CreatedAt DESC
         Dim lastEndObj As Object
         Using cmdLast As New SqlCommand("
 SELECT MAX(PeriodEndDate)
-FROM dbo.Inventory_WasteHeader
+FROM inv.WasteHeader
 WHERE SourceStoreID = @StoreID
   AND StatusID IN (5,6)
 ", con, tran)
@@ -1405,12 +1414,12 @@ WHERE SourceStoreID = @StoreID
         Dim firstCutObj As Object
         Using cmdFirstCut As New SqlCommand("
 SELECT MIN(h.TransactionDate)
-FROM dbo.Inventory_TransactionHeader h
+FROM inv.TransactionHeader h
 WHERE h.OperationTypeID = @OpCut
   AND EXISTS
   (
       SELECT 1
-      FROM dbo.Inventory_TransactionDetails d
+      FROM inv.TransactionDetails d
       WHERE d.TransactionID = h.TransactionID
         AND d.SourceStoreID = @StoreID
   )

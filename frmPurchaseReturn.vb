@@ -8,7 +8,7 @@ Public Class frmPurchaseReturn
     ' =========================
     Private InvoiceDetailsDT As DataTable
     Private IsResolvingProduct As Boolean = False
-    Private IsLoading As Boolean = False
+    ' Private IsLoading As Boolean = False
     Private IsLoadingInvoiceDetails As Boolean = False
 
     Private CurrentEmployeeID As Integer = 1
@@ -54,7 +54,7 @@ Public Class frmPurchaseReturn
             cboTargetStoreID,
             "
             SELECT StoreID, StoreName
-            FROM Master_Store
+            FROM md.Store
             WHERE IsActive = 1
             ORDER BY StoreName
             ",
@@ -65,7 +65,7 @@ Public Class frmPurchaseReturn
     Private Sub LoadPaymentMethods()
         LoadCombo(
         cboPaymentMethodID,
-        "SELECT PaymentMethodID, NameAr FROM Master_PaymentMethod WHERE IsActive = 1",
+        "SELECT PaymentMethodID, NameAr FROM md.PaymentMethod WHERE IsActive = 1",
         "NameAr",
         "PaymentMethodID"
     )
@@ -74,7 +74,7 @@ Public Class frmPurchaseReturn
     Private Sub LoadPaymentTerms()
         LoadCombo(
         cboPaymentTerm,
-        "SELECT PaymentTermID, NameAr FROM Master_PaymentTerm WHERE IsActive = 1",
+        "SELECT PaymentTermID, NameAr FROM md.PaymentTerm WHERE IsActive = 1",
         "NameAr",
         "PaymentTermID"
     )
@@ -86,7 +86,7 @@ Public Class frmPurchaseReturn
             cboPartnerID,
             "
             SELECT PartnerID, PartnerCode, PartnerName, VATRegistrationNumber
-            FROM Master_Partner
+            FROM md.Partner
             WHERE IsActive = 1
               AND PartnerCode LIKE 'CUS-%'
             ORDER BY PartnerCode
@@ -99,7 +99,7 @@ Public Class frmPurchaseReturn
     Private Sub LoadProductTypes()
         LoadGridCombo(
             colDetProductType,
-            "SELECT ProductTypeID, TypeName FROM Master_ProductType WHERE IsActive = 1",
+            "SELECT ProductTypeID, TypeName FROM md.ProductType WHERE IsActive = 1",
             "TypeName",
             "ProductTypeID"
         )
@@ -108,7 +108,7 @@ Public Class frmPurchaseReturn
     Private Sub LoadTaxTypes()
         LoadGridCombo(
             colDetTaxPercent,
-            "SELECT TaxTypeID, TaxName FROM Master_TaxType WHERE IsActive = 1",
+            "SELECT TaxTypeID, TaxName FROM md.TaxType WHERE IsActive = 1",
             "TaxName",
             "TaxTypeID"
         )
@@ -119,7 +119,7 @@ Public Class frmPurchaseReturn
             con.Open()
             Using cmd As New SqlCommand("
                 SELECT TaxReasonID, ReasonCode, ReasonNameAr
-                FROM Master_TaxReason
+                FROM md.TaxReason
                 WHERE IsActive = 1
                 ORDER BY ReasonNameAr
             ", con)
@@ -138,7 +138,7 @@ Public Class frmPurchaseReturn
     Private Sub LoadInvoiceStatuses()
         LoadCombo(
             cboStatusID,
-            "SELECT StatusID, StatusName FROM Workflow_Status WHERE IsActive = 1 ORDER BY StatusID",
+            "SELECT StatusID, StatusName FROM wf.Status WHERE IsActive = 1 ORDER BY StatusID",
             "StatusName",
             "StatusID"
         )
@@ -375,8 +375,8 @@ Public Class frmPurchaseReturn
 
         Dim sql As String = "
         SELECT DISTINCT P.ProductCode
-        FROM Master_Product P
-        INNER JOIN Inventory_Balance IB ON IB.ProductID = P.ProductID
+        FROM md.Product P
+        INNER JOIN inv.Balance IB ON IB.ProductID = P.ProductID
         WHERE IB.StoreID = @StoreID
           AND P.IsActive = 1
         ORDER BY P.ProductCode
@@ -411,7 +411,7 @@ Public Class frmPurchaseReturn
             con.Open()
             Using cmd As New SqlCommand("
                 SELECT ProductID, ProductTypeID, ProductName, StorageUnitID
-                FROM Master_Product
+                FROM md.Product
                 WHERE ProductCode = @Code AND IsActive = 1
             ", con)
                 cmd.Parameters.AddWithValue("@Code", code)
@@ -426,7 +426,7 @@ Public Class frmPurchaseReturn
     Private Function GetUnitNameByID(unitID As Integer) As String
         Using con As New SqlConnection(ConnStr)
             con.Open()
-            Using cmd As New SqlCommand("SELECT UnitName FROM Master_Unit WHERE UnitID = @ID", con)
+            Using cmd As New SqlCommand("SELECT UnitName FROM md.Unit WHERE UnitID = @ID", con)
                 cmd.Parameters.AddWithValue("@ID", unitID)
                 Dim res = cmd.ExecuteScalar()
                 If res Is Nothing OrElse IsDBNull(res) Then Return ""
@@ -518,8 +518,8 @@ Public Class frmPurchaseReturn
 
             Using cmd As New SqlCommand("
 SELECT ISNULL(SUM(D.Quantity),0)
-FROM Inventory_DocumentDetails D
-INNER JOIN Inventory_DocumentHeader H
+FROM inv.DocumentDetails D
+INNER JOIN inv.DocumentHeader H
     ON H.DocumentID = D.DocumentID
 WHERE H.DocumentType = 'PRT'
   AND H.StatusID <> 10
@@ -731,7 +731,48 @@ WHERE H.DocumentType = 'PRT'
                     Dim isUpdate As Boolean = (CurrentPRTDocumentID > 0)
                     Dim documentID As Integer = CurrentPRTDocumentID
                     Dim nextCode As String = ""
+                    ' =====================================
+                    ' 🔥 منع المرتجع إذا فيه عمليات لاحقة (لـ INSERT و UPDATE)
+                    ' =====================================
 
+                    For Each row As DataGridViewRow In dgvInvoiceDetails.Rows
+
+                        If row.IsNewRow Then Continue For
+
+                        Dim currentQty As Decimal = ToDec(row.Cells("colDetReturnQty").Value)
+                        If currentQty <= 0D Then Continue For
+
+                        If row.Cells("colDetSourceDocumentDetailID").Value Is Nothing _
+    OrElse IsDBNull(row.Cells("colDetSourceDocumentDetailID").Value) Then
+                            Continue For
+                        End If
+
+                        Dim sourceDetailID As Integer =
+        Convert.ToInt32(row.Cells("colDetSourceDocumentDetailID").Value)
+
+                        Using cmdCheck As New SqlCommand("
+IF EXISTS (
+    SELECT 1
+    FROM inv.TransactionDetails TD
+    INNER JOIN inv.CostLedger CL
+        ON CL.SourceDetailID = TD.DetailID
+    INNER JOIN inv.CostLedgerLink LL
+        ON LL.SourceTransactionDetailID = TD.DetailID   -- 🔥 هنا التعديل
+    INNER JOIN inv.CostLedger CL2
+        ON CL2.LedgerID = LL.TargetLedgerID
+    WHERE TD.SourceDocumentDetailID = @DetailID
+      AND CL2.IsActive = 1
+      AND CL2.IsReversed = 0
+)
+    THROW 51020, N'لا يمكن عمل مرتجع: الصنف تم استخدامه في عمليات لاحقة', 1;
+", con, tran)
+
+                            cmdCheck.Parameters.AddWithValue("@DetailID", sourceDetailID)
+                            cmdCheck.ExecuteNonQuery()
+
+                        End Using
+
+                    Next
                     ' =====================================
                     ' (0) ✅ تحقق قبل أي إدخال:
                     ' لا يسمح بحفظ مرتجع إلا إذا كانت الفاتورة الأصلية SAL بحالة CLEARED (18)
@@ -765,8 +806,8 @@ WHERE H.DocumentType = 'PRT'
                     Using cmdChk As New SqlCommand("
 IF EXISTS (
     SELECT 1
-    FROM dbo.Inventory_DocumentDetails OD
-    INNER JOIN dbo.Inventory_DocumentHeader OH
+    FROM inv.DocumentDetails OD
+    INNER JOIN inv.DocumentHeader OH
         ON OH.DocumentID = OD.DocumentID
     WHERE OD.DetailID IN (" & inList & ")
       AND OH.DocumentType = 'PUR'
@@ -800,7 +841,7 @@ IF EXISTS (
                     If isUpdate Then
 
                         Using cmd As New SqlCommand("
-UPDATE Inventory_DocumentHeader SET
+UPDATE inv.DocumentHeader SET
     DocumentDate = @DocumentDate,
     PartnerID = @PartnerID,
     TotalAmount = @TotalAmount,
@@ -836,7 +877,7 @@ WHERE DocumentID = @DocumentID
 
                         ' حذف التفاصيل القديمة
                         Using cmdDel As New SqlCommand("
-DELETE FROM Inventory_DocumentDetails
+DELETE FROM inv.DocumentDetails
 WHERE DocumentID = @DocumentID
 ", con, tran)
 
@@ -847,7 +888,7 @@ WHERE DocumentID = @DocumentID
                     Else
 
                         Using cmd As New SqlCommand("
-INSERT INTO Inventory_DocumentHeader
+INSERT INTO inv.DocumentHeader
 (
     DocumentType,
     DocumentNo,
@@ -928,8 +969,8 @@ SELECT SCOPE_IDENTITY();
                     Using cmdPrev As New SqlCommand("
 SELECT D.SourceDocumentDetailID,
        SUM(D.Quantity) AS TotalReturned
-FROM Inventory_DocumentDetails D
-INNER JOIN Inventory_DocumentHeader H
+FROM inv.DocumentDetails D
+INNER JOIN inv.DocumentHeader H
     ON H.DocumentID = D.DocumentID
 WHERE H.DocumentType = 'PRT'
   AND H.StatusID <> 10
@@ -980,7 +1021,7 @@ GROUP BY D.SourceDocumentDetailID
                         End If
 
                         Using cmdDet As New SqlCommand("
-INSERT INTO Inventory_DocumentDetails
+INSERT INTO inv.DocumentDetails
 (
     DocumentID,
     ProductID,
@@ -1152,7 +1193,7 @@ VALUES
 
                     Using cmd As New SqlCommand("
 SELECT StatusID, IsTaxInclusive, DocumentNo, Notes
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 ", con, tran)
 
@@ -1173,7 +1214,7 @@ WHERE DocumentID = @ID
                     Using cmd As New SqlCommand("
 IF NOT EXISTS (
     SELECT 1
-    FROM Inventory_DocumentDetails
+    FROM inv.DocumentDetails
     WHERE DocumentID = @ID
       AND Quantity > 0
 )
@@ -1196,8 +1237,8 @@ IF EXISTS (
     SELECT 1
     FROM (
         SELECT DISTINCT SD.DocumentID
-        FROM Inventory_DocumentDetails R
-        INNER JOIN Inventory_DocumentDetails SD
+        FROM inv.DocumentDetails R
+        INNER JOIN inv.DocumentDetails SD
             ON SD.DetailID = R.SourceDocumentDetailID
         WHERE R.DocumentID = @PRT
     ) X
@@ -1212,8 +1253,8 @@ IF EXISTS (
                     ' (2.2) جلب InvoiceID
                     Using cmd As New SqlCommand("
 SELECT TOP 1 SD.DocumentID
-FROM Inventory_DocumentDetails R
-INNER JOIN Inventory_DocumentDetails SD
+FROM inv.DocumentDetails R
+INNER JOIN inv.DocumentDetails SD
     ON SD.DetailID = R.SourceDocumentDetailID
 WHERE R.DocumentID = @PRT
 ", con, tran)
@@ -1233,21 +1274,21 @@ WHERE R.DocumentID = @PRT
                     Using cmd As New SqlCommand("
 IF EXISTS (
     SELECT 1
-    FROM Inventory_DocumentDetails R
+    FROM inv.DocumentDetails R
     WHERE R.DocumentID = @PRT
       AND R.SourceDocumentDetailID IS NOT NULL
       AND R.Quantity >
       (
         ISNULL((
             SELECT I.Quantity
-            FROM Inventory_DocumentDetails I
+            FROM inv.DocumentDetails I
             WHERE I.DetailID = R.SourceDocumentDetailID
         ),0)
         -
         ISNULL((
             SELECT SUM(R2.Quantity)
-            FROM Inventory_DocumentDetails R2
-            INNER JOIN Inventory_DocumentHeader H2
+            FROM inv.DocumentDetails R2
+            INNER JOIN inv.DocumentHeader H2
                 ON H2.DocumentID = R2.DocumentID
             WHERE H2.DocumentType = 'PRT'
               AND H2.StatusID <> 10
@@ -1287,7 +1328,7 @@ ORDER BY PeriodID DESC
 
 
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_TransactionHeader
+INSERT INTO inv.TransactionHeader
 (
     TransactionDate,
     SourceDocumentID,
@@ -1330,7 +1371,7 @@ VALUES
                     '    - CostSnapshot من حركة التحميل الأصلية عبر InvoiceDetail.SourceLoadingOrderDetailID
                     '=========================
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_TransactionDetails
+INSERT INTO inv.TransactionDetails
 (
     TransactionID,
     ProductID,
@@ -1358,7 +1399,7 @@ SELECT
     R.SourceDocumentDetailID,
     SYSDATETIME(),
     @UserID
-FROM Inventory_DocumentDetails R
+FROM inv.DocumentDetails R
 WHERE R.DocumentID = @PRT
   AND R.Quantity > 0;
 ", con, tran)
@@ -1433,12 +1474,12 @@ SELECT
     P.VATRegistrationNumber AS TaxNumber,
     LO.LOCode,
     SR.SRCode
-FROM Inventory_DocumentHeader H
-LEFT JOIN Master_Partner P ON P.PartnerID = H.PartnerID
-LEFT JOIN Document_Link L ON L.TargetDocumentID = H.DocumentID AND L.TargetType = 'SAL'
-LEFT JOIN Logistics_LoadingOrder LO ON LO.LOID = L.SourceDocumentID
-LEFT JOIN Logistics_LoadingOrderSR LOSR ON LOSR.LOID = LO.LOID
-LEFT JOIN Business_SR SR ON SR.SRID = LOSR.SRID
+FROM inv.DocumentHeader H
+LEFT JOIN md.Partner P ON P.PartnerID = H.PartnerID
+LEFT JOIN inv.DocumentLink L ON L.TargetDocumentID = H.DocumentID AND L.TargetType = 'SAL'
+LEFT JOIN log.LoadingOrder LO ON LO.LOID = L.SourceDocumentID
+LEFT JOIN log.LoadingOrderSR LOSR ON LOSR.LOID = LO.LOID
+LEFT JOIN inv.SR SR ON SR.SRID = LOSR.SRID
 WHERE H.DocumentID = @DocumentID
 ", con)
                 cmd.Parameters.AddWithValue("@DocumentID", documentID)
@@ -1487,9 +1528,9 @@ SELECT
     D.TaxRate,
     D.TaxTypeID,
     D.TargetStoreID
-FROM Inventory_DocumentDetails D
-INNER JOIN Master_Product P ON P.ProductID = D.ProductID
-LEFT JOIN Master_Unit U ON U.UnitID = D.UnitID
+FROM inv.DocumentDetails D
+INNER JOIN md.Product P ON P.ProductID = D.ProductID
+LEFT JOIN md.Unit U ON U.UnitID = D.UnitID
 WHERE D.DocumentID = @DocumentID
 ", con)
                 cmd.Parameters.AddWithValue("@DocumentID", documentID)
@@ -1552,8 +1593,8 @@ SELECT
     H.*,
     P.PartnerName,
     P.VATRegistrationNumber AS TaxNumber
-FROM Inventory_DocumentHeader H
-LEFT JOIN Master_Partner P ON P.PartnerID = H.PartnerID
+FROM inv.DocumentHeader H
+LEFT JOIN md.Partner P ON P.PartnerID = H.PartnerID
 WHERE H.DocumentID = @DocumentID
 ", con)
                 cmd.Parameters.AddWithValue("@DocumentID", documentID)
@@ -1605,10 +1646,10 @@ SELECT
     D.TaxRate,
     D.TaxTypeID,
     D.SourceStoreID
-FROM Inventory_DocumentDetails D
-LEFT JOIN Inventory_DocumentDetails SD ON SD.DetailID = D.SourceDocumentDetailID
-INNER JOIN Master_Product P ON P.ProductID = D.ProductID
-LEFT JOIN Master_Unit U ON U.UnitID = D.UnitID
+FROM inv.DocumentDetails D
+LEFT JOIN inv.DocumentDetails SD ON SD.DetailID = D.SourceDocumentDetailID
+INNER JOIN md.Product P ON P.ProductID = D.ProductID
+LEFT JOIN md.Unit U ON U.UnitID = D.UnitID
 WHERE D.DocumentID = @DocumentID
 ", con)
                 cmd.Parameters.AddWithValue("@DocumentID", documentID)
@@ -1702,7 +1743,7 @@ WHERE D.DocumentID = @DocumentID
 
                     Using cmdGet As New SqlCommand("
 SELECT StatusID
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 ", con, tran)
 
@@ -1723,7 +1764,7 @@ WHERE DocumentID = @ID
 
                     ' 3) تحديث الحالة إلى CANCELED = 10
                     Using cmdUpd As New SqlCommand("
-UPDATE Inventory_DocumentHeader
+UPDATE inv.DocumentHeader
 SET StatusID = 10
 WHERE DocumentID = @ID
 ", con, tran)

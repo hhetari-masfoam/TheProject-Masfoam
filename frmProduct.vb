@@ -247,7 +247,7 @@ Public Class frmProduct
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-                "SELECT ColorID, ColorName FROM Master_ProductColor ORDER BY ColorName", con)
+                "SELECT ColorID, ColorName FROM md.ProductColor ORDER BY ColorName", con)
 
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -303,7 +303,7 @@ Public Class frmProduct
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT ProductID, ProductCode
-             FROM Master_Product
+             FROM md.Product
              WHERE IsActive = 1
                AND ProductID <> @CurrentProductID
              ORDER BY ProductCode", con)
@@ -343,7 +343,7 @@ Public Class frmProduct
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-                "SELECT CategoryID, CategoryName FROM Master_ProductCategory ORDER BY CategoryName", con)
+                "SELECT CategoryID, CategoryName FROM md.ProductCategory ORDER BY CategoryName", con)
 
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -367,7 +367,7 @@ Public Class frmProduct
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT SubCategoryID, SubCategoryName, HasDimensions
-             FROM Master_SubCategory
+             FROM md.ProductSubCategory
              WHERE IsActive = 1
              ORDER BY SubCategoryName", con)
 
@@ -393,7 +393,7 @@ Public Class frmProduct
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-                "SELECT ProductGroupID, GroupName FROM Master_ProductGroup ORDER BY GroupName", con)
+                "SELECT ProductGroupID, GroupName FROM md.ProductGroup ORDER BY GroupName", con)
 
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -415,7 +415,7 @@ Public Class frmProduct
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-                "SELECT ProductTypeID, TypeName FROM Master_ProductType ORDER BY TypeName", con)
+                "SELECT ProductTypeID, TypeName FROM md.ProductType ORDER BY TypeName", con)
 
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -445,7 +445,7 @@ Public Class frmProduct
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-            "SELECT UnitID, UnitName FROM Master_Unit WHERE IsActive = 1 ORDER BY UnitName", con)
+            "SELECT UnitID, UnitName FROM md.Unit WHERE IsActive = 1 ORDER BY UnitName", con)
 
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -494,7 +494,7 @@ Public Class frmProduct
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-            "SELECT TaxTypeID, TaxName FROM Master_Taxtype ORDER BY TaxName", con)
+            "SELECT TaxTypeID, TaxName FROM md.TaxType ORDER BY TaxName", con)
 
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -525,7 +525,7 @@ Public Class frmProduct
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
                 "SELECT ProductID, ProductCode, ProductName
-FROM Master_Product
+FROM md.Product
 WHERE IsActive = 1
   AND (Length IS NULL OR Length = 0)
   AND ProductID <> @CurrentProductID
@@ -567,7 +567,7 @@ ORDER BY ProductName
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-            "SELECT ProductCode FROM Master_Product WHERE ProductCode LIKE 'P-%'", con)
+            "SELECT ProductCode FROM md.Product WHERE ProductCode LIKE 'P-%'", con)
 
                 con.Open()
                 Using dr As SqlDataReader = cmd.ExecuteReader()
@@ -694,16 +694,39 @@ ORDER BY ProductName
         If Not Decimal.TryParse(txtWidth.Text.Trim(), wDec) Then Return ""
         If Not Decimal.TryParse(txtHeight.Text.Trim(), hDec) Then Return ""
 
-        Dim l As Integer = CInt(Math.Round(lDec))
-        Dim w As Integer = CInt(Math.Round(wDec))
-        Dim h As Integer = CInt(Math.Round(hDec))
+        ' =========================
+        ' التقريب
+        ' =========================
+        lDec = NormalizeDimension(lDec)
+        wDec = NormalizeDimension(wDec)
+        hDec = NormalizeDimension(hDec)
 
         ' =========================
-        ' توليد الكود
-        ' مثال: FOAM-080200050
+        ' التحقق من الترتيب (L ≥ W ≥ H)
         ' =========================
-        Return $"{baseCode}-{l:000}{w:000}{h:000}"
+        If Not (lDec >= wDec AndAlso wDec >= hDec) Then
+            MessageBox.Show("يجب أن يكون الطول ≥ العرض ≥ الارتفاع")
+            Return ""
+        End If
 
+        ' =========================
+        ' تنسيق الأبعاد
+        ' =========================
+        Dim lStr As String = FormatDimension(lDec)
+        Dim wStr As String = FormatDimension(wDec)
+        Dim hStr As String = FormatDimension(hDec)
+
+        ' =========================
+        ' تحديث الحقول (يحفظ القيم المقربة)
+        ' =========================
+        txtLength.Text = lDec.ToString("0.#")
+        txtWidth.Text = wDec.ToString("0.#")
+        txtHeight.Text = hDec.ToString("0.#")
+
+        ' =========================
+        ' الكود النهائي
+        ' =========================
+        Return $"{baseCode}-{lStr}{wStr}{hStr}"
     End Function
 
     Private Sub InsertProduct(purchaseUnitID As Integer, stockUnitID As Integer)
@@ -713,7 +736,7 @@ ORDER BY ProductName
             Dim productTypeID As Integer = CInt(cboProductTypeID.SelectedValue)
 
             Dim sql As String =
-        "INSERT INTO Master_Product (" &
+        "INSERT INTO md.Product (" &
         "ProductCode, ProductName, ProductEnglishName, Barcode, " &
         "ProductCategoryID, ProductSubCategoryID, ProductTypeID, ProductGroupID, " &
         "StorageUnitID, PricingUnitID, ProductionUnitID, " &
@@ -813,11 +836,11 @@ ORDER BY ProductName
                 ' =========================
                 cmd.Parameters.Add("@HasDimensions", SqlDbType.Bit).Value = chkHasDimensions.Checked
                 cmd.Parameters.Add("@Length", SqlDbType.Decimal).Value =
-                If(txtLength.Text.Trim() = "", DBNull.Value, Decimal.Parse(txtLength.Text.Trim()))
+                If(txtLength.Text.Trim() = "", DBNull.Value, NormalizeDimension(Decimal.Parse(txtLength.Text.Trim())))
                 cmd.Parameters.Add("@Width", SqlDbType.Decimal).Value =
-                If(txtWidth.Text.Trim() = "", DBNull.Value, Decimal.Parse(txtWidth.Text.Trim()))
+                If(txtWidth.Text.Trim() = "", DBNull.Value, NormalizeDimension(Decimal.Parse(txtWidth.Text.Trim())))
                 cmd.Parameters.Add("@Height", SqlDbType.Decimal).Value =
-                If(txtHeight.Text.Trim() = "", DBNull.Value, Decimal.Parse(txtHeight.Text.Trim()))
+                If(txtHeight.Text.Trim() = "", DBNull.Value, NormalizeDimension(Decimal.Parse(txtHeight.Text.Trim())))
                 cmd.Parameters.Add("@Density", SqlDbType.Decimal).Value =
                 If(txtDensity.Text.Trim() = "", DBNull.Value, Decimal.Parse(txtDensity.Text.Trim()))
 
@@ -846,7 +869,7 @@ ORDER BY ProductName
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT *
-             FROM Master_Product
+             FROM md.Product
              WHERE ProductCode = @Code", con)
 
                 cmd.Parameters.AddWithValue("@Code", baseProductCode.Trim())
@@ -913,7 +936,7 @@ ORDER BY ProductName
         Using con As New SqlConnection(ConnStr)
 
             Dim sql As String =
-            "UPDATE Master_Product SET " &
+            "UPDATE md.Product SET " &
             "ProductCode=@ProductCode, " &
             "ProductName=@ProductName, " &
             "ProductEnglishName=@ProductEnglishName, " &
@@ -1040,19 +1063,19 @@ ORDER BY ProductName
                 If txtLength.Text.Trim() = "" Then
                     cmd.Parameters.Add("@Length", SqlDbType.Decimal).Value = DBNull.Value
                 Else
-                    cmd.Parameters.Add("@Length", SqlDbType.Decimal).Value = Decimal.Parse(txtLength.Text.Trim())
+                    cmd.Parameters.Add("@Length", SqlDbType.Decimal).Value = NormalizeDimension(Decimal.Parse(txtLength.Text.Trim()))
                 End If
 
                 If txtWidth.Text.Trim() = "" Then
                     cmd.Parameters.Add("@Width", SqlDbType.Decimal).Value = DBNull.Value
                 Else
-                    cmd.Parameters.Add("@Width", SqlDbType.Decimal).Value = Decimal.Parse(txtWidth.Text.Trim())
+                    cmd.Parameters.Add("@Width", SqlDbType.Decimal).Value = NormalizeDimension(Decimal.Parse(txtWidth.Text.Trim()))
                 End If
 
                 If txtHeight.Text.Trim() = "" Then
                     cmd.Parameters.Add("@Height", SqlDbType.Decimal).Value = DBNull.Value
                 Else
-                    cmd.Parameters.Add("@Height", SqlDbType.Decimal).Value = Decimal.Parse(txtHeight.Text.Trim())
+                    cmd.Parameters.Add("@Height", SqlDbType.Decimal).Value = NormalizeDimension(Decimal.Parse(txtHeight.Text.Trim()))
                 End If
 
                 If txtDensity.Text.Trim() = "" Then
@@ -1133,7 +1156,7 @@ ORDER BY ProductName
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT *
-             FROM Master_Product
+             FROM md.Product
              WHERE ProductID = @ID", con)
 
                 cmd.Parameters.AddWithValue("@ID", productID)
@@ -1237,7 +1260,7 @@ ORDER BY ProductName
 ) As Integer
         Using cmd As New SqlCommand("
         SELECT ISNULL(StorageUnitID, 0)
-        FROM dbo.Master_Product
+        FROM md.Product
         WHERE ProductID = @ProductID;", con, tran)
 
             cmd.Parameters.AddWithValue("@ProductID", productID)
@@ -1368,7 +1391,7 @@ ORDER BY ProductName
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-            "SELECT ProductID FROM Master_Product WHERE ProductCode=@Code", con)
+            "SELECT ProductID FROM md.Product WHERE ProductCode=@Code", con)
 
                 cmd.Parameters.AddWithValue("@Code", productCode.Trim())
                 con.Open()
@@ -1422,7 +1445,7 @@ ORDER BY ProductName
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-                "DELETE FROM Master_Product WHERE ProductID=@ID", con)
+                "DELETE FROM md.Product WHERE ProductID=@ID", con)
 
                 cmd.Parameters.Add("@ID", SqlDbType.Int).Value = CurrentProductID
 
@@ -1495,7 +1518,7 @@ ORDER BY ProductName
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
         "SELECT COUNT(*)
-         FROM Master_Product
+         FROM md.Product
          WHERE ProductCode = @Code
            AND ProductTypeID = @TypeID
            AND ProductID <> @ID", con)
@@ -1519,10 +1542,9 @@ ORDER BY ProductName
 
         If Char.IsControl(e.KeyChar) Then Exit Sub
 
-        If Not Char.IsDigit(e.KeyChar) AndAlso e.KeyChar <> "."c Then
+        If e.KeyChar = "."c AndAlso CType(sender, TextBox).Text.Contains(".") Then
             e.Handled = True
         End If
-
     End Sub
 
     ' =========================
@@ -1585,7 +1607,7 @@ ORDER BY ProductName
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT *
-         FROM Master_Product
+         FROM md.Product
          WHERE ProductCode = @Code", con)
 
                 cmd.Parameters.AddWithValue("@Code", SR_BaseProductCode.Trim())
@@ -1686,7 +1708,7 @@ ORDER BY ProductName
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
                 SELECT TOP 1 *
-                FROM Master_Product
+                FROM md.Product
                 WHERE ProductCode = @Code
             ", con)
 
@@ -1734,4 +1756,26 @@ ORDER BY ProductName
         '       End If
 
     End Sub
+    Private Function NormalizeDimension(value As Decimal) As Decimal
+        ' تقريب إلى رقم عشري واحد فقط
+        Return Math.Round(value, 1, MidpointRounding.AwayFromZero)
+    End Function
+    Private Function FormatDimension(value As Decimal) As String
+
+        Dim intPart As Integer = CInt(Math.Floor(value))
+        Dim decPart As Decimal = value - intPart
+
+        If decPart = 0 Then
+            ' بدون كسور
+            Return intPart.ToString("000")
+        Else
+            ' فيه كسر → منزل واحدة فقط
+            Dim oneDecimal As Decimal = Math.Round(value, 1, MidpointRounding.AwayFromZero)
+            Dim parts = oneDecimal.ToString("0.0").Split("."c)
+
+            Return CInt(parts(0)).ToString("000") & "." & parts(1)
+        End If
+
+    End Function
+
 End Class

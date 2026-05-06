@@ -39,6 +39,7 @@ Partial Class frmProduction
         Me.Label5 = New System.Windows.Forms.Label()
         Me.Label3 = New System.Windows.Forms.Label()
         Me.dgvProductionCalculations = New System.Windows.Forms.DataGridView()
+        Me.colCalConsumptionID = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colCalProductCode = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colCalProductID = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colCalProductName = New System.Windows.Forms.DataGridViewTextBoxColumn()
@@ -71,6 +72,8 @@ Partial Class frmProduction
         Me.cboProductID = New System.Windows.Forms.ComboBox()
         Me.btnProductSearch = New System.Windows.Forms.Button()
         Me.pnlBtns = New System.Windows.Forms.Panel()
+        Me.btnDeletePostedProduction = New System.Windows.Forms.Button()
+        Me.btnEditPostedProduction = New System.Windows.Forms.Button()
         Me.btnCancelProduction = New System.Windows.Forms.Button()
         Me.btnExecuteProduction = New System.Windows.Forms.Button()
         Me.cboProductionStatus = New System.Windows.Forms.ComboBox()
@@ -95,14 +98,6 @@ Partial Class frmProduction
         Me.pnlTotals = New System.Windows.Forms.Panel()
         Me.sctDetails = New System.Windows.Forms.SplitContainer()
         Me.dgvProduced = New System.Windows.Forms.DataGridView()
-        Me.ChkIsCleaningUsed = New System.Windows.Forms.CheckBox()
-        Me.txtProductionUnit = New System.Windows.Forms.TextBox()
-        Me.txtCleaningChemicalUnit = New System.Windows.Forms.TextBox()
-        Me.txtSubCategory = New System.Windows.Forms.TextBox()
-        Me.Label26 = New System.Windows.Forms.Label()
-        Me.Label10 = New System.Windows.Forms.Label()
-        Me.ChkBOMIsActive = New System.Windows.Forms.CheckBox()
-        Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         Me.colManOutputID = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colManlength = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colManWidth = New System.Windows.Forms.DataGridViewTextBoxColumn()
@@ -111,6 +106,14 @@ Partial Class frmProduction
         Me.colManProductVolume = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colManTotalProductVolume = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colDelete = New System.Windows.Forms.DataGridViewButtonColumn()
+        Me.ChkIsCleaningUsed = New System.Windows.Forms.CheckBox()
+        Me.txtProductionUnit = New System.Windows.Forms.TextBox()
+        Me.txtCleaningChemicalUnit = New System.Windows.Forms.TextBox()
+        Me.txtSubCategory = New System.Windows.Forms.TextBox()
+        Me.Label26 = New System.Windows.Forms.Label()
+        Me.Label10 = New System.Windows.Forms.Label()
+        Me.ChkBOMIsActive = New System.Windows.Forms.CheckBox()
+        Me.SplitContainer1 = New System.Windows.Forms.SplitContainer()
         CType(Me.dgvProductionCalculations, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.pnlBtns.SuspendLayout()
         Me.Panel3.SuspendLayout()
@@ -271,7 +274,7 @@ Partial Class frmProduction
         'dgvProductionCalculations
         '
         Me.dgvProductionCalculations.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        Me.dgvProductionCalculations.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colCalProductCode, Me.colCalProductID, Me.colCalProductName, Me.colCalProductUnit, Me.colCalBOMQTY, Me.colCalAvailableStock, Me.colCalActualQTY, Me.colCalCost})
+        Me.dgvProductionCalculations.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.colCalConsumptionID, Me.colCalProductCode, Me.colCalProductID, Me.colCalProductName, Me.colCalProductUnit, Me.colCalBOMQTY, Me.colCalAvailableStock, Me.colCalActualQTY, Me.colCalCost})
         Me.dgvProductionCalculations.Dock = System.Windows.Forms.DockStyle.Fill
         Me.dgvProductionCalculations.Location = New System.Drawing.Point(0, 0)
         Me.dgvProductionCalculations.Name = "dgvProductionCalculations"
@@ -281,6 +284,14 @@ Partial Class frmProduction
         Me.dgvProductionCalculations.Size = New System.Drawing.Size(1077, 404)
         Me.dgvProductionCalculations.TabIndex = 93
         Me.dgvProductionCalculations.TabStop = False
+        '
+        'colCalConsumptionID
+        '
+        Me.colCalConsumptionID.HeaderText = ""
+        Me.colCalConsumptionID.MinimumWidth = 6
+        Me.colCalConsumptionID.Name = "colCalConsumptionID"
+        Me.colCalConsumptionID.Visible = False
+        Me.colCalConsumptionID.Width = 125
         '
         'colCalProductCode
         '
@@ -550,6 +561,8 @@ Partial Class frmProduction
         '
         'pnlBtns
         '
+        Me.pnlBtns.Controls.Add(Me.btnDeletePostedProduction)
+        Me.pnlBtns.Controls.Add(Me.btnEditPostedProduction)
         Me.pnlBtns.Controls.Add(Me.btnCancelProduction)
         Me.pnlBtns.Controls.Add(Me.btnExecuteProduction)
         Me.pnlBtns.Controls.Add(Me.cboProductionStatus)
@@ -566,6 +579,24 @@ Partial Class frmProduction
         Me.pnlBtns.Name = "pnlBtns"
         Me.pnlBtns.Size = New System.Drawing.Size(107, 808)
         Me.pnlBtns.TabIndex = 65
+        '
+        'btnDeletePostedProduction
+        '
+        Me.btnDeletePostedProduction.Location = New System.Drawing.Point(6, 91)
+        Me.btnDeletePostedProduction.Name = "btnDeletePostedProduction"
+        Me.btnDeletePostedProduction.Size = New System.Drawing.Size(97, 42)
+        Me.btnDeletePostedProduction.TabIndex = 90
+        Me.btnDeletePostedProduction.Text = "حذف مرحل"
+        Me.btnDeletePostedProduction.UseVisualStyleBackColor = True
+        '
+        'btnEditPostedProduction
+        '
+        Me.btnEditPostedProduction.Location = New System.Drawing.Point(6, 43)
+        Me.btnEditPostedProduction.Name = "btnEditPostedProduction"
+        Me.btnEditPostedProduction.Size = New System.Drawing.Size(97, 42)
+        Me.btnEditPostedProduction.TabIndex = 91
+        Me.btnEditPostedProduction.Text = "تعديل مرحل"
+        Me.btnEditPostedProduction.UseVisualStyleBackColor = True
         '
         'btnCancelProduction
         '
@@ -814,6 +845,57 @@ Partial Class frmProduction
         Me.dgvProduced.Size = New System.Drawing.Size(1077, 400)
         Me.dgvProduced.TabIndex = 0
         '
+        'colManOutputID
+        '
+        Me.colManOutputID.HeaderText = "Column1"
+        Me.colManOutputID.MinimumWidth = 6
+        Me.colManOutputID.Name = "colManOutputID"
+        Me.colManOutputID.Visible = False
+        '
+        'colManlength
+        '
+        Me.colManlength.HeaderText = "الطول"
+        Me.colManlength.MinimumWidth = 6
+        Me.colManlength.Name = "colManlength"
+        '
+        'colManWidth
+        '
+        Me.colManWidth.HeaderText = "العرض"
+        Me.colManWidth.MinimumWidth = 6
+        Me.colManWidth.Name = "colManWidth"
+        '
+        'colManHeight
+        '
+        Me.colManHeight.HeaderText = "الارتفاع"
+        Me.colManHeight.MinimumWidth = 6
+        Me.colManHeight.Name = "colManHeight"
+        '
+        'colManQTY
+        '
+        Me.colManQTY.HeaderText = "الكمية"
+        Me.colManQTY.MinimumWidth = 6
+        Me.colManQTY.Name = "colManQTY"
+        '
+        'colManProductVolume
+        '
+        Me.colManProductVolume.HeaderText = "حجم الوحدة"
+        Me.colManProductVolume.MinimumWidth = 6
+        Me.colManProductVolume.Name = "colManProductVolume"
+        Me.colManProductVolume.ReadOnly = True
+        '
+        'colManTotalProductVolume
+        '
+        Me.colManTotalProductVolume.HeaderText = "اجمالي الحجم"
+        Me.colManTotalProductVolume.MinimumWidth = 6
+        Me.colManTotalProductVolume.Name = "colManTotalProductVolume"
+        Me.colManTotalProductVolume.ReadOnly = True
+        '
+        'colDelete
+        '
+        Me.colDelete.HeaderText = "حذف"
+        Me.colDelete.MinimumWidth = 6
+        Me.colDelete.Name = "colDelete"
+        '
         'ChkIsCleaningUsed
         '
         Me.ChkIsCleaningUsed.AutoSize = True
@@ -933,57 +1015,6 @@ Partial Class frmProduction
         Me.SplitContainer1.SplitterDistance = 172
         Me.SplitContainer1.TabIndex = 68
         '
-        'colManOutputID
-        '
-        Me.colManOutputID.HeaderText = "Column1"
-        Me.colManOutputID.MinimumWidth = 6
-        Me.colManOutputID.Name = "colManOutputID"
-        Me.colManOutputID.Visible = False
-        '
-        'colManlength
-        '
-        Me.colManlength.HeaderText = "الطول"
-        Me.colManlength.MinimumWidth = 6
-        Me.colManlength.Name = "colManlength"
-        '
-        'colManWidth
-        '
-        Me.colManWidth.HeaderText = "العرض"
-        Me.colManWidth.MinimumWidth = 6
-        Me.colManWidth.Name = "colManWidth"
-        '
-        'colManHeight
-        '
-        Me.colManHeight.HeaderText = "الارتفاع"
-        Me.colManHeight.MinimumWidth = 6
-        Me.colManHeight.Name = "colManHeight"
-        '
-        'colManQTY
-        '
-        Me.colManQTY.HeaderText = "الكمية"
-        Me.colManQTY.MinimumWidth = 6
-        Me.colManQTY.Name = "colManQTY"
-        '
-        'colManProductVolume
-        '
-        Me.colManProductVolume.HeaderText = "حجم الوحدة"
-        Me.colManProductVolume.MinimumWidth = 6
-        Me.colManProductVolume.Name = "colManProductVolume"
-        Me.colManProductVolume.ReadOnly = True
-        '
-        'colManTotalProductVolume
-        '
-        Me.colManTotalProductVolume.HeaderText = "اجمالي الحجم"
-        Me.colManTotalProductVolume.MinimumWidth = 6
-        Me.colManTotalProductVolume.Name = "colManTotalProductVolume"
-        Me.colManTotalProductVolume.ReadOnly = True
-        '
-        'colDelete
-        '
-        Me.colDelete.HeaderText = "حذف"
-        Me.colDelete.MinimumWidth = 6
-        Me.colDelete.Name = "colDelete"
-        '
         'frmProduction
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(7.0!, 16.0!)
@@ -1086,14 +1117,6 @@ Partial Class frmProduction
     Friend WithEvents txtSubCategory As TextBox
     Friend WithEvents Label10 As Label
     Friend WithEvents Label26 As Label
-    Friend WithEvents colCalProductCode As DataGridViewTextBoxColumn
-    Friend WithEvents colCalProductID As DataGridViewTextBoxColumn
-    Friend WithEvents colCalProductName As DataGridViewTextBoxColumn
-    Friend WithEvents colCalProductUnit As DataGridViewTextBoxColumn
-    Friend WithEvents colCalBOMQTY As DataGridViewTextBoxColumn
-    Friend WithEvents colCalAvailableStock As DataGridViewTextBoxColumn
-    Friend WithEvents colCalActualQTY As DataGridViewTextBoxColumn
-    Friend WithEvents colCalCost As DataGridViewTextBoxColumn
     Friend WithEvents ChkIsCleaningUsed As CheckBox
     Friend WithEvents btnCancelProduction As Button
     Friend WithEvents SplitContainer1 As SplitContainer
@@ -1105,4 +1128,15 @@ Partial Class frmProduction
     Friend WithEvents colManProductVolume As DataGridViewTextBoxColumn
     Friend WithEvents colManTotalProductVolume As DataGridViewTextBoxColumn
     Friend WithEvents colDelete As DataGridViewButtonColumn
+    Friend WithEvents btnDeletePostedProduction As Button
+    Friend WithEvents btnEditPostedProduction As Button
+    Friend WithEvents colCalConsumptionID As DataGridViewTextBoxColumn
+    Friend WithEvents colCalProductCode As DataGridViewTextBoxColumn
+    Friend WithEvents colCalProductID As DataGridViewTextBoxColumn
+    Friend WithEvents colCalProductName As DataGridViewTextBoxColumn
+    Friend WithEvents colCalProductUnit As DataGridViewTextBoxColumn
+    Friend WithEvents colCalBOMQTY As DataGridViewTextBoxColumn
+    Friend WithEvents colCalAvailableStock As DataGridViewTextBoxColumn
+    Friend WithEvents colCalActualQTY As DataGridViewTextBoxColumn
+    Friend WithEvents colCalCost As DataGridViewTextBoxColumn
 End Class

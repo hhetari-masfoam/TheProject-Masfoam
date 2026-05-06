@@ -25,11 +25,11 @@ Public Class InventoryRepository
                     THEN f.AvgCostPerM3
                 ELSE p.AvgCost
             END AS OldAvgCost
-        FROM Master_Product p
-        JOIN Inventory_TransactionDetails d
+        FROM md.Product p
+        JOIN inv.TransactionDetails d
             ON d.TransactionID = @TransactionID
            AND d.ProductID     = p.ProductID
-        LEFT JOIN Master_FinalProductAvgCost f
+        LEFT JOIN inv.FinalProductAvgCost f
             ON f.BaseProductID = ISNULL(p.BaseProductID, p.ProductID)
     "
 
@@ -75,7 +75,7 @@ Public Class InventoryRepository
     l.LedgerID,
     l.OldAvgCost,
     l.BaseProductID
-FROM Inventory_CostLedger l
+FROM inv.CostLedger l
 WHERE l.ProductID = @ProductID
   AND l.StoreID = @StoreID
   AND l.TransactionID = @TransactionID
@@ -94,15 +94,15 @@ ORDER BY l.LedgerID"
             result.BaseProductID = reader.GetInt32(2)
 
         Else
-            ' إذا لم يجد، استخدم المتوسط الحالي من Master_Product
+            ' إذا لم يجد، استخدم المتوسط الحالي من md.Product
             reader.Close()
             sql = "
             SELECT 
                 p.AvgCost,
                 p.BaseProductID,
                 f.AvgCostPerM3
-            FROM Master_Product p
-            LEFT JOIN Master_FinalProductAvgCost f ON f.BaseProductID = p.BaseProductID
+            FROM md.Product p
+            LEFT JOIN inv.FinalProductAvgCost f ON f.BaseProductID = p.BaseProductID
             WHERE p.ProductID = @ProductID"
 
             cmd = New SqlCommand(sql, con, tran)
@@ -133,20 +133,20 @@ ORDER BY l.LedgerID"
 SELECT
     cl.ProductID,
     cl.NewQty
-FROM Inventory_CostLedger cl
+FROM inv.CostLedger cl
 JOIN
 (
     SELECT
         ProductID,
         MAX(LedgerID) AS LastLedgerID
-    FROM Inventory_CostLedger
+    FROM inv.CostLedger
     WHERE IsActive = 1
       AND IsReversed = 0
       AND OperationGroupID <> @OperationGroupID
       AND ProductID IN
       (
         SELECT DISTINCT ProductID
-        FROM Inventory_TransactionDetails
+        FROM inv.TransactionDetails
         WHERE TransactionID = @TransactionID
       )
     GROUP BY ProductID
@@ -180,7 +180,7 @@ AND x.LastLedgerID = cl.LedgerID
 
     End Function
     Public Function GetProductUnitID(productID As Integer, con As SqlConnection, tran As SqlTransaction) As Integer
-        Dim sql = "SELECT StorageUnitID FROM Master_Product WHERE ProductID = @ProductID"
+        Dim sql = "SELECT StorageUnitID FROM md.Product WHERE ProductID = @ProductID"
 
         Dim cmd As New SqlCommand(sql, con, tran)
         cmd.Parameters.AddWithValue("@ProductID", productID)
@@ -195,7 +195,7 @@ tran As SqlTransaction) As Object
 
         Dim sql As String = "
 SELECT TOP 1 LedgerID
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@ProductID
 AND BaseProductID=@BaseProductID
 AND IsActive=1
@@ -233,10 +233,10 @@ ORDER BY LedgerID DESC
 p.StorageUnitID AS StorageUnitID,
 bp.StorageUnitID AS BaseUnitID,
     d.TargetStoreID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p 
+FROM inv.TransactionDetails d
+JOIN md.Product p 
     ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp 
+LEFT JOIN md.Product bp 
     ON bp.ProductID = p.BaseProductID
 WHERE d.TransactionID = @TransactionID
 AND d.TargetStoreID IS NOT NULL
@@ -251,59 +251,8 @@ AND d.TargetStoreID IS NOT NULL
 
         Return dt
     End Function
-    Public Sub GetCostChainContext(
-    productID As Integer,
-    baseProductID As Object,
-    operationGroupID As Guid,
-    transactionID As Integer,
-    con As SqlConnection,
-    tran As SqlTransaction,
-    ByRef prevLedgerID As Object,
-    ByRef oldAvgCost As Decimal
-)
-
-        prevLedgerID = DBNull.Value
-        oldAvgCost = 0D
-
-        '====================================================
-        ' 1) PrevLedger + AvgCost (لنفس المنتج فقط)
-        '====================================================
-        Dim dtPrev As New DataTable()
-
-        Using cmd As New SqlCommand("
-SELECT TOP 1
-    LedgerID,
-    NewAvgCost
-FROM Inventory_CostLedger
-WHERE ProductID = @ProductID
-AND IsActive = 1
-AND IsReversed = 0
-AND OperationGroupID <> @G
-AND TransactionID <> @CurrentTransactionID
-AND (InQty <> 0 OR OutQty <> 0)
-ORDER BY LedgerID DESC
-", con, tran)
-
-            cmd.Parameters.AddWithValue("@ProductID", productID)
-            cmd.Parameters.Add("@G", SqlDbType.UniqueIdentifier).Value = operationGroupID
-            cmd.Parameters.Add("@CurrentTransactionID", SqlDbType.Int).Value = transactionID
-
-            Using da As New SqlDataAdapter(cmd)
-                da.Fill(dtPrev)
-            End Using
-
-        End Using
-
-        If dtPrev.Rows.Count > 0 Then
-
-            prevLedgerID = CLng(dtPrev.Rows(0)("LedgerID"))
-
-            oldAvgCost = If(IsDBNull(dtPrev.Rows(0)("NewAvgCost")), 0D, Convert.ToDecimal(dtPrev.Rows(0)("NewAvgCost")))
-
-        End If
 
 
-    End Sub
 
 
 
@@ -323,7 +272,7 @@ ORDER BY LedgerID DESC
                 SUM(d.Quantity) AS InQty,
 SUM(d.Quantity * d.UnitCost)
 / NULLIF(SUM(d.Quantity),0) AS InAvg
-            FROM Inventory_TransactionDetails d
+            FROM inv.TransactionDetails d
             WHERE d.TransactionID = @TransactionID
               AND d.TargetStoreID IS NOT NULL
             GROUP BY d.ProductID
@@ -333,7 +282,7 @@ OldQty AS
     SELECT
         b.ProductID,
         SUM(b.QtyOnHand) AS OldQty
-    FROM Inventory_Balance b
+    FROM inv.Balance b
     JOIN InRows i 
         ON i.ProductID = b.ProductID
     GROUP BY 
@@ -351,7 +300,7 @@ UPDATE p
                     )
                     / (ISNULL(pl.OldQty,0) + i.InQty)
             END
-        FROM Master_Product p
+        FROM md.Product p
         JOIN InRows i ON i.ProductID = p.ProductID
         LEFT JOIN OldQty o ON o.ProductID = p.ProductID
         WHERE p.StorageUnitID <> @M3UnitID
@@ -383,10 +332,10 @@ UPDATE p
         p.StorageUnitID,
         p.AvgCost,
         f.AvgCostPerM3forFG
-    FROM Inventory_TransactionDetails d
-    JOIN Master_Product p 
+    FROM inv.TransactionDetails d
+    JOIN md.Product p 
         ON p.ProductID = d.ProductID
-    LEFT JOIN Master_FinalProductAvgCost f 
+    LEFT JOIN inv.FinalProductAvgCost f 
         ON f.BaseProductID = ISNULL(p.BaseProductID, p.ProductID)
     WHERE d.TransactionID = @TransactionID
       AND d.TargetStoreID IS NOT NULL
@@ -399,7 +348,7 @@ UPDATE p
         f.AvgCostPerM3forFG
 )
 
-MERGE Inventory_Balance AS tgt
+MERGE inv.Balance AS tgt
 USING src
 ON tgt.ProductID     = src.ProductID
 AND tgt.BaseProductID = src.BaseProductID
@@ -437,172 +386,6 @@ WHEN NOT MATCHED THEN
         End Using
 
     End Sub
-    Public Sub RecalculateAverage_PUR_PRO_BySnapshot(
-    transactionID As Integer,
-    m3UnitID As Integer,
-    productIds As List(Of Integer),
-    con As SqlConnection,
-    tran As SqlTransaction
-)
-
-        If productIds Is Nothing OrElse productIds.Count = 0 Then Return
-
-        Dim sql As String = "
-;WITH P AS
-(
-    SELECT
-        p.ProductID,
-        ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
-        p.StorageUnitID
-    FROM dbo.Master_Product p
-    WHERE p.ProductID IN (" & String.Join(",", productIds) & ")
-),
-L AS
-(
-    SELECT
-        cl.ProductID,
-        MAX(CASE WHEN cl.InQty > 0 THEN cl.LedgerID END) AS MaxLedgerID
-    FROM dbo.Inventory_CostLedger cl
-WHERE cl.IsReversed = 0
-      AND cl.ProductID IN (" & String.Join(",", productIds) & ")
-    GROUP BY cl.ProductID
-),
-V AS
-(
-    SELECT
-        cl.ProductID,
-        cl.NewAvgCost
-    FROM dbo.Inventory_CostLedger cl
-    JOIN L
-      ON L.ProductID = cl.ProductID
-     AND L.MaxLedgerID = cl.LedgerID
-)
-SELECT
-    P.ProductID,
-    P.BaseProductID,
-    P.StorageUnitID,
-    ISNULL(V.NewAvgCost, 0) AS NewAvgCost
-FROM P
-LEFT JOIN V ON V.ProductID = P.ProductID
-ORDER BY P.ProductID;
-"
-
-        Dim dt As New DataTable()
-        Using cmd As New SqlCommand(sql, con, tran)
-            cmd.Parameters.AddWithValue("@TransactionID", transactionID)
-            Using da As New SqlDataAdapter(cmd)
-                da.Fill(dt)
-            End Using
-        End Using
-
-        If dt.Rows.Count = 0 Then Return
-        ' 2) نفّذ "نقل القيمة" حسب السياسة
-        For Each row As DataRow In dt.Rows
-
-            Dim productId As Integer = CInt(row("ProductID"))
-            Dim baseProductId As Integer = CInt(row("BaseProductID"))
-            Dim storageUnitId As Integer = 0
-
-            If dt.Columns.Contains("StorageUnitID") Then
-                storageUnitId = Convert.ToInt32(row("StorageUnitID"))
-            End If
-            Dim newAvgCost As Decimal = CDec(row("NewAvgCost"))
-
-            Dim isM3 As Boolean = (storageUnitId = m3UnitID)
-            Dim hasParent As Boolean = (baseProductId <> productId)
-
-            If isM3 Then
-                ' ========= (A) M3 =========
-                ' Update then Insert (AvgCostPerM3 NOT NULL)
-                Using cmdUp As New SqlCommand("
-UPDATE dbo.Master_FinalProductAvgCost
-SET AvgCostPerM3 = @Val,
-    LastUpdated = SYSDATETIME()
-WHERE BaseProductID = @BaseProductID;
-SELECT @@ROWCOUNT;
-", con, tran)
-                    cmdUp.Parameters.AddWithValue("@Val", newAvgCost)
-                    cmdUp.Parameters.AddWithValue("@BaseProductID", baseProductId)
-
-                    Dim affected As Integer = CInt(cmdUp.ExecuteScalar())
-                    If affected = 0 Then
-                        Using cmdIns As New SqlCommand("
-INSERT INTO dbo.Master_FinalProductAvgCost
-(
-    BaseProductID,
-    AvgCostPerM3,
-    AvgCostPerM3forFG,
-    LastUpdated
-)
-VALUES
-(
-    @BaseProductID,
-    @AvgCostPerM3,
-    NULL,
-    SYSDATETIME()
-);
-", con, tran)
-                            cmdIns.Parameters.AddWithValue("@BaseProductID", baseProductId)
-                            cmdIns.Parameters.AddWithValue("@AvgCostPerM3", newAvgCost)
-                            cmdIns.ExecuteNonQuery()
-                        End Using
-                    End If
-                End Using
-
-            ElseIf hasParent Then
-                ' ========= (B) Non-M3 + Parent =========
-                ' Update then Insert (AvgCostPerM3 NOT NULL => نعطيه 0 عند Insert)
-                Using cmdUp As New SqlCommand("
-UPDATE dbo.Master_FinalProductAvgCost
-SET AvgCostPerM3forFG = @Val,
-    LastUpdated = SYSDATETIME()
-WHERE BaseProductID = @BaseProductID;
-SELECT @@ROWCOUNT;
-", con, tran)
-                    cmdUp.Parameters.AddWithValue("@Val", newAvgCost)
-                    cmdUp.Parameters.AddWithValue("@BaseProductID", baseProductId)
-
-                    Dim affected As Integer = CInt(cmdUp.ExecuteScalar())
-                    If affected = 0 Then
-                        Using cmdIns As New SqlCommand("
-INSERT INTO dbo.Master_FinalProductAvgCost
-(
-    BaseProductID,
-    AvgCostPerM3,
-    AvgCostPerM3forFG,
-    LastUpdated
-)
-VALUES
-(
-    @BaseProductID,
-    0,
-    @AvgCostPerM3forFG,
-    SYSDATETIME()
-);
-", con, tran)
-                            cmdIns.Parameters.AddWithValue("@BaseProductID", baseProductId)
-                            cmdIns.Parameters.AddWithValue("@AvgCostPerM3forFG", newAvgCost)
-                            cmdIns.ExecuteNonQuery()
-                        End Using
-                    End If
-                End Using
-
-            Else
-                ' ========= (C) Non-M3 + No Parent =========
-                Using cmdUp As New SqlCommand("
-UPDATE dbo.Master_Product
-SET AvgCost = @Val
-WHERE ProductID = @ProductID;
-", con, tran)
-                    cmdUp.Parameters.AddWithValue("@Val", newAvgCost)
-                    cmdUp.Parameters.AddWithValue("@ProductID", productId)
-                    cmdUp.ExecuteNonQuery()
-                End Using
-            End If
-
-        Next
-
-    End Sub
     Public Sub RecalculateAverage_M3_PUR_PRO_BySnapshot(
     transactionID As Integer,
     m3UnitID As Integer,
@@ -623,7 +406,7 @@ WHERE ProductID = @ProductID;
         d.ProductID,
         SUM(d.Quantity) AS InQty,
         SUM(d.CostAmount) / NULLIF(SUM(d.Quantity), 0) AS InAvg
-    FROM dbo.Inventory_TransactionDetails d
+    FROM inv.TransactionDetails d
     WHERE d.TransactionID = @TransactionID
       AND d.TargetStoreID IS NOT NULL
       AND d.ProductID IN (" & String.Join(",", productIds) & ")
@@ -654,7 +437,7 @@ WHERE ProductID = @ProductID;
             Dim baseProductID As Integer = 0
             Using cmd As New SqlCommand("
             SELECT ISNULL(BaseProductID, ProductID)
-            FROM dbo.Master_Product
+            FROM md.Product
             WHERE ProductID = @PID
         ", con, tran)
                 cmd.Parameters.AddWithValue("@PID", pid)
@@ -671,7 +454,7 @@ WHERE ProductID = @ProductID;
             Dim oldAvg As Decimal = 0D
             Using cmd As New SqlCommand("
             SELECT AvgCostPerM3
-            FROM dbo.Master_FinalProductAvgCost
+            FROM inv.FinalProductAvgCost
             WHERE BaseProductID = @BID
         ", con, tran)
                 cmd.Parameters.AddWithValue("@BID", baseProductID)
@@ -690,10 +473,10 @@ WHERE ProductID = @ProductID;
             End If
 
             ' ============================================
-            ' 3️⃣ MERGE: إدراج أو تحديث في Master_FinalProductAvgCost
+            ' 3️⃣ MERGE: إدراج أو تحديث في inv.FinalProductAvgCost
             ' ============================================
             Dim mergeSql As String = "
-    MERGE dbo.Master_FinalProductAvgCost AS target
+    MERGE inv.FinalProductAvgCost AS target
     USING (SELECT @BID AS BaseProductID) AS source
     ON target.BaseProductID = source.BaseProductID
     WHEN MATCHED THEN
@@ -711,10 +494,10 @@ WHERE ProductID = @ProductID;
             End Using
 
             ' ============================================
-            ' 4️⃣ تحديث TotalCost و LastMovementLedgerID في Inventory_Balance
+            ' 4️⃣ تحديث TotalCost و LastMovementLedgerID في inv.Balance
             ' ============================================
             Using cmdTotal As New SqlCommand("
-    UPDATE Inventory_Balance
+    UPDATE inv.Balance
     SET 
         LastMovementLedgerID = @LedgerID,
         LastMovementDate = SYSDATETIME()
@@ -739,8 +522,8 @@ WHERE ProductID = @ProductID;
 SELECT
     p.StorageUnitID AS ProductUnitID,
     bp.StorageUnitID AS BaseUnitID
-FROM Master_Product p
-LEFT JOIN Master_Product bp
+FROM md.Product p
+LEFT JOIN md.Product bp
     ON bp.ProductID = p.BaseProductID
 WHERE p.ProductID = @ProductID
 ", con, tran)
@@ -783,8 +566,8 @@ d.TargetStoreID,
 SUM(d.Quantity) AS Qty,
 SUM(d.Quantity*d.UnitCost) AS TotalCost,
 MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID=d.ProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID=d.ProductID
 WHERE d.TransactionID=@T
 AND d.TargetStoreID IS NOT NULL
 GROUP BY
@@ -807,7 +590,7 @@ d.TargetStoreID
 
         Using cmd As New SqlCommand("
 SELECT OperationTypeID,PostingDate,CreatedBy
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T
 ", con, tran)
 
@@ -852,7 +635,7 @@ WHERE TransactionID=@T
 
             Using cmd As New SqlCommand("
 SELECT TOP 1 NewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P
 AND BaseProductID=@B
 AND StoreID=@S
@@ -891,11 +674,10 @@ ORDER BY LedgerID DESC
                 newLedgerID = CLng(cmd.ExecuteScalar())
             End Using
 
-            Dim ledgerType As Integer = 2
             Dim rootTransactionID As Integer = transactionID
 
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
 LedgerID,
 TransactionID,
@@ -921,10 +703,7 @@ CreatedBy,
 CreatedAt,
 OperationGroupID,
 GroupSeq,
-ScopeKeyType,
-ScopeKeyID,
 PrevLedgerID,
-LedgerType,
 RootTransactionID,
 LedgerSequence,
 IsActive
@@ -955,10 +734,7 @@ NEXT VALUE FOR Seq_CostLedgerID,
 SYSDATETIME(),
 @GroupID,
 2,
-'PRODUCT',
-@ProductID,
 @PrevLedgerID,
-@LedgerType,
 @RootTransactionID,
 @LedgerSequence,
 1
@@ -986,7 +762,6 @@ SYSDATETIME(),
                 Else
                     cmd.Parameters.AddWithValue("@PrevLedgerID", CLng(prevLedgerID))
                 End If
-                cmd.Parameters.AddWithValue("@LedgerType", ledgerType)
                 cmd.Parameters.AddWithValue("@RootTransactionID", rootTransactionID)
 
                 cmd.Parameters.AddWithValue("@GroupID", operationGroupID)
@@ -995,303 +770,6 @@ SYSDATETIME(),
 
             End Using
 
-        Next
-
-    End Sub
-    Public Sub InsertCostLedger_OUT(
-    transactionID As Integer,
-    operationGroupID As Guid,
-     ledgerSequence As Integer,
-        oldQtyDict As Dictionary(Of Integer, Decimal),
-    con As SqlConnection,
-    tran As SqlTransaction
-)
-
-        Dim userID As Integer
-
-        Using cmdUser As New SqlCommand("
-SELECT CreatedBy
-FROM Inventory_TransactionHeader
-WHERE TransactionID=@TransactionID
-", con, tran)
-
-            cmdUser.Parameters.AddWithValue("@TransactionID", transactionID)
-
-            Dim v = cmdUser.ExecuteScalar()
-            If v Is Nothing OrElse IsDBNull(v) Then
-                Throw New Exception("TransactionHeader not found")
-            End If
-
-            userID = Convert.ToInt32(v)
-        End Using
-
-        Dim postDate As DateTime
-        Dim operationTypeID As Integer
-
-        Using cmdHead As New SqlCommand("
-SELECT PostingDate, OperationTypeID
-FROM Inventory_TransactionHeader
-WHERE TransactionID=@T
-", con, tran)
-
-            cmdHead.Parameters.AddWithValue("@T", transactionID)
-
-            Dim dtHead As New DataTable()
-            Using da As New SqlDataAdapter(cmdHead)
-                da.Fill(dtHead)
-            End Using
-
-            If dtHead.Rows.Count = 0 Then
-                Throw New Exception("TransactionHeader not found")
-            End If
-
-            postDate = Convert.ToDateTime(dtHead.Rows(0)("PostingDate"))
-            operationTypeID = Convert.ToInt32(dtHead.Rows(0)("OperationTypeID"))
-        End Using
-
-        Dim outRows As New DataTable()
-
-        Dim getOutRowsSql As String = "
-SELECT
-    d.ProductID,
-    ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
-    d.SourceStoreID AS StoreID,
-    SUM(d.Quantity) AS OutQty,
-    MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
-WHERE d.TransactionID = @TransactionID
-  AND d.SourceStoreID IS NOT NULL
-GROUP BY
-    d.ProductID,
-    ISNULL(p.BaseProductID, p.ProductID),
-    d.SourceStoreID
-HAVING SUM(d.Quantity) <> 0
-"
-
-        Using cmdGet As New SqlCommand(getOutRowsSql, con, tran)
-            cmdGet.Parameters.AddWithValue("@TransactionID", transactionID)
-            Using da As New SqlDataAdapter(cmdGet)
-                da.Fill(outRows)
-            End Using
-        End Using
-        Dim seq As Integer = ledgerSequence
-        For Each row As DataRow In outRows.Rows
-
-            Dim prodID As Integer = CInt(row("ProductID"))
-            Dim baseProdID As Integer = CInt(row("BaseProductID"))
-            Dim storeID As Integer = CInt(row("StoreID"))
-            Dim trxQty As Decimal = CDec(row("OutQty"))
-            Dim outQty As Decimal = ConvertQtyToLedgerUnit(prodID, trxQty, con, tran)
-            Dim sourceDetailID As Integer = CInt(row("SourceDetailID"))
-
-            ' منع التكرار لنفس العملية
-            Using cmdExists As New SqlCommand("
-SELECT TOP 1 1
-FROM Inventory_CostLedger
-WHERE TransactionID=@T
-  AND ProductID=@P
-  AND BaseProductID=@B
-  AND StoreID=@S
-  AND OutQty > 0
-  AND IsActive=1
-  AND IsReversed=0
-", con, tran)
-
-                cmdExists.Parameters.AddWithValue("@T", transactionID)
-                cmdExists.Parameters.AddWithValue("@P", prodID)
-                cmdExists.Parameters.AddWithValue("@B", baseProdID)
-                cmdExists.Parameters.AddWithValue("@S", storeID)
-
-                Dim exv = cmdExists.ExecuteScalar()
-                If exv IsNot Nothing Then
-                    Continue For
-                End If
-            End Using
-
-
-            Dim prevLedgerID As Object
-            Dim oldAvgCost As Decimal
-
-            GetCostChainContext(
-            prodID,
-            baseProdID,
-            operationGroupID,
-             transactionID,
-            con,
-            tran,
-            prevLedgerID,
-            oldAvgCost
-        )
-
-            ' ==============================
-            ' 1) OLD QTY (STORE) للفحص + لتعبئة LocalOldQty/LocalNewQty
-            ' ==============================
-            Dim localOldQtyBalance As Decimal = 0D
-            Using cmdBalStore As New SqlCommand("
-SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
-WHERE ProductID=@P
-AND StoreID=@S
-AND IsActive=1
-AND IsReversed=0
-ORDER BY LedgerID DESC
-", con, tran)
-
-                cmdBalStore.Parameters.AddWithValue("@P", prodID)
-
-                cmdBalStore.Parameters.AddWithValue("@S", storeID)
-
-                Dim v = cmdBalStore.ExecuteScalar()
-                localOldQtyBalance = If(v Is Nothing OrElse IsDBNull(v), 0D, Convert.ToDecimal(v))
-            End Using
-
-            Dim localOldQty As Decimal = ConvertBalanceQtyToLedgerUnit(prodID, localOldQtyBalance, con, tran)
-
-            If localOldQty < outQty Then
-                Throw New Exception("Stock would become negative Product=" & prodID.ToString() & " Store=" & storeID.ToString())
-            End If
-
-            Dim localNewQty As Decimal = localOldQty - outQty
-
-            ' ==========================================
-            ' 2) OLD QTY (GLOBAL) لحساب المتوسط عالمي
-            ' ==========================================
-            Dim oldQtyGlobalBalance As Decimal = 0D
-            Using cmdBalGlobal As New SqlCommand("
-SELECT TOP 1 NewQty
-FROM Inventory_CostLedger
-WHERE ProductID=@P
-AND BaseProductID=@B
-AND IsActive=1
-AND IsReversed=0
-ORDER BY LedgerID DESC
-", con, tran)
-
-                cmdBalGlobal.Parameters.AddWithValue("@P", prodID)
-                cmdBalGlobal.Parameters.AddWithValue("@B", baseProdID)
-
-                Dim v = cmdBalGlobal.ExecuteScalar()
-
-                oldQtyGlobalBalance = If(v Is Nothing OrElse IsDBNull(v), 0D, Convert.ToDecimal(v))
-
-            End Using
-
-            Dim oldQtyGlobal As Decimal =
-    ConvertBalanceQtyToLedgerUnit(prodID, oldQtyGlobalBalance, con, tran)
-
-
-            Dim sqlInsert As String = "
-INSERT INTO Inventory_CostLedger
-(
-    LedgerID,
-    TransactionID,
-    SourceDetailID,
-    ProductID,
-    BaseProductID,
-    StoreID,
-    OperationTypeID,
-
-    LocalOldQty,
-    LocalNewQty,
-
-    OldQty,
-    InQty,
-    OutQty,
-    NewQty,
-    OldAvgCost,
-    InUnitCost,
-    InTotalCost,
-    OutUnitCost,
-    OutTotalCost,
-    NewAvgCost,
-    PostingDate,
-    IsReversed,
-    IsRevaluation,
-    PrevLedgerID,
-    CostSourceType,
-    RootTransactionID,
-    CreatedBy,
-    CreatedAt,
-    OperationGroupID,
-    GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
-    LedgerSequence,
-    IsActive
-)
-VALUES
-(
-    NEXT VALUE FOR Seq_CostLedgerID,
-    @TransactionID,
-    @SourceDetailID,
-    @ProductID,
-    @BaseProductID,
-    @StoreID,
-    @OperationTypeID,
-
-    @LocalOldQty,
-    @LocalNewQty,
-
-    @OldQtyGlobal,
-    0,
-    @OutQty,
-    @OldQtyGlobal - @OutQty,
-    @OldAvgCost,
-    0,
-    0,
-    @OldAvgCost,
-    @OutQty * @OldAvgCost,
-    @OldAvgCost,
-    @PostingDate,
-    0,
-    0,
-    @PrevLedgerID,
-    @OperationTypeID,
-    @TransactionID,
-    @UserID,
-    SYSDATETIME(),
-    @OperationGroupID,
-    1,
-    'PRODUCT',
-    @ProductID,
-    @LedgerSequence,
-    1
-)
-"
-
-            Using cmd As New SqlCommand(sqlInsert, con, tran)
-
-                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
-                cmd.Parameters.AddWithValue("@SourceDetailID", sourceDetailID)
-                cmd.Parameters.AddWithValue("@ProductID", prodID)
-                cmd.Parameters.AddWithValue("@BaseProductID", baseProdID)
-                cmd.Parameters.AddWithValue("@StoreID", storeID)
-                cmd.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
-
-                ' ✅ الأعمدة الجديدة (Local)
-                cmd.Parameters.AddWithValue("@LocalOldQty", localOldQty)
-                cmd.Parameters.AddWithValue("@LocalNewQty", localNewQty)
-
-                ' ✅ Global
-                cmd.Parameters.AddWithValue("@OldQtyGlobal", oldQtyGlobal)
-                cmd.Parameters.AddWithValue("@OutQty", outQty)
-                cmd.Parameters.AddWithValue("@OldAvgCost", oldAvgCost)
-                cmd.Parameters.AddWithValue("@PostingDate", postDate)
-
-                ' 🚨 OUT لازم يكون له PrevLedgerID دائماً
-                If prevLedgerID Is DBNull.Value Then
-                    Throw New Exception("OUT operation بدون PrevLedgerID - هذا خطأ في السلسلة")
-                End If
-                cmd.Parameters.AddWithValue("@SourceLedgerID", CLng(prevLedgerID))
-                cmd.Parameters.AddWithValue("@PrevLedgerID", CLng(prevLedgerID))
-
-                cmd.Parameters.AddWithValue("@UserID", userID)
-                cmd.Parameters.AddWithValue("@OperationGroupID", operationGroupID)
-                cmd.Parameters.AddWithValue("@LedgerSequence", seq)
-                cmd.ExecuteNonQuery()
-            End Using
-            seq += 1
         Next
 
     End Sub
@@ -1308,7 +786,7 @@ VALUES
 
         Using cmdUser As New SqlCommand("
 SELECT CreatedBy
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -1327,7 +805,7 @@ WHERE TransactionID=@TransactionID
 
         Using cmdHead As New SqlCommand("
 SELECT PostingDate, OperationTypeID
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T
 ", con, tran)
 
@@ -1369,14 +847,14 @@ SELECT
     ) AS OutQty,
 
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p
+FROM inv.TransactionDetails d
+JOIN md.Product p
     ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp
+LEFT JOIN md.Product bp
     ON bp.ProductID = p.BaseProductID
-LEFT JOIN Master_Unit pu
+LEFT JOIN md.Unit pu
     ON pu.UnitID = d.UnitID
-LEFT JOIN Master_Unit bu
+LEFT JOIN md.Unit bu
     ON bu.UnitID = bp.StorageUnitID
 WHERE d.TransactionID = @TransactionID
   AND d.SourceStoreID IS NOT NULL
@@ -1418,7 +896,7 @@ HAVING
             ' منع التكرار لنفس العملية
             Using cmdExists As New SqlCommand("
 SELECT TOP 1 1
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@T
   AND ProductID=@P
   AND BaseProductID=@B
@@ -1468,7 +946,7 @@ WHERE TransactionID=@T
             PARTITION BY ProductID, StoreID
             ORDER BY LedgerID DESC
         ) rn
-    FROM Inventory_CostLedger
+    FROM inv.CostLedger
     WHERE ProductID=@P
     AND StoreID=@S
     AND IsActive=1
@@ -1506,7 +984,7 @@ WHERE rn = 1
             Dim oldQtyGlobalBalance As Decimal = 0D
             Using cmdBalGlobal As New SqlCommand("
 SELECT TOP 1 NewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P
 AND BaseProductID=@B
 AND IsActive=1
@@ -1526,7 +1004,7 @@ ORDER BY LedgerID DESC
             Dim oldQtyGlobal As Decimal = oldQtyGlobalBalance
 
             Dim sqlInsert As String = "
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -1558,8 +1036,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -1595,8 +1071,6 @@ VALUES
     SYSDATETIME(),
     @OperationGroupID,
     1,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 )
@@ -1649,217 +1123,6 @@ VALUES
 
 
 
-    Public Sub ApplyInventoryOut(
-    transactionID As Integer,
-    con As SqlConnection,
-    tran As SqlTransaction
-)
-
-        '=====================================================
-        ' خصم الكميات من المستودع المصدر فقط
-        '=====================================================
-
-        Dim sqlUpdateQty As String = "
-
-;WITH src AS
-(
-SELECT
-d.ProductID,
-ISNULL(p.BaseProductID,p.ProductID) AS BaseProductID,
-d.SourceStoreID AS StoreID,
-SUM(d.Quantity) AS Quantity
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
-WHERE d.TransactionID = @TransactionID
-AND d.SourceStoreID IS NOT NULL
-GROUP BY
-d.ProductID,
-ISNULL(p.BaseProductID,p.ProductID),
-d.SourceStoreID
-)
-
-UPDATE b
-SET
-b.QtyOnHand = b.QtyOnHand - src.Quantity,
-b.LastUpdatedAt = SYSDATETIME()
-FROM Inventory_Balance b
-JOIN src
-ON src.ProductID = b.ProductID
-AND src.BaseProductID = b.BaseProductID
-AND src.StoreID = b.StoreID
-"
-
-        Dim sqlUpdateMovement As String = "
-
-;WITH LastLedger AS
-(
-SELECT
-cl.ProductID,
-cl.BaseProductID,
-cl.StoreID,
-MAX(cl.LedgerID) AS LastLedgerID
-FROM Inventory_CostLedger cl
-WHERE cl.TransactionID = @TransactionID
-AND cl.OutQty > 0
-AND cl.IsReversed = 0
-GROUP BY
-cl.ProductID,
-cl.BaseProductID,
-cl.StoreID
-)
-
-UPDATE b
-SET
-b.LastMovementLedgerID = ll.LastLedgerID,
-b.LastMovementDate = SYSDATETIME(),
-b.LastUpdatedAt = SYSDATETIME()
-FROM Inventory_Balance b
-JOIN LastLedger ll
-ON ll.ProductID = b.ProductID
-AND ll.BaseProductID = b.BaseProductID
-AND ll.StoreID = b.StoreID
-"
-
-        Try
-
-            Using cmd As New SqlCommand(sqlUpdateQty, con, tran)
-                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
-                cmd.ExecuteNonQuery()
-            End Using
-
-            Using cmd As New SqlCommand(sqlUpdateMovement, con, tran)
-                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
-                cmd.ExecuteNonQuery()
-            End Using
-
-        Catch ex As Exception
-
-            MessageBox.Show("🔴 [ApplyInventoryOut] فشل التنفيذ:" & vbCrLf & ex.Message & vbCrLf & ex.StackTrace)
-            Throw
-
-        End Try
-
-    End Sub
-    Public Sub ApplyInventoryIn(
-    transactionID As Integer,
-    m3UnitID As Integer,
-    ledgerID As Integer,
-    con As SqlConnection,
-    tran As SqlTransaction
-)
-        ' =====================================================
-        ' تحديث رصيد المخزن الهدف فقط
-        ' =====================================================
-
-        Dim sqlMerge As String = "
-
-;WITH src AS
-(
-    SELECT
-        d.ProductID,
-        ISNULL(p.BaseProductID,p.ProductID) AS BaseProductID,
-        d.TargetStoreID AS StoreID,
-        SUM(d.Quantity) AS Quantity
-    FROM Inventory_TransactionDetails d
-    JOIN Master_Product p ON p.ProductID = d.ProductID
-    WHERE d.TransactionID = @TransactionID
-      AND d.TargetStoreID IS NOT NULL
-    GROUP BY
-        d.ProductID,
-        ISNULL(p.BaseProductID,p.ProductID),
-        d.TargetStoreID
-)
-
-MERGE Inventory_Balance AS tgt
-USING src
-ON  tgt.ProductID      = src.ProductID
-AND tgt.BaseProductID  = src.BaseProductID
-AND tgt.StoreID        = src.StoreID
-
-WHEN MATCHED THEN
-UPDATE SET
-    tgt.QtyOnHand     = tgt.QtyOnHand + src.Quantity,
-    tgt.LastUpdatedAt = SYSDATETIME()
-
-WHEN NOT MATCHED THEN
-INSERT
-(
-    ProductID,
-    BaseProductID,
-    StoreID,
-    QtyOnHand,
-    CreatedAt,
-    LastUpdatedAt
-)
-VALUES
-(
-    src.ProductID,
-    src.BaseProductID,
-    src.StoreID,
-    src.Quantity,
-    SYSDATETIME(),
-    SYSDATETIME()
-);
-"
-
-        Try
-
-            Using cmd As New SqlCommand(sqlMerge, con, tran)
-                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
-                cmd.ExecuteNonQuery()
-            End Using
-
-
-            ' =====================================================
-            ' تحديث معلومات آخر حركة لكل صنف ومستودع (IN)
-            ' ملاحظة: نربط بالحركة عن طريق SourceDetailID (DetailID) لتفادي تعميم أول LedgerID على الجميع
-            ' =====================================================
-
-            ' =====================================================
-            ' تحديث معلومات آخر حركة لكل صنف ومستودع (IN) - مثل أسلوب OUT
-            ' =====================================================
-
-            Dim sqlUpdateMovement As String = "
-
-;WITH LastLedger AS
-(
-    SELECT
-        cl.ProductID,
-        cl.BaseProductID,
-        cl.StoreID,
-        MAX(cl.LedgerID) AS LastLedgerID
-    FROM Inventory_CostLedger cl
-    WHERE cl.TransactionID = @TransactionID
-      AND cl.InQty > 0
-      AND cl.IsReversed = 0
-    GROUP BY
-        cl.ProductID,
-        cl.BaseProductID,
-        cl.StoreID
-)
-UPDATE b
-SET
-    b.LastMovementLedgerID = ll.LastLedgerID,
-    b.LastMovementDate = SYSDATETIME(),
-    b.LastUpdatedAt = SYSDATETIME()
-FROM Inventory_Balance b
-JOIN LastLedger ll
-  ON ll.ProductID = b.ProductID
- AND ll.BaseProductID = b.BaseProductID
- AND ll.StoreID = b.StoreID;
-"
-            Using cmdFix As New SqlCommand(sqlUpdateMovement, con, tran)
-                cmdFix.Parameters.AddWithValue("@TransactionID", transactionID)
-                cmdFix.ExecuteNonQuery()
-            End Using
-
-
-        Catch ex As Exception
-            MessageBox.Show("🔴 [ApplyInventoryIn] فشل التنفيذ:" & vbCrLf & ex.Message & vbCrLf & ex.StackTrace)
-            Throw
-        End Try
-
-    End Sub
 
 
 
@@ -1876,14 +1139,14 @@ JOIN LastLedger ll
 
         Using cmd As New SqlCommand("
 SELECT TOP 1 cl.OutUnitCost
-FROM Inventory_DocumentDetails rd
-JOIN Inventory_DocumentDetails inv
+FROM inv.DocumentDetails rd
+JOIN inv.DocumentDetails inv
     ON inv.DetailID = rd.SourceDocumentDetailID
-JOIN Logistics_LoadingOrderDetail lod
+JOIN log.LoadingOrderDetail lod
     ON lod.LoadingOrderDetailID = inv.SourceLoadingOrderDetailID
-JOIN Inventory_TransactionHeader th
+JOIN inv.TransactionHeader th
     ON th.SourceDocumentID = lod.LOID
-JOIN Inventory_CostLedger cl
+JOIN inv.CostLedger cl
     ON cl.TransactionID = th.TransactionID
 WHERE rd.DetailID = @ReturnDetailID
 AND cl.ProductID = @ProductID
@@ -1937,15 +1200,15 @@ SELECT
     SUM(d.Quantity) AS InQty,
     SUM(d.Quantity*d.UnitCost) AS InTotalCost,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID=d.ProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID=d.ProductID
 WHERE d.TransactionID=@TransactionID
   AND d.TargetStoreID IS NOT NULL
 AND NOT EXISTS
 (
     SELECT 1
-    FROM Master_Product p2
-    LEFT JOIN Master_Product bp ON bp.ProductID = p2.BaseProductID
+    FROM md.Product p2
+    LEFT JOIN md.Product bp ON bp.ProductID = p2.BaseProductID
     WHERE p2.ProductID = d.ProductID
       AND (
             p2.StorageUnitID = @M3UnitID
@@ -1974,7 +1237,7 @@ GROUP BY
 
         Using cmdHead As New SqlCommand("
 SELECT OperationTypeID, PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -2034,7 +1297,7 @@ WHERE TransactionID=@TransactionID
 
             Using cmdLocalQty As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@ProductID
 AND BaseProductID=@BaseProductID
 AND StoreID=@StoreID
@@ -2072,7 +1335,7 @@ ORDER BY LedgerID DESC
             Dim insertedLedgerID As Integer = 0
 
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -2103,8 +1366,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -2140,8 +1401,6 @@ NEXT VALUE FOR Seq_CostLedgerID,
     SYSDATETIME(),
     @OperationGroupID,
     2,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 );
@@ -2214,7 +1473,7 @@ SELECT
     OperationTypeID,
     PostingDate,
     CreatedBy
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -2258,14 +1517,14 @@ SELECT
     ) AS Qty,
 
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p
+FROM inv.TransactionDetails d
+JOIN md.Product p
     ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp
+LEFT JOIN md.Product bp
     ON bp.ProductID = p.BaseProductID
-LEFT JOIN Master_Unit pu
+LEFT JOIN md.Unit pu
     ON pu.UnitID = d.UnitID
-LEFT JOIN Master_Unit bu
+LEFT JOIN md.Unit bu
     ON bu.UnitID = bp.StorageUnitID
 WHERE d.TransactionID = @TransactionID
   AND d.TargetStoreID IS NOT NULL
@@ -2304,7 +1563,7 @@ GROUP BY
 SELECT TOP 1
     LedgerID,
     OutUnitCost
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@TransactionID
 AND OperationGroupID=@GroupID
 AND ProductID=@ProductID
@@ -2351,7 +1610,7 @@ ORDER BY LedgerID DESC
 
             Using cmd As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P
 AND BaseProductID=@B
 AND StoreID=@S
@@ -2379,7 +1638,7 @@ ORDER BY LedgerID DESC
 
             Using cmd As New SqlCommand("
 SELECT TOP 1 NewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P
 AND BaseProductID=@B
 AND IsActive=1
@@ -2405,7 +1664,7 @@ ORDER BY LedgerID DESC
             '====================================================
 
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
 LedgerID,
 TransactionID,
@@ -2438,8 +1697,6 @@ CreatedBy,
 CreatedAt,
 OperationGroupID,
 GroupSeq,
-ScopeKeyType,
-ScopeKeyID,
 LedgerSequence,
 IsActive
 )
@@ -2476,8 +1733,6 @@ NEXT VALUE FOR Seq_CostLedgerID,
 SYSDATETIME(),
 @OperationGroupID,
 2,
-'PRODUCT',
-@ProductID,
 @LedgerSequence,
 1
 )
@@ -2532,7 +1787,11 @@ SET
             WHEN 'TRN' THEN 1
             WHEN 'SAL' THEN 5
             WHEN 'SRT' THEN 12
-            WHEN 'SCR' THEN 9
+            WHEN 'SCR' THEN 
+                CASE 
+                    WHEN L.OutQty > 0 THEN 2
+                    ELSE 3
+                END
             When 'PRT' Then 11
             WHEN 'LOD' THEN 5
             WHEN 'PRO' THEN 
@@ -2548,10 +1807,10 @@ SET
         END,
     L.CostSourceType = H.OperationTypeID
 
-FROM Inventory_CostLedger L
-JOIN Inventory_TransactionHeader H
+FROM inv.CostLedger L
+JOIN inv.TransactionHeader H
     ON H.TransactionID = L.TransactionID
-JOIN Workflow_OperationType O
+JOIN wf.OperationType O
     ON O.OperationTypeID = H.OperationTypeID
 
 WHERE L.OperationGroupID = @OperationGroupID
@@ -2597,8 +1856,8 @@ SET CalcHash = HASHBYTES(
         ISNULL(CONVERT(varchar(50), CONVERT(decimal(18,6), L.NewAvgCost)), '')
     )
 )
-FROM Inventory_CostLedger L
-JOIN Inventory_TransactionHeader H
+FROM inv.CostLedger L
+JOIN inv.TransactionHeader H
   ON H.TransactionID = L.TransactionID
 WHERE L.OperationGroupID = @OperationGroupID
   AND L.CalcHash IS NULL
@@ -2619,8 +1878,8 @@ SET ChainHash = HASHBYTES(
     'SHA2_256',
     ISNULL(P.ChainHash, 0x) + L.CalcHash
 )
-FROM Inventory_CostLedger L
-LEFT JOIN Inventory_CostLedger P
+FROM inv.CostLedger L
+LEFT JOIN inv.CostLedger P
   ON P.LedgerID = L.PrevLedgerID
 WHERE L.OperationGroupID = @OperationGroupID
   AND L.ChainHash IS NULL
@@ -2633,6 +1892,7 @@ WHERE L.OperationGroupID = @OperationGroupID
         End Using
 
     End Sub
+
     Private Function ConvertProductQtyToLedgerQty(
     productID As Integer,
     qty As Decimal,
@@ -2648,8 +1908,8 @@ SELECT
     ISNULL(p.Length,0) AS Length,
     ISNULL(p.Width,0)  AS Width,
     ISNULL(p.Height,0) AS Height
-FROM Master_Product p
-LEFT JOIN Master_Product bp
+FROM md.Product p
+LEFT JOIN md.Product bp
     ON bp.ProductID = p.BaseProductID
 WHERE p.ProductID = @ProductID
 ", con, tran)
@@ -2715,12 +1975,12 @@ SELECT
     ISNULL(p.Length,0) AS Length,
     ISNULL(p.Width,0)  AS Width,
     ISNULL(p.Height,0) AS Height
-FROM Master_Product p
-LEFT JOIN Master_Product bp
+FROM md.Product p
+LEFT JOIN md.Product bp
     ON bp.ProductID = p.BaseProductID
-LEFT JOIN Master_Unit pu
+LEFT JOIN md.Unit pu
     ON pu.UnitID = p.StorageUnitID
-LEFT JOIN Master_Unit bu
+LEFT JOIN md.Unit bu
     ON bu.UnitID = bp.StorageUnitID
 WHERE p.ProductID = @ProductID
 ", con, tran)
@@ -2774,347 +2034,12 @@ WHERE p.ProductID = @ProductID
 
     End Function
 
-    Public Sub InsertLedgerLink(
-    sourceLedgerID As Long?,
-    targetLedgerID As Long?,
-    linkType As Short,
-    qty As Decimal,
-    unitCost As Decimal,
-    transactionID As Integer,
-    storeSource As Integer?,
-    storeTarget As Integer?,
-    productID As Integer,
-    baseProductID As Integer?,
-    postingDate As DateTime,
-    operationGroupID As Guid,
-    groupSeq As Integer,
-    userID As Integer,
-    con As SqlConnection,
-    tran As SqlTransaction
-)
-
-        '========================================
-        ' 1) Direction
-        '========================================
-        Dim linkDirection As Integer = 2 ' حسب نظامك الحالي
-
-        '========================================
-        ' 2) Hash
-        '========================================
-        Dim linkHash As Byte() =
-        CalculateLinkHash(
-            sourceLedgerID,
-            targetLedgerID,
-            linkType,
-            qty,
-            unitCost,
-            operationGroupID)
-
-        '========================================
-        ' 4) DetailIDs (Null-safe)
-        '========================================
-        Dim sourceTransactionDetailID As Object = DBNull.Value
-        Dim targetTransactionDetailID As Object = DBNull.Value
-
-        Using cmdDet As New SqlCommand("
-        SELECT
-            (SELECT SourceDetailID FROM Inventory_CostLedger WHERE LedgerID=@SrcL) AS SrcDetailID,
-            (SELECT SourceDetailID FROM Inventory_CostLedger WHERE LedgerID=@TgtL) AS TgtDetailID
-    ", con, tran)
-
-            ' Source
-            If sourceLedgerID.HasValue Then
-                cmdDet.Parameters.Add("@SrcL", SqlDbType.BigInt).Value = sourceLedgerID.Value
-            Else
-                cmdDet.Parameters.Add("@SrcL", SqlDbType.BigInt).Value = DBNull.Value
-            End If
-
-            ' Target
-            If targetLedgerID.HasValue Then
-                cmdDet.Parameters.Add("@TgtL", SqlDbType.BigInt).Value = targetLedgerID.Value
-            Else
-                cmdDet.Parameters.Add("@TgtL", SqlDbType.BigInt).Value = DBNull.Value
-            End If
-
-            Using rdr = cmdDet.ExecuteReader()
-                If rdr.Read() Then
-
-                    If rdr("SrcDetailID") IsNot DBNull.Value Then
-                        sourceTransactionDetailID = Convert.ToInt32(rdr("SrcDetailID"))
-                    End If
-
-                    If rdr("TgtDetailID") IsNot DBNull.Value Then
-                        targetTransactionDetailID = Convert.ToInt32(rdr("TgtDetailID"))
-                    End If
-
-                End If
-            End Using
-        End Using
-
-        '========================================
-        ' 5) Insert
-        '========================================
-        Dim sql As String = "
-    INSERT INTO dbo.Inventory_CostLedgerLink
-    (
-        SourceLedgerID,
-        TargetLedgerID,
-        LinkType,
-        FlowQty,
-        FlowUnitCost,
-        SourceTransactionDetailID,
-        TargetTransactionDetailID,
-        SourceStoreID,
-        TargetStoreID,
-        ProductID,
-        BaseProductID,
-        PostingDate,
-        OperationGroupID,
-        GroupSeq,
-        IsActive,
-        CreatedAt,
-        CreatedBy,
-        LinkDirection,
-        LinkHash
-    )
-    VALUES
-    (
-        @SourceLedgerID,
-        @TargetLedgerID,
-        @LinkType,
-        @FlowQty,
-        @FlowUnitCost,
-        @SourceTransactionDetailID,
-        @TargetTransactionDetailID,
-        @SourceStoreID,
-        @TargetStoreID,
-        @ProductID,
-        @BaseProductID,
-        @PostingDate,
-        @OperationGroupID,
-        @GroupSeq,
-        1,
-        SYSDATETIME(),
-        @UserID,
-        @LinkDirection,
-        @LinkHash
-    );"
-
-        Using cmd As New SqlCommand(sql, con, tran)
-
-            '========================================
-            ' Ledger IDs
-            '========================================
-            cmd.Parameters.Add("@SourceLedgerID", SqlDbType.BigInt).Value =
-            If(sourceLedgerID.HasValue, sourceLedgerID.Value, CType(DBNull.Value, Object))
-
-            cmd.Parameters.Add("@TargetLedgerID", SqlDbType.BigInt).Value =
-            If(targetLedgerID.HasValue, targetLedgerID.Value, CType(DBNull.Value, Object))
-
-            '========================================
-            ' Basic
-            '========================================
-            cmd.Parameters.Add("@LinkType", SqlDbType.SmallInt).Value = linkType
-            cmd.Parameters.Add("@FlowQty", SqlDbType.Decimal).Value = qty
-            cmd.Parameters.Add("@FlowUnitCost", SqlDbType.Decimal).Value = unitCost
-
-            '========================================
-            ' Details
-            '========================================
-            cmd.Parameters.Add("@SourceTransactionDetailID", SqlDbType.Int).Value = sourceTransactionDetailID
-            cmd.Parameters.Add("@TargetTransactionDetailID", SqlDbType.Int).Value = targetTransactionDetailID
-
-            '========================================
-            ' Stores
-            '========================================
-            cmd.Parameters.Add("@SourceStoreID", SqlDbType.Int).Value =
-            If(storeSource.HasValue, storeSource.Value, CType(DBNull.Value, Object))
-
-            cmd.Parameters.Add("@TargetStoreID", SqlDbType.Int).Value =
-            If(storeTarget.HasValue, storeTarget.Value, CType(DBNull.Value, Object))
-
-            '========================================
-            ' Product
-            '========================================
-            cmd.Parameters.Add("@ProductID", SqlDbType.Int).Value = productID
-
-            cmd.Parameters.Add("@BaseProductID", SqlDbType.Int).Value =
-            If(baseProductID.HasValue, baseProductID.Value, CType(DBNull.Value, Object))
-
-            '========================================
-            ' Meta
-            '========================================
-            cmd.Parameters.Add("@PostingDate", SqlDbType.DateTime2).Value = postingDate
-            cmd.Parameters.Add("@OperationGroupID", SqlDbType.UniqueIdentifier).Value = operationGroupID
-            cmd.Parameters.Add("@GroupSeq", SqlDbType.Int).Value = groupSeq
-            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID
-
-            cmd.Parameters.Add("@LinkDirection", SqlDbType.Int).Value = linkDirection
-            cmd.Parameters.Add("@LinkHash", SqlDbType.VarBinary, 32).Value = linkHash
-
-            cmd.ExecuteNonQuery()
-        End Using
-
-    End Sub
 
 
 
 
 
-    Public Sub InsertCorrectionRecord(
-        correctionCode As String,
-        detail As TransactionDetailDTO,
-        oldAvgData As AvgCostData,
-        costLedgerID As Integer,
-        userID As Integer,
-        reason As String,
-        con As SqlConnection,
-        tran As SqlTransaction
-    )
-        ' جلب الكمية الحالية بعد العكس
-        Dim currentQty As Decimal = 0
-        Dim sql = "SELECT QtyOnHand FROM Inventory_Balance WHERE ProductID = @ProductID AND StoreID = @StoreID"
-        Dim cmd As New SqlCommand(sql, con, tran)
-        cmd.Parameters.AddWithValue("@ProductID", detail.ProductID)
-        cmd.Parameters.AddWithValue("@StoreID", detail.StoreID)
-        currentQty = Convert.ToDecimal(cmd.ExecuteScalar())
 
-        ' حساب الفروق
-        Dim qtyDifference = currentQty - (currentQty + detail.Quantity)
-        Dim costDifference = (currentQty * oldAvgData.OldAvgCost) - ((currentQty + detail.Quantity) * detail.UnitCost)
-
-        sql = "
-        INSERT INTO Inventory_AVG_QTY_Correction
-        (CorrectionCode, TransactionID, SourceDocumentID, ProductID, StoreID, BaseProductID,
-         OldQty, OldAvgCost, OldAvgCostPerM3,
-         CorrectedQty, CorrectedAvgCost, CorrectedAvgCostPerM3,
-         QtyDifference, CostDifference,
-         OperationTypeID, SourceOperationTypeID, SourceUnitID,
-         Reason, CreatedBy, CostLedgerID, IsPosted, CreatedAt)
-        VALUES
-        (@CorrectionCode, @TransactionID, @SourceDocumentID, @ProductID, @StoreID, @BaseProductID,
-         @OldQty, @OldAvgCost, @OldAvgCostPerM3,
-         @CorrectedQty, @CorrectedAvgCost, @CorrectedAvgCostPerM3,
-         @QtyDifference, @CostDifference,
-         @OperationTypeID, @SourceOperationTypeID, @SourceUnitID,
-         @Reason, @CreatedBy, @CostLedgerID, 1, GETDATE())"
-
-        cmd = New SqlCommand(sql, con, tran)
-        cmd.Parameters.AddWithValue("@CorrectionCode", correctionCode)
-        cmd.Parameters.AddWithValue("@TransactionID", detail.TransactionID)
-        cmd.Parameters.AddWithValue("@SourceDocumentID", detail.SourceDocumentID)
-        cmd.Parameters.AddWithValue("@ProductID", detail.ProductID)
-        cmd.Parameters.AddWithValue("@StoreID", If(detail.StoreID > 0, detail.StoreID, DBNull.Value))
-        cmd.Parameters.AddWithValue("@BaseProductID", If(oldAvgData.BaseProductID > 0, oldAvgData.BaseProductID, DBNull.Value))
-
-        ' البيانات قبل التصحيح (الخاطئة)
-        cmd.Parameters.AddWithValue("@OldQty", currentQty + detail.Quantity)
-        cmd.Parameters.AddWithValue("@OldAvgCost", detail.UnitCost)
-        cmd.Parameters.AddWithValue("@OldAvgCostPerM3", If(oldAvgData.BaseProductID > 0, oldAvgData.OldAvgCostPerM3, DBNull.Value))
-
-        ' البيانات بعد التصحيح (الصحيحة)
-        cmd.Parameters.AddWithValue("@CorrectedQty", currentQty)
-        cmd.Parameters.AddWithValue("@CorrectedAvgCost", oldAvgData.OldAvgCost)
-        cmd.Parameters.AddWithValue("@CorrectedAvgCostPerM3", If(oldAvgData.BaseProductID > 0, oldAvgData.OldAvgCostPerM3, DBNull.Value))
-
-        ' الفروق
-        cmd.Parameters.AddWithValue("@QtyDifference", qtyDifference)
-        cmd.Parameters.AddWithValue("@CostDifference", costDifference)
-
-        cmd.Parameters.AddWithValue("@OperationTypeID", 2) ' COR
-        cmd.Parameters.AddWithValue("@SourceOperationTypeID", detail.OperationTypeID)
-        cmd.Parameters.AddWithValue("@SourceUnitID", detail.StorageUnitID)
-
-        cmd.Parameters.AddWithValue("@Reason", If(String.IsNullOrEmpty(reason), DBNull.Value, reason))
-        cmd.Parameters.AddWithValue("@CreatedBy", userID)
-        cmd.Parameters.AddWithValue("@CostLedgerID", costLedgerID)
-
-        cmd.ExecuteNonQuery()
-    End Sub
-
-    Public Sub InsertProductionLedgerLinks(
-    transactionID As Integer,
-    operationGroupID As Guid,
-    userID As Integer,
-    con As SqlConnection,
-    tran As SqlTransaction)
-
-        Dim dt As New DataTable()
-
-        Dim sql As String = "
-SELECT
-    LedgerID,
-    ProductID,
-    BaseProductID,
-    StoreID,
-    OutQty,
-    InQty,
-    OutUnitCost,
-    PostingDate,
-    GroupSeq
-FROM dbo.Inventory_CostLedger
-WHERE TransactionID = @TransactionID
-  AND IsActive = 1
-  AND IsReversed = 0
-"
-
-        Using cmd As New SqlCommand(sql, con, tran)
-            cmd.Parameters.Add("@TransactionID", SqlDbType.Int).Value = transactionID
-            Using da As New SqlDataAdapter(cmd)
-                da.Fill(dt)
-            End Using
-        End Using
-
-        Dim rawRows = dt.Select("OutQty > 0")
-        Dim fgRows = dt.Select("InQty > 0")
-
-        If rawRows.Length = 0 Then Exit Sub
-        If fgRows.Length = 0 Then Exit Sub
-
-        If fgRows.Length <> 1 Then
-            Throw New Exception("PRO expects exactly 1 FG IN ledger, found " &
-                            fgRows.Length & " for TransactionID=" & transactionID.ToString())
-        End If
-
-        Dim fg As DataRow = fgRows(0)
-        Dim targetLedgerID As Long = CLng(fg("LedgerID"))
-        Dim targetStore As Integer = CInt(fg("StoreID"))
-
-        ' ✅ Policy: Link.ProductID = Target product (FG)
-        Dim targetProductID As Integer = CInt(fg("ProductID"))
-
-        For Each raw As DataRow In rawRows
-
-            Dim sourceLedgerID As Long = CLng(raw("LedgerID"))
-            Dim sourceStore As Integer = CInt(raw("StoreID"))
-
-            Dim qty As Decimal = CDec(raw("OutQty"))
-            Dim unitCost As Decimal = CDec(raw("OutUnitCost"))
-            Dim postingDate As DateTime = CDate(raw("PostingDate"))
-            Dim groupSeq As Integer = CInt(raw("GroupSeq"))
-
-            InsertLedgerLink(
-            sourceLedgerID:=sourceLedgerID,
-            targetLedgerID:=targetLedgerID,
-            linkType:=CShort(2),   ' PROD_CONSUME
-            qty:=qty,
-            unitCost:=unitCost,
-            transactionID:=transactionID,
-            storeSource:=sourceStore,
-            storeTarget:=targetStore,
-            productID:=targetProductID,   ' ✅ FG product
-            baseProductID:=Nothing,       ' keep NULL policy (or pass CInt(raw("BaseProductID")) if you still want it)
-            postingDate:=postingDate,
-            operationGroupID:=operationGroupID,
-            groupSeq:=groupSeq,
-            userID:=userID,
-            con:=con,
-            tran:=tran
-        )
-
-        Next
-
-    End Sub
     Public Sub InsertScrapProductionLinks(
     transactionID As Integer,
     operationGroupID As Guid,
@@ -3134,7 +2059,7 @@ WHERE TransactionID = @TransactionID
 ;WITH t AS
 (
     SELECT LedgerID, StoreID, ProductID, PostingDate
-    FROM dbo.Inventory_CostLedger
+    FROM inv.CostLedger
     WHERE TransactionID=@T
       AND InQty > 0
       AND IsActive=1 AND IsReversed=0
@@ -3172,11 +2097,11 @@ SELECT
     cl.StoreID  AS SourceStoreID,
     wd.WasteWeight_kg,
     wd.CostAmount
-FROM dbo.Inventory_CostLedger cl
-JOIN dbo.Inventory_TransactionDetails td
+FROM inv.CostLedger cl
+JOIN inv.TransactionDetails td
   ON td.TransactionID = cl.TransactionID
  AND td.DetailID = cl.SourceDetailID
-JOIN dbo.Inventory_WasteDetails wd
+JOIN inv.WasteDetails wd
   ON wd.WasteDetailID = td.SourceDocumentDetailID
 WHERE cl.TransactionID=@T
   AND cl.OutQty > 0
@@ -3241,7 +2166,7 @@ WHERE cl.TransactionID=@T
         ' UnitID للمتر المكعب
         Using cmd As New SqlCommand("
         SELECT UnitID
-        FROM Master_Unit
+        FROM md.Unit
         WHERE UnitCode='M3'
     ", con, tran)
 
@@ -3262,10 +2187,10 @@ SELECT
     d.TargetStoreID,
     p.StorageUnitID,
     bp.StorageUnitID AS BaseStorageUnitID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p
+FROM inv.TransactionDetails d
+JOIN md.Product p
     ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp
+LEFT JOIN md.Product bp
     ON bp.ProductID = p.BaseProductID
 WHERE d.TransactionID=@T
   AND d.SourceStoreID IS NOT NULL
@@ -3289,7 +2214,7 @@ ORDER BY d.DetailID
 
         Using cmd As New SqlCommand("
 SELECT PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T
 ", con, tran)
 
@@ -3354,7 +2279,7 @@ WHERE TransactionID=@T
 SELECT TOP 1
     LedgerID,
     ISNULL(OutUnitCost,0) AS OutUnitCost
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@T
 AND SourceDetailID=@D
 AND StoreID=@S
@@ -3390,7 +2315,7 @@ ORDER BY LedgerID DESC
 
             Using cmd As New SqlCommand("
 SELECT TOP 1 LedgerID
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@T
 AND SourceDetailID=@D
 AND StoreID=@S
@@ -3445,7 +2370,7 @@ ORDER BY LedgerID DESC
 
     Public Sub UpdateProductAvgCost(productID As Integer, avgCost As Decimal, con As SqlConnection, tran As SqlTransaction)
         Dim sql = "
-        UPDATE Master_Product 
+        UPDATE md.Product 
         SET AvgCost = @AvgCost
         WHERE ProductID = @ProductID"
 
@@ -3457,7 +2382,7 @@ ORDER BY LedgerID DESC
     End Sub
     Public Sub UpdateFinalProductAvgCost(baseProductID As Integer, avgCostPerM3 As Decimal, con As SqlConnection, tran As SqlTransaction)
         Dim sql = "
-        UPDATE Master_FinalProductAvgCost 
+        UPDATE inv.FinalProductAvgCost 
         SET AvgCostPerM3 = @AvgCostPerM3,
             LastUpdated = GETDATE()
         WHERE BaseProductID = @BaseProductID"
@@ -3477,7 +2402,7 @@ ORDER BY LedgerID DESC
         Dim sql As String = "
 
 /* 1) تحديث حالة الترانسكشن */
-UPDATE Inventory_TransactionHeader
+UPDATE inv.TransactionHeader
 SET StatusID = 6,
     IsInventoryPosted = 1,
     ReceivedAt = ISNULL(ReceivedAt, SYSDATETIME())
@@ -3493,10 +2418,10 @@ SET
         CASE WHEN th.BaseAvgCostPerM3_AtPosting IS NULL THEN f.AvgCostPerM3 ELSE th.BaseAvgCostPerM3_AtPosting END,
     th.BaseAvgCostPerM3forFG_AtPosting =
         CASE WHEN th.BaseAvgCostPerM3forFG_AtPosting IS NULL THEN f.AvgCostPerM3forFG ELSE th.BaseAvgCostPerM3forFG_AtPosting END
-FROM dbo.Inventory_TransactionHeader th
-JOIN dbo.Production_CuttingHeader ch
+FROM inv.TransactionHeader th
+JOIN prod.CuttingHeader ch
     ON ch.CuttingID = th.SourceDocumentID
-JOIN dbo.Master_FinalProductAvgCost f
+JOIN inv.FinalProductAvgCost f
     ON f.BaseProductID = ch.BaseProductID
 WHERE th.TransactionID = @TransactionID
   AND th.OperationTypeID = 11
@@ -3511,8 +2436,8 @@ WHERE th.TransactionID = @TransactionID
 UPDATE dh
 SET dh.StatusID = 6,
     dh.IsInventoryPosted = 1
-FROM Inventory_DocumentHeader dh
-JOIN Inventory_TransactionHeader th
+FROM inv.DocumentHeader dh
+JOIN inv.TransactionHeader th
     ON th.SourceDocumentID = dh.DocumentID
 WHERE th.TransactionID = @TransactionID;
 
@@ -3523,7 +2448,7 @@ WHERE th.TransactionID = @TransactionID;
 */
 UPDATE wh
 SET wh.StatusID = 6
-FROM dbo.Inventory_WasteHeader wh
+FROM inv.WasteHeader wh
 WHERE wh.TransactionID = @TransactionID;
 
 "
@@ -3536,15 +2461,15 @@ WHERE wh.TransactionID = @TransactionID;
     End Sub
     Public Sub UpdateDocumentStatus(transactionID As Integer, con As SqlConnection, tran As SqlTransaction)
         ' جلب DocumentID من TransactionHeader
-        Dim sql = "SELECT SourceDocumentID FROM Inventory_TransactionHeader WHERE TransactionID = @TransactionID"
+        Dim sql = "SELECT SourceDocumentID FROM inv.TransactionHeader WHERE TransactionID = @TransactionID"
         Dim cmd As New SqlCommand(sql, con, tran)
         cmd.Parameters.AddWithValue("@TransactionID", transactionID)
 
         Dim SourceDocumentID = cmd.ExecuteScalar()
         If SourceDocumentID IsNot Nothing AndAlso Not IsDBNull(SourceDocumentID) Then
-            ' تحديث حالة المستند في Inventory_DocumentHeader
+            ' تحديث حالة المستند في inv.DocumentHeader
             sql = "
-            UPDATE Inventory_DocumentHeader 
+            UPDATE inv.DocumentHeader 
             SET IsInventoryPosted = 0,
                 StatusID = 2,
             Notes = 'مرتجع من الستودع بسبب الغاء الاستلام'
@@ -3563,8 +2488,8 @@ WHERE wh.TransactionID = @TransactionID;
 
         Using cmd As New SqlCommand("
 DELETE R
-FROM Inventory_Reservation R
-INNER JOIN Inventory_TransactionDetails TD
+FROM inv.Reservation R
+INNER JOIN inv.TransactionDetails TD
     ON TD.SourceDocumentDetailID = R.SourceID
 WHERE 
     TD.TransactionID = @TID
@@ -3580,7 +2505,7 @@ WHERE
 
     Public Sub ReverseInventoryMovement(detail As TransactionDetailDTO, con As SqlConnection, tran As SqlTransaction)
         Dim sql = "
-        UPDATE Inventory_Balance 
+        UPDATE inv.Balance 
         SET QtyOnHand = QtyOnHand - @Quantity,
             LastUpdatedAt = GETDATE()
         WHERE ProductID = @ProductID AND StoreID = @StoreID"
@@ -3603,7 +2528,7 @@ WHERE
         Dim currentQty As Decimal = 0
         Dim sql = "
 SELECT QtyOnHand 
-FROM Inventory_Balance 
+FROM inv.Balance 
 WHERE ProductID = @ProductID 
   AND BaseProductID = @BaseProductID
   AND StoreID = @StoreID"
@@ -3622,7 +2547,7 @@ WHERE ProductID = @ProductID
 
 
         sql = "
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
 ledgerid,
     TransactionID,
@@ -3703,8 +2628,8 @@ SELECT SCOPE_IDENTITY();"
     IF EXISTS
     (
         SELECT 1
-        FROM Inventory_CostLedger cl
-        JOIN Inventory_CostLedger later
+        FROM inv.CostLedger cl
+        JOIN inv.CostLedger later
             ON later.BaseProductID = cl.BaseProductID
            AND later.LedgerID > cl.LedgerID
            AND later.IsReversed = 0
@@ -3733,8 +2658,8 @@ SELECT SCOPE_IDENTITY();"
 
         Dim sql As String = "
     SELECT COUNT(*)
-    FROM Inventory_TransactionDetails d
-    JOIN Master_Product p ON p.ProductID = d.ProductID
+    FROM inv.TransactionDetails d
+    JOIN md.Product p ON p.ProductID = d.ProductID
     WHERE d.TransactionID = @TransactionID
     "
 
@@ -3755,8 +2680,8 @@ SELECT SCOPE_IDENTITY();"
 
         Dim sql As String = "
     SELECT COUNT(*)
-    FROM Inventory_TransactionDetails d
-    JOIN Master_Product p ON p.ProductID = d.ProductID
+    FROM inv.TransactionDetails d
+    JOIN md.Product p ON p.ProductID = d.ProductID
     WHERE d.TransactionID = @TransactionID
       AND p.StorageUnitID <> @M3UnitID
     "
@@ -3787,8 +2712,8 @@ SELECT SCOPE_IDENTITY();"
             WHEN p.StorageUnitID = @M3UnitID THEN 'M3'
             ELSE 'غير M3'
         END AS UnitType
-    FROM Inventory_TransactionDetails d
-    JOIN Master_Product p ON p.ProductID = d.ProductID
+    FROM inv.TransactionDetails d
+    JOIN md.Product p ON p.ProductID = d.ProductID
     WHERE d.TransactionID = @TransactionID
     "
 
@@ -3866,7 +2791,7 @@ SELECT SCOPE_IDENTITY();"
         ' 1) تحديث حالة المرتجع
         '========================================
         Using cmd As New SqlCommand("
-UPDATE Inventory_DocumentHeader
+UPDATE inv.DocumentHeader
 SET StatusID = 5,
     SentAt = SYSDATETIME(),
     SentBy = @UserID
@@ -3885,13 +2810,13 @@ WHERE DocumentID = @ID
         '========================================
         Using cmdLink As New SqlCommand("
 IF NOT EXISTS (
-    SELECT 1 FROM dbo.Document_Link
+    SELECT 1 FROM inv.DocumentLink
     WHERE SourceDocumentID = @SourceID
       AND TargetDocumentID = @TargetID
       AND LinkType = 'RETURN'
 )
 BEGIN
-    INSERT INTO dbo.Document_Link
+    INSERT INTO inv.DocumentLink
     (
         SourceDocumentID, SourceType,
         TargetDocumentID, TargetType,
@@ -3924,24 +2849,24 @@ DECLARE @HasAny bit = 0, @IsFull bit = 1;
 
 IF EXISTS (
     SELECT 1
-    FROM Inventory_DocumentDetails R
-    INNER JOIN Inventory_DocumentHeader H
+    FROM inv.DocumentDetails R
+    INNER JOIN inv.DocumentHeader H
         ON H.DocumentID = R.DocumentID
     WHERE H.DocumentType = 'SRT'
       AND H.StatusID <> 10
       AND R.SourceDocumentDetailID IN
-        (SELECT DetailID FROM Inventory_DocumentDetails WHERE DocumentID = @INV)
+        (SELECT DetailID FROM inv.DocumentDetails WHERE DocumentID = @INV)
 )
     SET @HasAny = 1;
 
 IF EXISTS (
     SELECT 1
-    FROM Inventory_DocumentDetails I
+    FROM inv.DocumentDetails I
     WHERE I.DocumentID = @INV
       AND ISNULL((
           SELECT SUM(R.Quantity)
-          FROM Inventory_DocumentDetails R
-          INNER JOIN Inventory_DocumentHeader H
+          FROM inv.DocumentDetails R
+          INNER JOIN inv.DocumentHeader H
               ON H.DocumentID = R.DocumentID
           WHERE H.DocumentType = 'SRT'
             AND H.StatusID <> 10
@@ -3976,7 +2901,7 @@ SELECT @HasAny AS HasAnyReturn, @IsFull AS IsFullyReturned;
 
 
         Using cmdUpdate As New SqlCommand("
-UPDATE Inventory_DocumentHeader
+UPDATE inv.DocumentHeader
 SET StatusID = @StatusID
 WHERE DocumentID = @InvoiceID
 ", con, tran)
@@ -3996,7 +2921,7 @@ WHERE DocumentID = @InvoiceID
 
         Using cmd As New SqlCommand("
 SELECT TOP 1 InvoiceHash
-FROM Inventory_ZatcaDocument
+FROM inv.ZatcaDocument
 WHERE InvoiceHash IS NOT NULL 
 AND LTRIM(RTRIM(InvoiceHash)) <> ''
 ORDER BY CreatedAt DESC, ZatcaID DESC
@@ -4019,7 +2944,7 @@ ORDER BY CreatedAt DESC, ZatcaID DESC
 
         Using cmd As New SqlCommand("
 SELECT ISNULL(TotalAmount,0)
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 ", con, tran)
 
@@ -4038,7 +2963,7 @@ WHERE DocumentID = @ID
         Dim returnZatcaID As Integer
 
         Using cmd As New SqlCommand("
-INSERT INTO Inventory_ZatcaDocument
+INSERT INTO inv.ZatcaDocument
 (
     DocumentID,
     UUID,
@@ -4082,7 +3007,7 @@ SELECT SCOPE_IDENTITY();
         ' 5) TaxTotals
         '========================================
         Using cmd As New SqlCommand("
-INSERT INTO Inventory_ZatcaTaxTotals
+INSERT INTO inv.ZatcaTaxTotals
 (
     ZatcaID,
     TaxableAmount,
@@ -4096,8 +3021,8 @@ SELECT
     -SUM(D.TaxAmount),
     TT.TaxCategoryCode,
     MAX(D.TaxRate)
-FROM Inventory_DocumentDetails D
-INNER JOIN Master_TaxType TT
+FROM inv.DocumentDetails D
+INNER JOIN md.TaxType TT
     ON TT.TaxTypeID = D.TaxTypeID
 WHERE D.DocumentID = @DocID
   AND D.Quantity > 0
@@ -4115,12 +3040,12 @@ GROUP BY TT.TaxCategoryCode
         ' 6) Simulation Auto Clear
         '========================================
         Using cmd As New SqlCommand("
-UPDATE Inventory_DocumentHeader
+UPDATE inv.DocumentHeader
 SET StatusID = 18,
     IsZatcaReported = 1
 WHERE DocumentID = @ID;
 
-UPDATE Inventory_ZatcaDocument
+UPDATE inv.ZatcaDocument
 SET ZatcaStatus = 18,
     ClearedAt = SYSDATETIME()
 WHERE ZatcaID = @ZID;
@@ -4145,7 +3070,7 @@ SET
     TotalTax = X.SumTax,
     TotalTaxableAmount = X.SumNet,
     GrandTotal = X.SumTotal
-FROM Inventory_DocumentHeader H
+FROM inv.DocumentHeader H
 CROSS APPLY
 (
     SELECT
@@ -4154,7 +3079,7 @@ CROSS APPLY
         SUM(NetAmount) AS SumNet,
         SUM(TaxAmount) AS SumTax,
         SUM(LineTotal) AS SumTotal
-    FROM Inventory_DocumentDetails
+    FROM inv.DocumentDetails
     WHERE DocumentID = @DocID
 ) X
 WHERE H.DocumentID = @DocID
@@ -4180,7 +3105,7 @@ WHERE H.DocumentID = @DocID
         Dim seq As Integer = 1
         Using cmd As New SqlCommand("
         SELECT UnitID
-        FROM dbo.Master_Unit
+        FROM md.Unit
         WHERE UnitCode = 'M3'
     ", con, tran)
 
@@ -4282,263 +3207,6 @@ InsertCostLedger_Regular(transactionID, userID, m3UnitID, operationGroupID, seq,
 
     'Loding
 
-    Public Sub SendLoadingOrder(loID As Integer, userID As Integer)
-
-        Using con As New SqlConnection(_connectionString)
-            con.Open()
-
-            Using tran = con.BeginTransaction()
-
-                Try
-
-                    SendLoadingOrder_InsideTransaction(loID, userID, con, tran)
-
-                    tran.Commit()
-
-                Catch
-
-                    tran.Rollback()
-                    Throw
-
-                End Try
-
-            End Using
-        End Using
-
-    End Sub
-    Private Sub SendLoadingOrder_InsideTransaction(
-    loID As Integer,
-    userID As Integer,
-    con As SqlConnection,
-    tran As SqlTransaction
-)
-
-        '====================================================
-        ' 1) جلب بيانات LO
-        '====================================================
-        Dim operationTypeID As Integer
-        Dim storeID As Integer
-        Dim seq As Integer = 1
-
-        Using cmd As New SqlCommand("
-        SELECT OperationTypeID, SourceStoreID
-        FROM Logistics_LoadingOrder
-        WHERE LOID = @LOID
-    ", con, tran)
-
-            cmd.Parameters.AddWithValue("@LOID", loID)
-
-            Using rd = cmd.ExecuteReader()
-                rd.Read()
-                operationTypeID = CInt(rd("OperationTypeID"))
-                storeID = CInt(rd("SourceStoreID"))
-            End Using
-
-        End Using
-
-
-        '====================================================
-        ' 2) جلب PeriodID
-        '====================================================
-        Dim periodID As Integer
-
-        Using cmd As New SqlCommand("
-        SELECT TOP 1 PeriodID
-        FROM cfg.FiscalPeriod
-        WHERE IsOpen = 1
-        ORDER BY StartDate
-    ", con, tran)
-
-            periodID = CInt(cmd.ExecuteScalar())
-
-        End Using
-
-
-        '====================================================
-        ' 3) إنشاء TransactionHeader
-        '====================================================
-        Dim transactionID As Integer
-
-        Using cmd As New SqlCommand("
-        INSERT INTO Inventory_TransactionHeader
-        (
-            TransactionDate,
-            SourceDocumentID,
-            OperationTypeID,
-            PeriodID,
-            StatusID,
-            IsFinancialPosted,
-            CreatedBy,
-            CreatedAt,
-            SentAt,
-            SentBy,
-            IsInventoryPosted,
-            PostingDate
-        )
-        VALUES
-        (
-            SYSDATETIME(),
-            @LOID,
-            @OpType,
-            @PeriodID,
-            5,
-            0,
-            @UserID,
-            SYSDATETIME(),
-            SYSDATETIME(),
-            @UserID,
-            0,
-            NULL
-        );
-
-        SELECT SCOPE_IDENTITY();
-    ", con, tran)
-
-            cmd.Parameters.AddWithValue("@LOID", loID)
-            cmd.Parameters.AddWithValue("@OpType", operationTypeID)
-            cmd.Parameters.AddWithValue("@PeriodID", periodID)
-            cmd.Parameters.AddWithValue("@UserID", userID)
-
-            transactionID = Convert.ToInt32(cmd.ExecuteScalar())
-
-        End Using
-        Dim m3UnitID As Integer
-
-        '========================================
-        ' جلب وحدة المتر المكعب
-        '========================================
-
-        Using cmd As New SqlCommand("
-SELECT UnitID
-FROM Master_Unit
-WHERE UnitCode = 'M3'
-", con, tran)
-
-            m3UnitID = CInt(cmd.ExecuteScalar())
-
-        End Using
-
-
-        '====================================================
-        ' 4) إدخال TransactionDetails
-        '====================================================
-        Using cmdInsert As New SqlCommand("
-INSERT INTO Inventory_TransactionDetails
-(
-    TransactionID,
-    ProductID,
-    Quantity,
-    UnitID,
-    UnitCost,
-    CostAmount,
-    SourceStoreID,
-    TargetStoreID,
-    SourceDocumentDetailID,
-    ReferenceDetailID,
-    CreatedAt,
-    CreatedBy
-)
-SELECT
-    @TID,
-    LOD.ProductID,
-    LOD.LoadedQty,
-    P.StorageUnitID,
-
-    CASE
-        WHEN P.StorageUnitID = @M3UnitID
-            THEN ISNULL(FP.AvgCostPerM3,0)
-
-        WHEN BP.StorageUnitID = @M3UnitID
-            THEN ISNULL(FP.AvgCostPerM3forFG,0)
-
-        ELSE
-            ISNULL(P.AvgCost,0)
-    END AS UnitCost,
-
-    LOD.LoadedQty *
-   CASE
-    WHEN P.StorageUnitID = @M3UnitID
-        THEN ISNULL(FP.AvgCostPerM3,0)
-    WHEN P.StorageUnitID <> @M3UnitID
-         AND BP.StorageUnitID = @M3UnitID
-        THEN ISNULL(FP.AvgCostPerM3forFG,0)
-    ELSE
-        ISNULL(P.AvgCost,0)
-
-END AS CostAmount,
-
-    @StoreID,
-    NULL,
-    LOD.LoadingOrderDetailID,
-    NULL,
-    SYSDATETIME(),
-    @UserID
-
-FROM Logistics_LoadingOrderDetail LOD
-
-JOIN Master_Product P
-    ON P.ProductID = LOD.ProductID
-
-LEFT JOIN Master_Product BP
-    ON BP.ProductID = P.BaseProductID
-
-LEFT JOIN Master_FinalProductAvgCost FP
-    ON FP.BaseProductID = COALESCE(P.BaseProductID, P.ProductID)
-
-WHERE LOD.LOID = @LOID
-AND LOD.LoadedQty > 0
-", con, tran)
-
-            cmdInsert.Parameters.AddWithValue("@TID", transactionID)
-            cmdInsert.Parameters.AddWithValue("@LOID", loID)
-            cmdInsert.Parameters.AddWithValue("@StoreID", storeID)
-            cmdInsert.Parameters.AddWithValue("@UserID", userID)
-            cmdInsert.Parameters.AddWithValue("@M3UnitID", m3UnitID)
-
-            cmdInsert.ExecuteNonQuery()
-
-        End Using
-
-        '      Dim operationGroupID As Guid = Guid.NewGuid()
-        '       Dim oldQtyDict =
-        'GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
-        '====================================================
-        ' 5) Ledger
-        '====================================================
-
-
-        '   InsertCostLedger_OUT_lOADING(transactionID, operationGroupID, seq, oldQtyDict, con, tran)
-        '    InsertLoadingLinks(transactionID, operationGroupID, userID, con, tran)
-
-        '====================================================
-        ' 6) Inventory
-        '====================================================
-        '     ApplyInventoryOut(transactionID, con, tran)
-
-
-        '====================================================
-        ' 7) Finalize Ledger
-        '====================================================
-        '       FinalizeLedgerMetadata(operationGroupID, con, tran)
-        Using cmd As New SqlCommand("
-UPDATE Logistics_LoadingOrder
-SET
-    LoadingStatusID = 5,      
-    IsInventoryPosted = 0,
-    PostedAt = SYSDATETIME(),
-    PostedBy = @UserID
-WHERE LOID = @LOID
-", con, tran)
-
-            cmd.Parameters.AddWithValue("@LOID", loID)
-            cmd.Parameters.AddWithValue("@UserID", userID)
-
-            cmd.ExecuteNonQuery()
-
-        End Using
-        '       UpdateFinalStatuses(transactionID, con, tran)
-
-    End Sub
     Public Sub InsertCostLedger_OUT_lOADING(
     transactionID As Integer,
     operationGroupID As Guid,
@@ -4552,7 +3220,7 @@ WHERE LOID = @LOID
 
         Using cmdUser As New SqlCommand("
 SELECT CreatedBy
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -4571,7 +3239,7 @@ WHERE TransactionID=@TransactionID
 
         Using cmdHead As New SqlCommand("
 SELECT PostingDate, OperationTypeID
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T
 ", con, tran)
 
@@ -4599,8 +3267,8 @@ SELECT
     d.SourceStoreID AS StoreID,
     SUM(d.Quantity) AS OutQty,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
 WHERE d.TransactionID = @TransactionID
   AND d.SourceStoreID IS NOT NULL
 GROUP BY
@@ -4629,7 +3297,7 @@ HAVING SUM(d.Quantity) <> 0
             ' منع التكرار لنفس العملية
             Using cmdExists As New SqlCommand("
 SELECT TOP 1 1
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@T
   AND ProductID=@P
   AND BaseProductID=@B
@@ -4671,7 +3339,7 @@ WHERE TransactionID=@T
             Dim localOldQtyBalance As Decimal = 0D
             Using cmdBalStore As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P
 AND StoreID=@S
 AND IsActive=1
@@ -4696,7 +3364,7 @@ ORDER BY LedgerID DESC
             Dim oldQtyGlobalBalance As Decimal = 0D
             Using cmdBalGlobal As New SqlCommand("
 SELECT TOP 1 NewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P
 AND BaseProductID=@B
 AND IsActive=1
@@ -4716,7 +3384,7 @@ ORDER BY LedgerID DESC
             Dim oldQtyGlobal As Decimal = oldQtyGlobalBalance
 
             Dim sqlInsert As String = "
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -4749,8 +3417,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -4787,8 +3453,6 @@ VALUES
     SYSDATETIME(),
     @OperationGroupID,
     1,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 )
@@ -4846,7 +3510,7 @@ VALUES
 
         Using cmd As New SqlCommand("
 SELECT PostingDate
-FROM dbo.Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T
 ", con, tran)
 
@@ -4869,10 +3533,10 @@ SELECT
     cl.OutQty,
     cl.OutUnitCost,
     cl.OutTotalCost
-FROM dbo.Inventory_CostLedger cl
-JOIN dbo.Inventory_TransactionDetails td
+FROM inv.CostLedger cl
+JOIN inv.TransactionDetails td
     ON td.DetailID = cl.SourceDetailID
-JOIN dbo.Master_Product p
+JOIN md.Product p
     ON p.ProductID = cl.ProductID
 WHERE cl.TransactionID=@T
   AND cl.OutQty > 0
@@ -4932,7 +3596,17 @@ WHERE cl.TransactionID=@T
         Next
 
     End Sub
+    Public Function ConvertQtyToLedgerUnit_ForLoading(
+    productID As Integer,
+    qty As Decimal,
+    con As SqlConnection,
+    tran As SqlTransaction
+) As Decimal
 
+        ' 🔥 Wrapper فقط
+        Return ConvertQtyToLedgerUnit(productID, qty, con, tran)
+
+    End Function
 
     ''' Cut
     Public Function GetOldQtyAllStores_cut(
@@ -4948,20 +3622,20 @@ WHERE cl.TransactionID=@T
 SELECT
     cl.ProductID,
     cl.NewQty
-FROM Inventory_CostLedger cl
+FROM inv.CostLedger cl
 JOIN
 (
     SELECT
         ProductID,
         MAX(LedgerID) AS LastLedgerID
-    FROM Inventory_CostLedger
+    FROM inv.CostLedger
     WHERE IsActive = 1
       AND IsReversed = 0
       AND OperationGroupID <> @OperationGroupID
       AND ProductID IN
       (
         SELECT DISTINCT ProductID
-        FROM Inventory_TransactionDetails
+        FROM inv.TransactionDetails
         WHERE TransactionID = @TransactionID
       )
     GROUP BY ProductID
@@ -5006,7 +3680,7 @@ AND x.LastLedgerID = cl.LedgerID
 
         Using cmd As New SqlCommand("
 SELECT TOP 1 LedgerID
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID = @P
 AND IsActive = 1
 AND IsReversed = 0
@@ -5052,7 +3726,7 @@ ORDER BY LedgerID DESC
 SELECT TOP 1
     LedgerID,
     NewAvgCost
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID = @ProductID
 AND IsActive = 1
 AND IsReversed = 0
@@ -5097,7 +3771,7 @@ ORDER BY LedgerID DESC
 
         Using cmdUser As New SqlCommand("
     SELECT CreatedBy
-    FROM Inventory_TransactionHeader
+    FROM inv.TransactionHeader
     WHERE TransactionID=@TransactionID
     ", con, tran)
 
@@ -5116,7 +3790,7 @@ ORDER BY LedgerID DESC
 
         Using cmdHead As New SqlCommand("
     SELECT PostingDate, OperationTypeID
-    FROM Inventory_TransactionHeader
+    FROM inv.TransactionHeader
     WHERE TransactionID=@T
     ", con, tran)
 
@@ -5144,8 +3818,8 @@ ORDER BY LedgerID DESC
         d.SourceStoreID AS StoreID,
         SUM(d.Quantity) AS OutQty,
         MIN(d.DetailID) AS SourceDetailID
-    FROM Inventory_TransactionDetails d
-    JOIN Master_Product p ON p.ProductID = d.ProductID
+    FROM inv.TransactionDetails d
+    JOIN md.Product p ON p.ProductID = d.ProductID
     WHERE d.TransactionID = @TransactionID
       AND d.SourceStoreID IS NOT NULL
     GROUP BY
@@ -5174,7 +3848,7 @@ ORDER BY LedgerID DESC
             ' منع التكرار لنفس العملية
             Using cmdExists As New SqlCommand("
     SELECT TOP 1 1
-    FROM Inventory_CostLedger
+    FROM inv.CostLedger
     WHERE TransactionID=@T
       AND ProductID=@P
       AND BaseProductID=@B
@@ -5216,7 +3890,7 @@ ORDER BY LedgerID DESC
             Dim localOldQtyBalance As Decimal = 0D
             Using cmdBalStore As New SqlCommand("
     SELECT TOP 1 LocalNewQty
-    FROM Inventory_CostLedger
+    FROM inv.CostLedger
     WHERE ProductID=@P
     AND StoreID=@S
     AND IsActive=1
@@ -5246,7 +3920,7 @@ ORDER BY LedgerID DESC
             Dim oldQtyGlobalBalance As Decimal = 0D
             Using cmdBalGlobal As New SqlCommand("
     SELECT TOP 1 NewQty
-    FROM Inventory_CostLedger
+    FROM inv.CostLedger
     WHERE ProductID=@P
     AND BaseProductID=@B
     AND IsActive=1
@@ -5268,7 +3942,7 @@ ORDER BY LedgerID DESC
 
 
             Dim sqlInsert As String = "
-    INSERT INTO Inventory_CostLedger
+    INSERT INTO inv.CostLedger
     (
         LedgerID,
         TransactionID,
@@ -5301,8 +3975,6 @@ ORDER BY LedgerID DESC
         CreatedAt,
         OperationGroupID,
         GroupSeq,
-        ScopeKeyType,
-        ScopeKeyID,
         LedgerSequence,
         IsActive
     )
@@ -5339,8 +4011,6 @@ ORDER BY LedgerID DESC
         SYSDATETIME(),
         @OperationGroupID,
         1,
-        'PRODUCT',
-        @ProductID,
         @LedgerSequence,
         1
     )
@@ -5383,280 +4053,356 @@ ORDER BY LedgerID DESC
 
     End Sub
     Public Sub InsertCostLedger_CUT(
-                                transactionID As Integer,
-                                userID As Integer,
-                                m3UnitID As Integer,
-                                operationGroupID As Guid,
-                                 ledgerSequence As Integer,
-                                    oldQtyDict As Dictionary(Of Integer, Decimal),
-                                con As SqlConnection,
-                                tran As SqlTransaction)
+    transactionID As Integer,
+    userID As Integer,
+    m3UnitID As Integer,
+    operationGroupID As Guid,
+    ledgerSequence As Integer,
+    oldQtyDict As Dictionary(Of Integer, Decimal),
+    con As SqlConnection,
+    tran As SqlTransaction)
 
-        '====================================================
-        ' Header (كما كان)
-        '====================================================
         Dim postDate As DateTime
         Dim operationTypeID As Integer
 
+        ' =========================
+        ' 1) Header
+        ' =========================
         Using cmdHead As New SqlCommand("
-                            SELECT PostingDate, OperationTypeID
-                            FROM Inventory_TransactionHeader
-                            WHERE TransactionID=@T
-                            ", con, tran)
+        SELECT PostingDate, OperationTypeID
+        FROM inv.TransactionHeader
+        WHERE TransactionID = @T
+    ", con, tran)
 
             cmdHead.Parameters.AddWithValue("@T", transactionID)
 
-            Dim dtHead As New DataTable()
-            Using da As New SqlDataAdapter(cmdHead)
-                da.Fill(dtHead)
-            End Using
+            Using rd = cmdHead.ExecuteReader()
+                If Not rd.Read() Then
+                    Throw New Exception("TransactionHeader not found for TransactionID=" & transactionID.ToString())
+                End If
 
-            If dtHead.Rows.Count = 0 Then
-                Throw New Exception("TransactionHeader not found")
+                postDate = CDate(rd("PostingDate"))
+                operationTypeID = CInt(rd("OperationTypeID"))
+            End Using
+        End Using
+
+        ' =========================
+        ' 2) Load IN detail rows (ONE LEDGER PER DETAIL)
+        '    MIX is read from prod.CuttingOutput
+        ' =========================
+        Dim dt As New DataTable()
+
+        Using cmd As New SqlCommand("
+SELECT
+    d.DetailID AS SourceDetailID,
+    d.SourceDocumentDetailID,
+    d.ProductID,
+    ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
+    d.TargetStoreID AS StoreID,
+
+    CASE
+        WHEN d.UnitID = @M3UnitID THEN d.Quantity
+        ELSE d.Quantity * (ISNULL(p.Length,0) * ISNULL(p.Width,0) * ISNULL(p.Height,0)) / 1000000.0
+    END AS InQtyM3,
+
+    (d.Quantity * ISNULL(d.UnitCost,0)) AS InTotalCost,
+
+    CASE WHEN ISNULL(co.IsMix,0) = 1 THEN 1 ELSE 0 END AS IsMix
+
+FROM inv.TransactionDetails d
+INNER JOIN md.Product p
+    ON p.ProductID = d.ProductID
+LEFT JOIN prod.CuttingOutput co
+    ON co.CutOutputID = d.SourceDocumentDetailID
+
+WHERE d.TransactionID = @TransactionID
+  AND d.TargetStoreID IS NOT NULL
+  AND ISNULL(d.Quantity,0) <> 0
+
+ORDER BY d.DetailID
+", con, tran)
+
+            cmd.Parameters.AddWithValue("@TransactionID", transactionID)
+            cmd.Parameters.AddWithValue("@M3UnitID", m3UnitID)
+
+            Using da As New SqlDataAdapter(cmd)
+                da.Fill(dt)
+            End Using
+        End Using
+
+        If dt.Rows.Count = 0 Then Exit Sub
+
+        ' =========================
+        ' 3) Enrich rows with stock-chain data
+        ' =========================
+        dt.Columns.Add("OldQty", GetType(Decimal))
+        dt.Columns.Add("NewQty", GetType(Decimal))
+        dt.Columns.Add("LocalOldQty", GetType(Decimal))
+        dt.Columns.Add("LocalNewQty", GetType(Decimal))
+        dt.Columns.Add("PrevLedgerID", GetType(Object))
+        dt.Columns.Add("OldAvgCost", GetType(Decimal))
+        dt.Columns.Add("InUnitCostCalc", GetType(Decimal))
+
+        For Each row As DataRow In dt.Rows
+
+            Dim prodID As Integer = CInt(row("ProductID"))
+            Dim storeID As Integer = CInt(row("StoreID"))
+            Dim inQtyM3 As Decimal = CDec(row("InQtyM3"))
+            Dim inTotalCost As Decimal = CDec(row("InTotalCost"))
+            Dim isMix As Boolean = (CInt(row("IsMix")) = 1)
+
+            ' ---------- PrevLedger / OldAvg on PRODUCT chain ----------
+            Dim prevLedgerID As Object = GetPrevLedgerID(prodID, operationGroupID, transactionID, con, tran)
+
+            Dim oldAvgCost As Decimal = 0D
+            If prevLedgerID IsNot DBNull.Value Then
+                Using cmdAvg As New SqlCommand("
+SELECT TOP 1 NewAvgCost
+FROM inv.CostLedger
+WHERE LedgerID = @L
+", con, tran)
+
+                    cmdAvg.Parameters.AddWithValue("@L", CLng(prevLedgerID))
+
+                    Dim v = cmdAvg.ExecuteScalar()
+                    If v IsNot Nothing AndAlso Not IsDBNull(v) Then
+                        oldAvgCost = CDec(v)
+                    End If
+                End Using
             End If
 
-            postDate = Convert.ToDateTime(dtHead.Rows(0)("PostingDate"))
-            operationTypeID = Convert.ToInt32(dtHead.Rows(0)("OperationTypeID"))
-        End Using
+            ' ---------- Global qty for THIS PRODUCT ----------
+            Dim oldQty As Decimal = 0D
+            If oldQtyDict IsNot Nothing AndAlso oldQtyDict.ContainsKey(prodID) Then
+                oldQty = oldQtyDict(prodID)
+            End If
 
-        '====================================================
-        ' IN rows only (TargetStoreID NOT NULL)
-        ' ProductID الحقيقي + BaseProductID = ISNULL(BaseProductID, ProductID)
-        ' InQty محسوبة m3
-        '====================================================
-        Dim inRows As New DataTable()
+            ' ---------- Local qty for THIS PRODUCT + STORE ----------
+            Dim localOldQty As Decimal = 0D
+            Using cmdLocal As New SqlCommand("
+SELECT TOP 1 LocalNewQty
+FROM inv.CostLedger
+WHERE ProductID = @P
+  AND StoreID = @S
+  AND IsActive = 1
+  AND IsReversed = 0
+  AND OperationGroupID <> @G
+ORDER BY LedgerID DESC
+", con, tran)
 
-        Dim getInRowsSql As String = "
-                            SELECT
-                                d.ProductID,
-                                ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
-                                d.TargetStoreID AS StoreID,
+                cmdLocal.Parameters.AddWithValue("@P", prodID)
+                cmdLocal.Parameters.AddWithValue("@S", storeID)
+                cmdLocal.Parameters.AddWithValue("@G", operationGroupID)
 
-                                SUM(
-                                    CASE
-                                        WHEN d.UnitID = @M3UnitID THEN d.Quantity
-                                        ELSE d.Quantity * (ISNULL(p.Length,0) * ISNULL(p.Width,0) * ISNULL(p.Height,0)) / 1000000.0
-                                    END
-                                ) AS InQtyM3,
-
-                                SUM(d.Quantity * d.UnitCost) AS InTotalCost,
-                                MIN(d.DetailID) AS SourceDetailID
-                            FROM Inventory_TransactionDetails d
-                            JOIN Master_Product p ON p.ProductID = d.ProductID
-                            WHERE d.TransactionID = @TransactionID
-                              AND d.TargetStoreID IS NOT NULL
-                            GROUP BY
-                                d.ProductID,
-                                ISNULL(p.BaseProductID, p.ProductID),
-                                d.TargetStoreID
-                            HAVING SUM(d.Quantity) <> 0
-                            "
-
-        Using cmdGet As New SqlCommand(getInRowsSql, con, tran)
-            cmdGet.Parameters.AddWithValue("@TransactionID", transactionID)
-            cmdGet.Parameters.AddWithValue("@M3UnitID", m3UnitID)
-
-            Using da As New SqlDataAdapter(cmdGet)
-                da.Fill(inRows)
+                Dim v = cmdLocal.ExecuteScalar()
+                If v IsNot Nothing AndAlso Not IsDBNull(v) Then
+                    localOldQty = CDec(v)
+                End If
             End Using
-        End Using
-        Dim seq As Integer = ledgerSequence
-        For Each row As DataRow In inRows.Rows
 
+            Dim localNewQty As Decimal = localOldQty + inQtyM3
+            Dim newQty As Decimal = oldQty + inQtyM3
+
+            Dim inUnitCost As Decimal = 0D
+            If (Not isMix) AndAlso inQtyM3 <> 0D Then
+                inUnitCost = inTotalCost / inQtyM3
+            End If
+
+            row("PrevLedgerID") = prevLedgerID
+            row("OldAvgCost") = oldAvgCost
+            row("OldQty") = oldQty
+            row("NewQty") = newQty
+            row("LocalOldQty") = localOldQty
+            row("LocalNewQty") = localNewQty
+            row("InUnitCostCalc") = inUnitCost
+
+        Next
+
+        ' =========================
+        ' 4) Build COST POOL for NON-MIX outputs only
+        ' =========================
+        Dim poolOldQty As Decimal = 0D
+        Dim poolInQty As Decimal = 0D
+        Dim poolOldCost As Decimal = 0D
+        Dim poolInCost As Decimal = 0D
+
+        For Each row As DataRow In dt.Rows
+
+            Dim isMix As Boolean = (CInt(row("IsMix")) = 1)
+            If isMix Then Continue For
+
+            Dim oldQty As Decimal = CDec(row("OldQty"))
+            Dim oldAvgCost As Decimal = CDec(row("OldAvgCost"))
+            Dim inQtyM3 As Decimal = CDec(row("InQtyM3"))
+            Dim inTotalCost As Decimal = CDec(row("InTotalCost"))
+
+            poolOldQty += oldQty
+            poolInQty += inQtyM3
+
+            poolOldCost += (oldQty * oldAvgCost)
+            poolInCost += inTotalCost
+
+        Next
+
+        Dim poolNewQty As Decimal = poolOldQty + poolInQty
+
+        Dim poolOldAvg As Decimal = 0D
+        If poolOldQty <> 0D Then
+            poolOldAvg = poolOldCost / poolOldQty
+        End If
+
+        Dim poolNewAvg As Decimal = 0D
+        If poolNewQty <> 0D Then
+            poolNewAvg = (poolOldCost + poolInCost) / poolNewQty
+        End If
+
+        ' =========================
+        ' 5) Insert one ledger row per IN detail
+        ' =========================
+        Dim seq As Integer = ledgerSequence
+
+        For Each row As DataRow In dt.Rows
+
+            Dim sourceDetailID As Integer = CInt(row("SourceDetailID"))
             Dim prodID As Integer = CInt(row("ProductID"))
             Dim baseProdID As Integer = CInt(row("BaseProductID"))
             Dim storeID As Integer = CInt(row("StoreID"))
             Dim inQtyM3 As Decimal = CDec(row("InQtyM3"))
             Dim inTotalCost As Decimal = CDec(row("InTotalCost"))
-            Dim sourceDetailID As Integer = CInt(row("SourceDetailID"))
+            Dim isMix As Boolean = (CInt(row("IsMix")) = 1)
 
-            ' منع التكرار (كما كان)
+            Dim prevLedgerID As Object = row("PrevLedgerID")
+            Dim oldAvgCost As Decimal = CDec(row("OldAvgCost"))
+            Dim oldQty As Decimal = CDec(row("OldQty"))
+            Dim newQty As Decimal = CDec(row("NewQty"))
+            Dim localOldQty As Decimal = CDec(row("LocalOldQty"))
+            Dim localNewQty As Decimal = CDec(row("LocalNewQty"))
+            Dim inUnitCost As Decimal = CDec(row("InUnitCostCalc"))
+
+            Dim newAvgCost As Decimal = 0D
+            If isMix Then
+                newAvgCost = 0D
+                inUnitCost = 0D
+                inTotalCost = 0D
+            Else
+                newAvgCost = poolNewAvg
+            End If
+
+            ' منع التكرار على مستوى نفس detail
             Using cmdExists As New SqlCommand("
-                            SELECT TOP 1 1
-                            FROM Inventory_CostLedger
-                            WHERE TransactionID=@T
-                              AND ProductID=@P
-                              AND BaseProductID=@B
-                              AND StoreID=@S
-                              AND InQty > 0
-                              AND IsActive=1
-                              AND IsReversed=0
-                            ", con, tran)
+SELECT TOP 1 1
+FROM inv.CostLedger
+WHERE TransactionID = @T
+  AND SourceDetailID = @D
+  AND InQty > 0
+  AND IsActive = 1
+  AND IsReversed = 0
+", con, tran)
 
                 cmdExists.Parameters.AddWithValue("@T", transactionID)
-                cmdExists.Parameters.AddWithValue("@P", prodID)
-                cmdExists.Parameters.AddWithValue("@B", baseProdID)
-                cmdExists.Parameters.AddWithValue("@S", storeID)
+                cmdExists.Parameters.AddWithValue("@D", sourceDetailID)
 
                 Dim exv = cmdExists.ExecuteScalar()
                 If exv IsNot Nothing Then
+                    seq += 1
                     Continue For
                 End If
             End Using
 
+            Using cmd As New SqlCommand("
+INSERT INTO inv.CostLedger
+(
+    LedgerID,
+    TransactionID,
+    SourceDetailID,
+    ProductID,
+    BaseProductID,
+    StoreID,
+    OperationTypeID,
 
-            ' سلسلة التكلفة (كما كان)
-            Dim prevLedgerID As Object
-            Dim oldAvgCost As Decimal
+    LocalOldQty,
+    LocalNewQty,
 
-            GetCostChainContext_CUT(
-            prodID,
-            baseProdID,
-            operationGroupID,
-             transactionID,
-            con,
-            tran,
-            prevLedgerID,
-            oldAvgCost
-        )
+    OldQty,
+    InQty,
+    OutQty,
+    NewQty,
 
-            '====================================================
-            ' ✅ Global OldQty (m3):
-            ' مجموع آخر الكميات لكل المنتجات تحت نفس الأب
-            ' عبر كل المستودعات
-            ' مع استبعاد المنتج الأب نفسه فقط
-            '====================================================
-            '====================================================
-            ' ✅ Global OldQty (m3) from oldQtyDict (correct, per ProductID)
-            '====================================================
-            Dim oldQtyGlobalM3 As Decimal = 0D
-            If oldQtyDict IsNot Nothing AndAlso oldQtyDict.ContainsKey(prodID) Then
-                oldQtyGlobalM3 = oldQtyDict(prodID)
-            End If
+    OldAvgCost,
+    InUnitCost,
+    InTotalCost,
+    OutUnitCost,
+    OutTotalCost,
+    NewAvgCost,
 
-            Dim newQtyGlobalM3 As Decimal = oldQtyGlobalM3 + inQtyM3
+    PostingDate,
+    IsReversed,
+    IsRevaluation,
+    PrevLedgerID,
+    SourceLedgerID,
+    CostSourceType,
+    RootTransactionID,
+    CreatedBy,
+    CreatedAt,
+    OperationGroupID,
+    GroupSeq,
+    LedgerSequence,
+    IsActive,
 
-            '====================================================
-            ' ✅ Local OldQty (m3):
-            ' مجموع آخر الكميات لكل المنتجات تحت نفس الأب
-            ' داخل نفس المخزن
-            ' مع استبعاد المنتج الأب نفسه فقط
-            '====================================================
-            Dim localOldQtyM3 As Decimal = 0D
+    CostPoolOldQty,
+    CostPoolInQty,
+    CostPoolOutQty,
+    CostPoolNewQty,
+    CostPoolOldAvgCost,
+    CostPoolNewAvgCost
+)
+VALUES
+(
+    NEXT VALUE FOR Seq_CostLedgerID,
+    @TransactionID,
+    @SourceDetailID,
+    @ProductID,
+    @BaseProductID,
+    @StoreID,
+    @OperationTypeID,
 
-            Using cmdBalLocal As New SqlCommand("
-                            SELECT TOP 1 LocalNewQty
-                            FROM Inventory_CostLedger
-                            WHERE ProductID = @ProductID
-                            AND StoreID = @StoreID
-                            AND IsActive = 1
-                            AND IsReversed = 0
-                            AND OperationGroupID <> @OperationGroupID
-                            ORDER BY LedgerID DESC
-                            ", con, tran)
+    @LocalOldQty,
+    @LocalNewQty,
 
-                cmdBalLocal.Parameters.AddWithValue("@ProductID", prodID)
-                cmdBalLocal.Parameters.AddWithValue("@StoreID", storeID)
-                cmdBalLocal.Parameters.AddWithValue("@OperationGroupID", operationGroupID)
+    @OldQty,
+    @InQty,
+    0,
+    @NewQty,
 
-                Dim v = cmdBalLocal.ExecuteScalar()
+    @OldAvgCost,
+    @InUnitCost,
+    @InTotalCost,
+    0,
+    0,
+    @NewAvgCost,
 
-                If v IsNot Nothing AndAlso v IsNot DBNull.Value Then
-                    localOldQtyM3 = Convert.ToDecimal(v)
-                End If
+    @PostingDate,
+    0,
+    0,
+    @PrevLedgerID,
+    NULL,
+    @CostSourceType,
+    @RootTransactionID,
+    @UserID,
+    SYSDATETIME(),
+    @OperationGroupID,
+    2,
+    @LedgerSequence,
+    1,
 
-            End Using
-            '====================================================
-            ' InUnitCost و NewAvgCost (كما كان)
-            '====================================================
-            Dim inUnitCost As Decimal = 0D
-            If inQtyM3 <> 0D Then
-                inUnitCost = inTotalCost / inQtyM3
-            End If
-
-            Dim newAvgCost As Decimal
-            If newQtyGlobalM3 = 0D Then
-                newAvgCost = oldAvgCost
-            ElseIf oldQtyGlobalM3 = 0D Then
-                newAvgCost = inUnitCost
-            Else
-                newAvgCost = ((oldQtyGlobalM3 * oldAvgCost) + (inQtyM3 * inUnitCost)) / newQtyGlobalM3
-            End If
-            Dim localNewQtyM3 As Decimal = localOldQtyM3 + inQtyM3
-            '====================================================
-            ' Insert Ledger (IN) - نفس شكل OUT عندكم
-            ' لكن OldQty/InQty/NewQty/Local... كلها m3
-            '====================================================
-            Dim sqlInsert As String = "
-                            INSERT INTO Inventory_CostLedger
-                            (
-                                LedgerID,
-                                TransactionID,
-                                SourceDetailID,
-                                ProductID,
-                                BaseProductID,
-                                StoreID,
-                                OperationTypeID,
-
-                                LocalOldQty,
-                                LocalNewQty,
-
-                                OldQty,
-                                InQty,
-                                OutQty,
-                                NewQty,
-                                OldAvgCost,
-                                InUnitCost,
-                                InTotalCost,
-                                OutUnitCost,
-                                OutTotalCost,
-                                NewAvgCost,
-                                PostingDate,
-                                IsReversed,
-                                IsRevaluation,
-                                PrevLedgerID,
-                                CostSourceType,
-                                RootTransactionID,
-                                CreatedBy,
-                                CreatedAt,
-                                OperationGroupID,
-                                GroupSeq,
-                                ScopeKeyType,
-                                ScopeKeyID,
-                                LedgerSequence,
-                                IsActive
-                            )
-                            VALUES
-                            (
-                            NEXT VALUE FOR Seq_CostLedgerID,
-                                @TransactionID,
-                                @SourceDetailID,
-                                @ProductID,
-                                @BaseProductID,
-                                @StoreID,
-                                @OperationTypeID,
-
-                                @LocalOldQty,
-                                @LocalNewQty,
-
-                                @OldQtyGlobal,
-                                @InQty,
-                                0,
-                                @OldQtyGlobal + @InQty,
-                                @OldAvgCost,
-                                @InUnitCost,
-                                @InTotalCost,
-                                0,
-                                0,
-                                @NewAvgCost,
-                                @PostingDate,
-                                0,
-                                0,
-                                @PrevLedgerID,
-                                @OperationTypeID,
-                                @TransactionID,
-                                @UserID,
-                                SYSDATETIME(),
-                                @OperationGroupID,
-                                2,
-                                'PRODUCT',
-                                @ProductID,
-                                @LedgerSequence,
-                                1
-                            )
-                            "
-
-            Using cmd As New SqlCommand(sqlInsert, con, tran)
+    @CostPoolOldQty,
+    @CostPoolInQty,
+    @CostPoolOutQty,
+    @CostPoolNewQty,
+    @CostPoolOldAvgCost,
+    @CostPoolNewAvgCost
+)
+", con, tran)
 
                 cmd.Parameters.AddWithValue("@TransactionID", transactionID)
                 cmd.Parameters.AddWithValue("@SourceDetailID", sourceDetailID)
@@ -5665,59 +4411,51 @@ ORDER BY LedgerID DESC
                 cmd.Parameters.AddWithValue("@StoreID", storeID)
                 cmd.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
 
-                cmd.Parameters.AddWithValue("@LocalOldQty", localOldQtyM3)
-                cmd.Parameters.AddWithValue("@LocalNewQty", localNewQtyM3)
+                cmd.Parameters.AddWithValue("@LocalOldQty", localOldQty)
+                cmd.Parameters.AddWithValue("@LocalNewQty", localNewQty)
 
-                cmd.Parameters.AddWithValue("@OldQtyGlobal", oldQtyGlobalM3)
+                cmd.Parameters.AddWithValue("@OldQty", oldQty)
                 cmd.Parameters.AddWithValue("@InQty", inQtyM3)
-                cmd.Parameters.AddWithValue("@OldAvgCost", oldAvgCost)
+                cmd.Parameters.AddWithValue("@NewQty", newQty)
 
+                cmd.Parameters.AddWithValue("@OldAvgCost", oldAvgCost)
                 cmd.Parameters.AddWithValue("@InUnitCost", inUnitCost)
                 cmd.Parameters.AddWithValue("@InTotalCost", inTotalCost)
                 cmd.Parameters.AddWithValue("@NewAvgCost", newAvgCost)
 
                 cmd.Parameters.AddWithValue("@PostingDate", postDate)
 
-                Dim realPrevLedgerID As Object =
-    GetPrevLedgerID(prodID, operationGroupID, transactionID, con, tran)
-
-                If realPrevLedgerID Is DBNull.Value Then
+                If prevLedgerID Is DBNull.Value Then
                     cmd.Parameters.AddWithValue("@PrevLedgerID", DBNull.Value)
                 Else
-                    cmd.Parameters.AddWithValue("@PrevLedgerID", CLng(realPrevLedgerID))
+                    cmd.Parameters.AddWithValue("@PrevLedgerID", CLng(prevLedgerID))
                 End If
+
+                cmd.Parameters.AddWithValue("@CostSourceType", operationTypeID)
+                cmd.Parameters.AddWithValue("@RootTransactionID", transactionID)
                 cmd.Parameters.AddWithValue("@UserID", userID)
                 cmd.Parameters.AddWithValue("@OperationGroupID", operationGroupID)
                 cmd.Parameters.AddWithValue("@LedgerSequence", seq)
-                ' 🔥 لازم نربط IN مع OUT لنفس العملية
-                Dim outLedgerID As Object = DBNull.Value
 
-                Using cmdOut As New SqlCommand("
-SELECT TOP 1 LedgerID
-FROM Inventory_CostLedger
-WHERE OperationGroupID = @G
-AND TransactionID = @T
-AND OutQty > 0
-AND IsActive = 1
-AND IsReversed = 0
-ORDER BY LedgerID ASC
-", con, tran)
-
-                    cmdOut.Parameters.AddWithValue("@G", operationGroupID)
-                    cmdOut.Parameters.AddWithValue("@T", transactionID)
-
-                    Dim v = cmdOut.ExecuteScalar()
-                    If v IsNot Nothing AndAlso Not IsDBNull(v) Then
-                        outLedgerID = CLng(v)
-                    End If
-                End Using
-                If realPrevLedgerID Is DBNull.Value Then
-                    cmd.Parameters.AddWithValue("@SourceLedgerID", DBNull.Value)
+                If isMix Then
+                    cmd.Parameters.AddWithValue("@CostPoolOldQty", DBNull.Value)
+                    cmd.Parameters.AddWithValue("@CostPoolInQty", DBNull.Value)
+                    cmd.Parameters.AddWithValue("@CostPoolOutQty", DBNull.Value)
+                    cmd.Parameters.AddWithValue("@CostPoolNewQty", DBNull.Value)
+                    cmd.Parameters.AddWithValue("@CostPoolOldAvgCost", DBNull.Value)
+                    cmd.Parameters.AddWithValue("@CostPoolNewAvgCost", DBNull.Value)
                 Else
-                    cmd.Parameters.AddWithValue("@SourceLedgerID", CLng(realPrevLedgerID))
+                    cmd.Parameters.AddWithValue("@CostPoolOldQty", poolOldQty)
+                    cmd.Parameters.AddWithValue("@CostPoolInQty", poolInQty)
+                    cmd.Parameters.AddWithValue("@CostPoolOutQty", 0D)
+                    cmd.Parameters.AddWithValue("@CostPoolNewQty", poolNewQty)
+                    cmd.Parameters.AddWithValue("@CostPoolOldAvgCost", poolOldAvg)
+                    cmd.Parameters.AddWithValue("@CostPoolNewAvgCost", poolNewAvg)
                 End If
+
                 cmd.ExecuteNonQuery()
             End Using
+
             seq += 1
         Next
 
@@ -5739,7 +4477,7 @@ ORDER BY LedgerID ASC
 
         Using cmd As New SqlCommand("
 SELECT SourceDocumentID, PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T AND OperationTypeID=11
 ", con, tran)
             cmd.Parameters.AddWithValue("@T", transactionID)
@@ -5756,7 +4494,7 @@ WHERE TransactionID=@T AND OperationTypeID=11
 
         Using cmd As New SqlCommand("
 SELECT TOP 1 d.DetailID, d.SourceStoreID
-FROM Inventory_TransactionDetails d
+FROM inv.TransactionDetails d
 WHERE d.TransactionID=@T
   AND d.TargetStoreID IS NULL
   AND d.SourceDocumentDetailID=@CuttingID
@@ -5778,7 +4516,7 @@ ORDER BY d.DetailID
         Dim rawOutUnitCost As Decimal
         Using cmd As New SqlCommand("
 SELECT TOP 1 LedgerID, ISNULL(OutUnitCost,0) AS OutUnitCost
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@T
   AND SourceDetailID=@D
   AND OutQty > 0
@@ -5804,7 +4542,7 @@ SELECT
     co.TotalVolume_m3,
     co.IsMix,
     ISNULL(co.TargetStoreID, ISNULL(co.SourceStoreID, 0)) AS StoreID
-FROM Production_CuttingOutput co
+FROM prod.CuttingOutput co
 WHERE co.CutID=@CuttingID
 ", con, tran)
             cmd.Parameters.AddWithValue("@CuttingID", cuttingID)
@@ -5816,6 +4554,7 @@ WHERE co.CutID=@CuttingID
         If outputs.Rows.Count = 0 Then
             Throw New Exception("No CuttingOutput rows found for CuttingID=" & cuttingID.ToString())
         End If
+        Dim seq As Integer = 1
 
         ' 4) For each output: find IN detail + IN ledger then link with FlowQty=m3
         For Each o As DataRow In outputs.Rows
@@ -5832,7 +4571,7 @@ WHERE co.CutID=@CuttingID
             Dim inDetailID As Integer
             Using cmd As New SqlCommand("
 SELECT TOP 1 DetailID
-FROM Inventory_TransactionDetails
+FROM inv.TransactionDetails
 WHERE TransactionID=@T
   AND SourceStoreID IS NULL
   AND SourceDocumentDetailID=@CutOutputID
@@ -5854,7 +4593,7 @@ ORDER BY DetailID
             Dim inLedgerID As Long
             Using cmd As New SqlCommand("
 SELECT TOP 1 LedgerID
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@T
   AND SourceDetailID=@D
   AND InQty > 0
@@ -5873,8 +4612,24 @@ ORDER BY LedgerID DESC
             End Using
 
             Dim linkType As Short = If(isMix, LINK_SCRAP, LINK_PROD_OUTPUT)
-            Dim unitCost As Decimal = If(isMix, 0D, rawOutUnitCost)
+            Dim unitCost As Decimal
 
+            If isMix Then
+                unitCost = 0D
+            Else
+                ' 🔥 نجيب InUnitCost من الليدجر الهدف
+                Using cmd As New SqlCommand("
+        SELECT TOP 1 InUnitCost
+        FROM inv.CostLedger
+        WHERE LedgerID = @L
+    ", con, tran)
+
+                    cmd.Parameters.AddWithValue("@L", inLedgerID)
+
+                    Dim v = cmd.ExecuteScalar()
+                    unitCost = If(v Is Nothing OrElse IsDBNull(v), 0D, Convert.ToDecimal(v))
+                End Using
+            End If
             ' IMPORTANT: baseProductID now NULL (to be removed later)
             ' SourceTransactionDetailID = rawDetailID
             ' TargetTransactionDetailID = inDetailID
@@ -5891,11 +4646,12 @@ ORDER BY LedgerID DESC
                 baseProductID:=Nothing,  ' سيُخزن NULL بعد تعديل InsertLedgerLink (baseProductID As Integer?)
                 postingDate:=postingDate,
                 operationGroupID:=operationGroupID,
-                groupSeq:=1,
+                groupSeq:=seq,
                 userID:=userID,
                 con:=con,
                 tran:=tran
             )
+            seq += 1
         Next
 
     End Sub
@@ -5918,8 +4674,8 @@ d.ProductID,
 ISNULL(p.BaseProductID,p.ProductID) AS BaseProductID,
 d.SourceStoreID AS StoreID,
 SUM(d.Quantity) AS Quantity
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
 WHERE d.TransactionID = @TransactionID
 AND d.SourceStoreID IS NOT NULL
 GROUP BY
@@ -5932,7 +4688,7 @@ UPDATE b
 SET
 b.QtyOnHand = b.QtyOnHand - src.Quantity,
 b.LastUpdatedAt = SYSDATETIME()
-FROM Inventory_Balance b
+FROM inv.Balance b
 JOIN src
 ON src.ProductID = b.ProductID
 AND src.BaseProductID = b.BaseProductID
@@ -5948,7 +4704,7 @@ cl.ProductID,
 cl.BaseProductID,
 cl.StoreID,
 MAX(cl.LedgerID) AS LastLedgerID
-FROM Inventory_CostLedger cl
+FROM inv.CostLedger cl
 WHERE cl.TransactionID = @TransactionID
 AND cl.OutQty > 0
 AND cl.IsReversed = 0
@@ -5963,7 +4719,7 @@ SET
 b.LastMovementLedgerID = ll.LastLedgerID,
 b.LastMovementDate = SYSDATETIME(),
 b.LastUpdatedAt = SYSDATETIME()
-FROM Inventory_Balance b
+FROM inv.Balance b
 JOIN LastLedger ll
 ON ll.ProductID = b.ProductID
 AND ll.BaseProductID = b.BaseProductID
@@ -6010,8 +4766,8 @@ AND ll.StoreID = b.StoreID
         ISNULL(p.BaseProductID,p.ProductID) AS BaseProductID,
         d.TargetStoreID AS StoreID,
         SUM(d.Quantity) AS Quantity
-    FROM Inventory_TransactionDetails d
-    JOIN Master_Product p ON p.ProductID = d.ProductID
+    FROM inv.TransactionDetails d
+    JOIN md.Product p ON p.ProductID = d.ProductID
     WHERE d.TransactionID = @TransactionID
       AND d.TargetStoreID IS NOT NULL
     GROUP BY
@@ -6020,7 +4776,7 @@ AND ll.StoreID = b.StoreID
         d.TargetStoreID
 )
 
-MERGE Inventory_Balance AS tgt
+MERGE inv.Balance AS tgt
 USING src
 ON  tgt.ProductID      = src.ProductID
 AND tgt.BaseProductID  = src.BaseProductID
@@ -6078,7 +4834,7 @@ VALUES
         cl.BaseProductID,
         cl.StoreID,
         MAX(cl.LedgerID) AS LastLedgerID
-    FROM Inventory_CostLedger cl
+    FROM inv.CostLedger cl
     WHERE cl.TransactionID = @TransactionID
       AND cl.InQty > 0
       AND cl.IsReversed = 0
@@ -6092,7 +4848,7 @@ SET
     b.LastMovementLedgerID = ll.LastLedgerID,
     b.LastMovementDate = SYSDATETIME(),
     b.LastUpdatedAt = SYSDATETIME()
-FROM Inventory_Balance b
+FROM inv.Balance b
 JOIN LastLedger ll
   ON ll.ProductID = b.ProductID
  AND ll.BaseProductID = b.BaseProductID
@@ -6119,8 +4875,8 @@ JOIN LastLedger ll
 ;WITH CutInfo AS
 (
     SELECT ch.BaseProductID
-    FROM dbo.Inventory_TransactionHeader th
-    JOIN dbo.Production_CuttingHeader ch
+    FROM inv.TransactionHeader th
+    JOIN prod.CuttingHeader ch
         ON ch.CuttingID = th.SourceDocumentID
     WHERE th.TransactionID = @T
       AND th.OperationTypeID = 11
@@ -6130,7 +4886,7 @@ LastCutLedger AS
     SELECT TOP 1
         cl.BaseProductID,
         cl.NewAvgCost
-    FROM dbo.Inventory_CostLedger cl
+    FROM inv.CostLedger cl
     JOIN CutInfo ci
         ON ci.BaseProductID = cl.BaseProductID
     WHERE cl.TransactionID = @T
@@ -6138,7 +4894,7 @@ LastCutLedger AS
       AND cl.InQty > 0
     ORDER BY cl.LedgerID DESC
 )
-MERGE dbo.Master_FinalProductAvgCost AS tgt
+MERGE inv.FinalProductAvgCost AS tgt
 USING LastCutLedger AS src
 ON tgt.BaseProductID = src.BaseProductID
 WHEN MATCHED THEN
@@ -6152,6 +4908,42 @@ WHEN NOT MATCHED THEN
         Using cmd As New SqlCommand(sql, con, tran)
             cmd.Parameters.AddWithValue("@T", transactionID)
             cmd.ExecuteNonQuery()
+        End Using
+        Using cmdMix As New SqlCommand("
+;WITH MixProducts AS
+(
+    SELECT DISTINCT
+        co.ProductID
+    FROM inv.TransactionHeader th
+    INNER JOIN prod.CuttingHeader ch
+        ON ch.CuttingID = th.SourceDocumentID
+    INNER JOIN prod.CuttingOutput co
+        ON co.CutID = ch.CuttingID
+    WHERE th.TransactionID = @T
+      AND th.OperationTypeID = 11
+      AND co.IsMix = 1
+)
+MERGE inv.FinalProductAvgCost AS tgt
+USING
+(
+    SELECT
+        ProductID AS BaseProductID,
+        CAST(0 AS DECIMAL(18,6)) AS AvgCostPerM3
+    FROM MixProducts
+) AS src
+ON tgt.BaseProductID = src.BaseProductID
+WHEN MATCHED THEN
+    UPDATE SET
+        tgt.AvgCostPerM3 = 0,
+        tgt.LastUpdated = SYSDATETIME()
+WHEN NOT MATCHED THEN
+    INSERT (BaseProductID, AvgCostPerM3, AvgCostPerM3forFG, LastUpdated)
+    VALUES (src.BaseProductID, 0, NULL, SYSDATETIME());
+", con, tran)
+
+            cmdMix.Parameters.AddWithValue("@T", transactionID)
+            cmdMix.ExecuteNonQuery()
+
         End Using
     End Sub
 
@@ -6171,20 +4963,20 @@ WHEN NOT MATCHED THEN
 SELECT
     cl.ProductID,
     cl.NewQty
-FROM Inventory_CostLedger cl
+FROM inv.CostLedger cl
 JOIN
 (
     SELECT
         ProductID,
         MAX(LedgerID) AS LastLedgerID
-    FROM Inventory_CostLedger
+    FROM inv.CostLedger
     WHERE IsActive = 1
       AND IsReversed = 0
       AND OperationGroupID <> @OperationGroupID
       AND ProductID IN
       (
         SELECT DISTINCT ProductID
-        FROM Inventory_TransactionDetails
+        FROM inv.TransactionDetails
         WHERE TransactionID = @TransactionID
       )
     GROUP BY ProductID
@@ -6231,10 +5023,10 @@ AND x.LastLedgerID = cl.LedgerID
 p.StorageUnitID AS StorageUnitID,
 bp.StorageUnitID AS BaseUnitID,
     d.TargetStoreID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p 
+FROM inv.TransactionDetails d
+JOIN md.Product p 
     ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp 
+LEFT JOIN md.Product bp 
     ON bp.ProductID = p.BaseProductID
 WHERE d.TransactionID = @TransactionID
 AND d.TargetStoreID IS NOT NULL
@@ -6270,9 +5062,9 @@ SELECT
     SUM(d.Quantity) AS TrxQty,
     SUM(d.CostAmount) AS InTotalCost,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp ON bp.ProductID = p.BaseProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
+LEFT JOIN md.Product bp ON bp.ProductID = p.BaseProductID
 WHERE d.TransactionID = @TransactionID
   AND d.TargetStoreID IS NOT NULL
   AND (
@@ -6303,7 +5095,7 @@ GROUP BY
 
         Using cmdHead As New SqlCommand("
 SELECT OperationTypeID, PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -6357,13 +5149,12 @@ WHERE TransactionID=@TransactionID
             Dim localOldQtyBalance As Decimal = 0D
             Using cmdLocalQty As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@ProductID
   AND BaseProductID=@BaseProductID
   AND StoreID=@StoreID
   AND IsActive=1
   AND IsReversed=0
-  AND SupersededByLedgerID IS NULL
 ORDER BY LedgerID DESC
 ", con, tran)
 
@@ -6380,45 +5171,22 @@ ORDER BY LedgerID DESC
             Dim localOldQty As Decimal = localOldQtyBalance
             Dim localNewQty As Decimal = localOldQty + inQty
 
-            Dim inAvg As Decimal =
-    GetReturnUnitCost(sourceDetailID, prodID, con, tran)
-
-            If inAvg = 0D AndAlso inQty <> 0D Then
-                inAvg = inTotalCost / inQty
-            End If
-
-            inTotalCost = inAvg * inQty
-
-            If oldQtyDict IsNot Nothing AndAlso oldQtyDict.ContainsKey(prodID) Then
-                oldQty = oldQtyDict(prodID)
-            End If
-
-            Dim newQty As Decimal = oldQty + inQty
-            Dim newAvgCost As Decimal
-
-            If newQty = 0D Then
-                newAvgCost = oldAvgCost
-            ElseIf oldQty = 0D Then
-                newAvgCost = inAvg
-            Else
-                newAvgCost = ((oldQty * oldAvgCost) + inTotalCost) / newQty
-            End If
 
             Dim insertedLedgerID As Integer = 0
             Dim saleLedgerID As Object = DBNull.Value
 
             Using cmdSrc As New SqlCommand("
 SELECT TOP 1 cl.LedgerID
-FROM Inventory_TransactionDetails saleTD
-JOIN Inventory_CostLedger cl
+FROM inv.TransactionDetails saleTD
+JOIN inv.CostLedger cl
     ON cl.SourceDetailID = saleTD.DetailID
 
 WHERE saleTD.SourceDocumentDetailID = (
     SELECT SourceLoadingOrderDetailID
-    FROM Inventory_DocumentDetails
+    FROM inv.DocumentDetails
     WHERE DetailID = (
         SELECT ReferenceDetailID
-        FROM Inventory_TransactionDetails
+        FROM inv.TransactionDetails
         WHERE DetailID = @SourceDetailID
     )
 )
@@ -6437,8 +5205,48 @@ WHERE saleTD.SourceDocumentDetailID = (
             If saleLedgerID Is DBNull.Value Then
                 Throw New Exception("Cannot resolve SourceLedgerID for SRT")
             End If
+            Dim inAvg As Decimal = 0D
+
+            Using cmdCost As New SqlCommand("
+SELECT TOP 1 OutUnitCost
+FROM inv.CostLedger
+WHERE LedgerID = @LedgerID
+  AND IsActive = 1
+  AND IsReversed = 0
+", con, tran)
+
+                cmdCost.Parameters.AddWithValue("@LedgerID", CLng(saleLedgerID))
+
+                Dim vCost = cmdCost.ExecuteScalar()
+                If vCost IsNot Nothing AndAlso Not IsDBNull(vCost) Then
+                    inAvg = Convert.ToDecimal(vCost)
+                End If
+            End Using
+
+            If inAvg = 0D AndAlso inQty <> 0D Then
+                Throw New Exception("Original sale cost not found for SRT. LedgerID=" & saleLedgerID.ToString())
+            End If
+
+            inTotalCost = inAvg * inQty
+
+
+            If oldQtyDict IsNot Nothing AndAlso oldQtyDict.ContainsKey(prodID) Then
+                oldQty = oldQtyDict(prodID)
+            End If
+
+            Dim newQty As Decimal = oldQty + inQty
+            Dim newAvgCost As Decimal
+
+            If newQty = 0D Then
+                newAvgCost = oldAvgCost
+            ElseIf oldQty = 0D Then
+                newAvgCost = inAvg
+            Else
+                newAvgCost = ((oldQty * oldAvgCost) + inTotalCost) / newQty
+            End If
+
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -6470,8 +5278,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -6508,8 +5314,6 @@ NEXT VALUE FOR Seq_CostLedgerID,
     SYSDATETIME(),
     @OperationGroupID,
     2,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 );
@@ -6580,10 +5384,10 @@ SELECT
     SUM(d.Quantity) AS InQty,
     SUM(d.Quantity*d.UnitCost) AS InTotalCost,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p 
+FROM inv.TransactionDetails d
+JOIN md.Product p 
     ON p.ProductID=d.ProductID
-LEFT JOIN Master_Product bp
+LEFT JOIN md.Product bp
     ON bp.ProductID = p.BaseProductID
 WHERE d.TransactionID=@TransactionID
 AND d.TargetStoreID IS NOT NULL
@@ -6599,7 +5403,7 @@ GROUP BY
             cmdGet.Parameters.AddWithValue("@M3UnitID", m3UnitID)
 
             Using da As New SqlDataAdapter(cmdGet)
-
+                da.Fill(productRows)
             End Using
         End Using
 
@@ -6607,7 +5411,7 @@ GROUP BY
 
         Using cmdHead As New SqlCommand("
 SELECT OperationTypeID, PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -6667,7 +5471,7 @@ WHERE TransactionID=@TransactionID
 
             Using cmdLocalQty As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@ProductID
 AND BaseProductID=@BaseProductID
 AND StoreID=@StoreID
@@ -6686,37 +5490,22 @@ ORDER BY LedgerID DESC
 
             Dim localNewQty As Decimal = localOldQty + inQty
 
-            Dim inAvg As Decimal =
-    GetReturnUnitCost(sourceDetailID, prodID, con, tran)
-
-            inTotalCost = inAvg * inQty
-
-            Dim newQty As Decimal = oldQty + inQty
-            Dim newAvgCost As Decimal
-
-            If newQty = 0D Then
-                newAvgCost = oldAvgCost
-            ElseIf oldQty = 0D Then
-                newAvgCost = inAvg
-            Else
-                newAvgCost = ((oldQty * oldAvgCost) + inTotalCost) / newQty
-            End If
 
             Dim insertedLedgerID As Integer = 0
             Dim saleLedgerID As Object = DBNull.Value
 
             Using cmdSrc As New SqlCommand("
 SELECT TOP 1 cl.LedgerID
-FROM Inventory_TransactionDetails saleTD
-JOIN Inventory_CostLedger cl
+FROM inv.TransactionDetails saleTD
+JOIN inv.CostLedger cl
     ON cl.SourceDetailID = saleTD.DetailID
 
 WHERE saleTD.SourceDocumentDetailID = (
     SELECT SourceLoadingOrderDetailID
-    FROM Inventory_DocumentDetails
+    FROM inv.DocumentDetails
     WHERE DetailID = (
         SELECT ReferenceDetailID
-        FROM Inventory_TransactionDetails
+        FROM inv.TransactionDetails
         WHERE DetailID = @SourceDetailID
     )
 )
@@ -6735,8 +5524,43 @@ WHERE saleTD.SourceDocumentDetailID = (
             If saleLedgerID Is DBNull.Value Then
                 Throw New Exception("Cannot resolve SourceLedgerID for SRT")
             End If
+            Dim inAvg As Decimal = 0D
+
+            Using cmdCost As New SqlCommand("
+SELECT TOP 1 OutUnitCost
+FROM inv.CostLedger
+WHERE LedgerID = @LedgerID
+  AND IsActive = 1
+  AND IsReversed = 0
+", con, tran)
+
+                cmdCost.Parameters.AddWithValue("@LedgerID", CLng(saleLedgerID))
+
+                Dim vCost = cmdCost.ExecuteScalar()
+                If vCost IsNot Nothing AndAlso Not IsDBNull(vCost) Then
+                    inAvg = Convert.ToDecimal(vCost)
+                End If
+            End Using
+
+            If inAvg = 0D AndAlso inQty <> 0D Then
+                Throw New Exception("Original sale cost not found for SRT. LedgerID=" & saleLedgerID.ToString())
+            End If
+
+            inTotalCost = inAvg * inQty
+
+            Dim newQty As Decimal = oldQty + inQty
+            Dim newAvgCost As Decimal
+
+            If newQty = 0D Then
+                newAvgCost = oldAvgCost
+            ElseIf oldQty = 0D Then
+                newAvgCost = inAvg
+            Else
+                newAvgCost = ((oldQty * oldAvgCost) + inTotalCost) / newQty
+            End If
+
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -6768,8 +5592,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -6806,8 +5628,6 @@ NEXT VALUE FOR Seq_CostLedgerID,
     SYSDATETIME(),
     @OperationGroupID,
     2,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 );
@@ -6882,8 +5702,8 @@ NEXT VALUE FOR Seq_CostLedgerID,
         ISNULL(p.BaseProductID,p.ProductID) AS BaseProductID,
         d.TargetStoreID AS StoreID,
         SUM(d.Quantity) AS Quantity
-    FROM Inventory_TransactionDetails d
-    JOIN Master_Product p ON p.ProductID = d.ProductID
+    FROM inv.TransactionDetails d
+    JOIN md.Product p ON p.ProductID = d.ProductID
     WHERE d.TransactionID = @TransactionID
       AND d.TargetStoreID IS NOT NULL
     GROUP BY
@@ -6892,7 +5712,7 @@ NEXT VALUE FOR Seq_CostLedgerID,
         d.TargetStoreID
 )
 
-MERGE Inventory_Balance AS tgt
+MERGE inv.Balance AS tgt
 USING src
 ON  tgt.ProductID      = src.ProductID
 AND tgt.BaseProductID  = src.BaseProductID
@@ -6950,7 +5770,7 @@ VALUES
         cl.BaseProductID,
         cl.StoreID,
         MAX(cl.LedgerID) AS LastLedgerID
-    FROM Inventory_CostLedger cl
+    FROM inv.CostLedger cl
     WHERE cl.TransactionID = @TransactionID
       AND cl.InQty > 0
       AND cl.IsReversed = 0
@@ -6964,7 +5784,7 @@ SET
     b.LastMovementLedgerID = ll.LastLedgerID,
     b.LastMovementDate = SYSDATETIME(),
     b.LastUpdatedAt = SYSDATETIME()
-FROM Inventory_Balance b
+FROM inv.Balance b
 JOIN LastLedger ll
   ON ll.ProductID = b.ProductID
  AND ll.BaseProductID = b.BaseProductID
@@ -6999,15 +5819,15 @@ JOIN LastLedger ll
         p.ProductID,
         ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
         p.StorageUnitID
-    FROM dbo.Master_Product p
+    FROM md.Product p
     WHERE p.ProductID IN (" & String.Join(",", productIds) & ")
 ),
 L AS
 (
     SELECT
         cl.ProductID,
-        MAX(CASE WHEN cl.InQty > 0 THEN cl.LedgerID END) AS MaxLedgerID
-    FROM dbo.Inventory_CostLedger cl
+        MAX(cl.LedgerID) AS MaxLedgerID
+    FROM inv.CostLedger cl
 WHERE cl.IsReversed = 0
       AND cl.ProductID IN (" & String.Join(",", productIds) & ")
     GROUP BY cl.ProductID
@@ -7017,7 +5837,7 @@ V AS
     SELECT
         cl.ProductID,
         cl.NewAvgCost
-    FROM dbo.Inventory_CostLedger cl
+    FROM inv.CostLedger cl
     JOIN L
       ON L.ProductID = cl.ProductID
      AND L.MaxLedgerID = cl.LedgerID
@@ -7060,7 +5880,7 @@ ORDER BY P.ProductID;
                 ' ========= (A) M3 =========
                 ' Update then Insert (AvgCostPerM3 NOT NULL)
                 Using cmdUp As New SqlCommand("
-UPDATE dbo.Master_FinalProductAvgCost
+UPDATE inv.FinalProductAvgCost
 SET AvgCostPerM3 = @Val,
     LastUpdated = SYSDATETIME()
 WHERE BaseProductID = @BaseProductID;
@@ -7072,7 +5892,7 @@ SELECT @@ROWCOUNT;
                     Dim affected As Integer = CInt(cmdUp.ExecuteScalar())
                     If affected = 0 Then
                         Using cmdIns As New SqlCommand("
-INSERT INTO dbo.Master_FinalProductAvgCost
+INSERT INTO inv.FinalProductAvgCost
 (
     BaseProductID,
     AvgCostPerM3,
@@ -7098,7 +5918,7 @@ VALUES
                 ' ========= (B) Non-M3 + Parent =========
                 ' Update then Insert (AvgCostPerM3 NOT NULL => نعطيه 0 عند Insert)
                 Using cmdUp As New SqlCommand("
-UPDATE dbo.Master_FinalProductAvgCost
+UPDATE inv.FinalProductAvgCost
 SET AvgCostPerM3forFG = @Val,
     LastUpdated = SYSDATETIME()
 WHERE BaseProductID = @BaseProductID;
@@ -7110,7 +5930,7 @@ SELECT @@ROWCOUNT;
                     Dim affected As Integer = CInt(cmdUp.ExecuteScalar())
                     If affected = 0 Then
                         Using cmdIns As New SqlCommand("
-INSERT INTO dbo.Master_FinalProductAvgCost
+INSERT INTO inv.FinalProductAvgCost
 (
     BaseProductID,
     AvgCostPerM3,
@@ -7135,7 +5955,7 @@ VALUES
             Else
                 ' ========= (C) Non-M3 + No Parent =========
                 Using cmdUp As New SqlCommand("
-UPDATE dbo.Master_Product
+UPDATE md.Product
 SET AvgCost = @Val
 WHERE ProductID = @ProductID;
 ", con, tran)
@@ -7164,7 +5984,7 @@ WHERE ProductID = @ProductID;
 
         Using cmd As New SqlCommand("
         SELECT PostingDate
-        FROM dbo.Inventory_TransactionHeader
+        FROM inv.TransactionHeader
         WHERE TransactionID=@T
     ", con, tran)
 
@@ -7187,8 +6007,8 @@ WHERE ProductID = @ProductID;
         ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
         cl.InQty,
         cl.InUnitCost
-    FROM dbo.Inventory_CostLedger cl
-    JOIN dbo.Master_Product p
+    FROM inv.CostLedger cl
+    JOIN md.Product p
         ON p.ProductID = cl.ProductID
     WHERE cl.TransactionID=@T
       AND cl.InQty > 0
@@ -7294,8 +6114,8 @@ WHERE ProductID = @ProductID;
 
         Using cmdDet As New SqlCommand("
         SELECT
-            (SELECT SourceDetailID FROM Inventory_CostLedger WHERE LedgerID=@SrcL) AS SrcDetailID,
-            (SELECT SourceDetailID FROM Inventory_CostLedger WHERE LedgerID=@TgtL) AS TgtDetailID
+            (SELECT SourceDetailID FROM inv.CostLedger WHERE LedgerID=@SrcL) AS SrcDetailID,
+            (SELECT SourceDetailID FROM inv.CostLedger WHERE LedgerID=@TgtL) AS TgtDetailID
     ", con, tran)
 
             ' Source
@@ -7331,7 +6151,7 @@ WHERE ProductID = @ProductID;
         ' 5) Insert
         '========================================
         Dim sql As String = "
-    INSERT INTO dbo.Inventory_CostLedgerLink
+    INSERT INTO inv.CostLedgerLink
     (
         SourceLedgerID,
         TargetLedgerID,
@@ -7448,7 +6268,7 @@ WHERE ProductID = @ProductID;
 
         Using cmd As New SqlCommand("
         SELECT SourceDocumentDetailID
-        FROM Inventory_TransactionDetails
+        FROM inv.TransactionDetails
         WHERE DetailID = @DetailID
     ", con, tran)
 
@@ -7470,7 +6290,7 @@ WHERE ProductID = @ProductID;
 
         Using cmd As New SqlCommand("
         SELECT SourceDocumentDetailID
-        FROM Inventory_DocumentDetails
+        FROM inv.DocumentDetails
         WHERE DetailID = @ReturnDocDetailID
     ", con, tran)
 
@@ -7493,7 +6313,7 @@ WHERE ProductID = @ProductID;
 
         Using cmd As New SqlCommand("
         SELECT DetailID
-        FROM Inventory_TransactionDetails
+        FROM inv.TransactionDetails
         WHERE SourceDocumentDetailID = @DocDetailID
     ", con, tran)
 
@@ -7515,7 +6335,7 @@ WHERE ProductID = @ProductID;
 
         Using cmd As New SqlCommand("
         SELECT TOP 1 LedgerID
-        FROM Inventory_CostLedger
+        FROM inv.CostLedger
         WHERE SourceDetailID = @DetailID
           AND InQty > 0
           AND IsActive = 1
@@ -7551,7 +6371,7 @@ WHERE ProductID = @ProductID;
 
         Using cmdUser As New SqlCommand("
 SELECT CreatedBy
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -7570,7 +6390,7 @@ WHERE TransactionID=@TransactionID
 
         Using cmdHead As New SqlCommand("
 SELECT PostingDate, OperationTypeID
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T
 ", con, tran)
 
@@ -7598,8 +6418,8 @@ SELECT
     d.SourceStoreID AS StoreID,
     SUM(d.Quantity) AS OutQty,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
 WHERE d.TransactionID = @TransactionID
   AND d.SourceStoreID IS NOT NULL
 GROUP BY
@@ -7626,11 +6446,31 @@ HAVING SUM(d.Quantity) <> 0
             Dim sourceDetailID As Integer = CInt(row("SourceDetailID"))
             Dim purchaseLedgerID As Object =
     GetPurchaseLedgerFromReturn(sourceDetailID, con, tran)
+            Dim purchaseUnitCost As Decimal = 0D
 
+            Using cmdCost As New SqlCommand("
+SELECT TOP 1 InUnitCost
+FROM inv.CostLedger
+WHERE LedgerID = @LedgerID
+  AND IsActive = 1
+  AND IsReversed = 0
+", con, tran)
+
+                cmdCost.Parameters.AddWithValue("@LedgerID", CLng(purchaseLedgerID))
+
+                Dim vCost = cmdCost.ExecuteScalar()
+                If vCost IsNot Nothing AndAlso Not IsDBNull(vCost) Then
+                    purchaseUnitCost = Convert.ToDecimal(vCost)
+                End If
+            End Using
+
+            If purchaseUnitCost = 0D AndAlso outQty <> 0D Then
+                Throw New Exception("Original purchase cost not found for PRT. LedgerID=" & purchaseLedgerID.ToString())
+            End If
             ' منع التكرار لنفس العملية
             Using cmdExists As New SqlCommand("
 SELECT TOP 1 1
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@T
   AND ProductID=@P
   AND BaseProductID=@B
@@ -7672,7 +6512,7 @@ WHERE TransactionID=@T
             Dim localOldQtyBalance As Decimal = 0D
             Using cmdBalStore As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P
 
 AND StoreID=@S
@@ -7703,7 +6543,7 @@ ORDER BY LedgerID DESC
             Dim oldQtyGlobalBalance As Decimal = 0D
             Using cmdBalGlobal As New SqlCommand("
 SELECT TOP 1 NewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@P
 AND BaseProductID=@B
 AND IsActive=1
@@ -7723,7 +6563,7 @@ ORDER BY LedgerID DESC
             Dim oldQtyGlobal As Decimal = oldQtyGlobalBalance
 
             Dim sqlInsert As String = "
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -7757,8 +6597,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -7782,9 +6620,13 @@ VALUES
     @OldAvgCost,
     0,
     0,
-    @OldAvgCost,
-    @OutQty * @OldAvgCost,
-    @OldAvgCost,
+    @OutUnitCost,
+    @OutQty * @OutUnitCost,
+    CASE 
+        WHEN (@OldQtyGlobal - @OutQty) <> 0 
+        THEN ((@OldQtyGlobal * @OldAvgCost) - (@OutQty * @OutUnitCost)) / (@OldQtyGlobal - @OutQty)
+        ELSE @OldAvgCost
+    END,
     @PostingDate,
     0,
     0,
@@ -7796,8 +6638,6 @@ VALUES
     SYSDATETIME(),
     @OperationGroupID,
     1,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 )
@@ -7818,6 +6658,7 @@ VALUES
                 ' ✅ Global
                 cmd.Parameters.AddWithValue("@OldQtyGlobal", oldQtyGlobal)
                 cmd.Parameters.AddWithValue("@OutQty", outQty)
+                cmd.Parameters.AddWithValue("@OutUnitCost", purchaseUnitCost)
                 cmd.Parameters.AddWithValue("@OldAvgCost", oldAvgCost)
                 cmd.Parameters.AddWithValue("@PostingDate", postDate)
 
@@ -7853,7 +6694,7 @@ VALUES
 
         Using cmd As New SqlCommand("
 SELECT PostingDate
-FROM dbo.Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@T
 ", con, tran)
 
@@ -7877,8 +6718,8 @@ SELECT
     cl.OutQty,
     cl.OutUnitCost,
     cl.OutTotalCost
-FROM dbo.Inventory_CostLedger cl
-JOIN dbo.Master_Product p
+FROM inv.CostLedger cl
+JOIN md.Product p
     ON p.ProductID = cl.ProductID
 WHERE cl.TransactionID=@T
   AND cl.OutQty > 0
@@ -7942,7 +6783,7 @@ SELECT
     SourceLedgerID,
     OutQty,
     OutUnitCost
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE LedgerID = @L
 ", con, tran)
 
@@ -7955,7 +6796,7 @@ WHERE LedgerID = @L
 SELECT 
     LedgerID,
     NewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE LedgerID = @S
 ", con, tran)
 
@@ -7974,7 +6815,7 @@ WHERE LedgerID = @S
             Debug.Print("========================")
             Using cmdSum As New SqlCommand("
 SELECT ISNULL(SUM(FlowQty),0)
-FROM Inventory_CostLedgerLink
+FROM inv.CostLedgerLink
 WHERE SourceLedgerID=@S
 ", con, tran)
 
@@ -8009,6 +6850,38 @@ WHERE SourceLedgerID=@S
         Next
 
     End Sub
+    Public Function GetProductsBySourceStore(
+    transactionID As Integer,
+    con As SqlConnection,
+    tran As SqlTransaction
+) As DataTable
+
+        Dim dt As New DataTable()
+        Dim sql As String = "
+   SELECT 
+    d.ProductID,
+    p.ProductName,
+p.StorageUnitID AS StorageUnitID,
+bp.StorageUnitID AS BaseUnitID,
+    d.SourceStoreID
+FROM inv.TransactionDetails d
+JOIN md.Product p 
+    ON p.ProductID = d.ProductID
+LEFT JOIN md.Product bp 
+    ON bp.ProductID = p.BaseProductID
+WHERE d.TransactionID = @TransactionID
+AND d.SourceStoreID IS NOT NULL
+    "
+
+        Using cmd As New SqlCommand(sql, con, tran)
+            cmd.Parameters.AddWithValue("@TransactionID", transactionID)
+            Using da As New SqlDataAdapter(cmd)
+                da.Fill(dt)
+            End Using
+        End Using
+
+        Return dt
+    End Function
 
 
 
@@ -8065,7 +6938,7 @@ WHERE SourceLedgerID=@S
         ' 5) Insert
         '========================================
         Dim sql As String = "
-    INSERT INTO dbo.Inventory_CostLedgerLink
+    INSERT INTO inv.CostLedgerLink
     (
         SourceLedgerID,
         TargetLedgerID,
@@ -8183,7 +7056,7 @@ WHERE SourceLedgerID=@S
 
         Using cmd As New SqlCommand("
         SELECT PostingDate
-        FROM dbo.Inventory_TransactionHeader
+        FROM inv.TransactionHeader
         WHERE TransactionID=@T
     ", con, tran)
 
@@ -8206,8 +7079,8 @@ WHERE SourceLedgerID=@S
         ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
         cl.InQty,
         cl.InUnitCost
-    FROM dbo.Inventory_CostLedger cl
-    JOIN dbo.Master_Product p
+    FROM inv.CostLedger cl
+    JOIN md.Product p
         ON p.ProductID = cl.ProductID
     WHERE cl.TransactionID=@T
       AND cl.InQty > 0
@@ -8289,15 +7162,15 @@ SELECT
     SUM(d.Quantity) AS InQty,
     SUM(d.Quantity*d.UnitCost) AS InTotalCost,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID=d.ProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID=d.ProductID
 WHERE d.TransactionID=@TransactionID
   AND d.TargetStoreID IS NOT NULL
 AND NOT EXISTS
 (
     SELECT 1
-    FROM Master_Product p2
-    LEFT JOIN Master_Product bp ON bp.ProductID = p2.BaseProductID
+    FROM md.Product p2
+    LEFT JOIN md.Product bp ON bp.ProductID = p2.BaseProductID
     WHERE p2.ProductID = d.ProductID
       AND (
             p2.StorageUnitID = @M3UnitID
@@ -8326,7 +7199,7 @@ GROUP BY
 
         Using cmdHead As New SqlCommand("
 SELECT OperationTypeID, PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -8386,7 +7259,7 @@ WHERE TransactionID=@TransactionID
 
             Using cmdLocalQty As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@ProductID
 AND BaseProductID=@BaseProductID
 AND StoreID=@StoreID
@@ -8424,7 +7297,7 @@ ORDER BY LedgerID DESC
             Dim insertedLedgerID As Integer = 0
 
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -8455,8 +7328,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -8492,8 +7363,6 @@ NEXT VALUE FOR Seq_CostLedgerID,
     SYSDATETIME(),
     @OperationGroupID,
     2,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 );
@@ -8569,9 +7438,9 @@ SELECT
     SUM(d.Quantity) AS TrxQty,
     SUM(d.CostAmount) AS InTotalCost,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp ON bp.ProductID = p.BaseProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
+LEFT JOIN md.Product bp ON bp.ProductID = p.BaseProductID
 WHERE d.TransactionID = @TransactionID
   AND d.TargetStoreID IS NOT NULL
   AND (
@@ -8605,7 +7474,7 @@ GROUP BY
 
         Using cmdHead As New SqlCommand("
 SELECT OperationTypeID, PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -8664,7 +7533,7 @@ WHERE TransactionID=@TransactionID
             Dim localOldQtyBalance As Decimal = 0D
             Using cmdLocalQty As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@ProductID
 AND StoreID=@StoreID
 AND IsActive=1
@@ -8706,7 +7575,7 @@ ORDER BY LedgerID DESC
             Dim insertedLedgerID As Integer = 0
 
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -8737,8 +7606,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -8774,8 +7641,6 @@ NEXT VALUE FOR Seq_CostLedgerID,
     SYSDATETIME(),
     @OperationGroupID,
     2,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 );
@@ -8849,9 +7714,9 @@ SELECT
     SUM(d.Quantity) AS TrxQty,
     SUM(d.CostAmount) AS InTotalCost,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp ON bp.ProductID = p.BaseProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
+LEFT JOIN md.Product bp ON bp.ProductID = p.BaseProductID
 WHERE d.TransactionID = @TransactionID
   AND d.TargetStoreID IS NOT NULL
   AND (
@@ -8885,7 +7750,7 @@ GROUP BY
 
         Using cmdHead As New SqlCommand("
 SELECT OperationTypeID, PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -8944,7 +7809,7 @@ WHERE TransactionID=@TransactionID
             Dim localOldQtyBalance As Decimal = 0D
             Using cmdLocalQty As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@ProductID
 AND StoreID=@StoreID
 AND IsActive=1
@@ -8986,7 +7851,7 @@ ORDER BY LedgerID DESC
             Dim insertedLedgerID As Integer = 0
 
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -9017,8 +7882,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -9054,8 +7917,6 @@ NEXT VALUE FOR Seq_CostLedgerID,
     SYSDATETIME(),
     @OperationGroupID,
     2,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 );
@@ -9127,15 +7988,15 @@ SELECT
     SUM(d.Quantity) AS InQty,
     SUM(d.Quantity*d.UnitCost) AS InTotalCost,
     MIN(d.DetailID) AS SourceDetailID
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID=d.ProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID=d.ProductID
 WHERE d.TransactionID=@TransactionID
   AND d.TargetStoreID IS NOT NULL
 AND NOT EXISTS
 (
     SELECT 1
-    FROM Master_Product p2
-    LEFT JOIN Master_Product bp ON bp.ProductID = p2.BaseProductID
+    FROM md.Product p2
+    LEFT JOIN md.Product bp ON bp.ProductID = p2.BaseProductID
     WHERE p2.ProductID = d.ProductID
       AND (
             p2.StorageUnitID = @M3UnitID
@@ -9167,7 +8028,7 @@ GROUP BY
 
         Using cmdHead As New SqlCommand("
 SELECT OperationTypeID, PostingDate
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID=@TransactionID
 ", con, tran)
 
@@ -9227,7 +8088,7 @@ WHERE TransactionID=@TransactionID
 
             Using cmdLocalQty As New SqlCommand("
 SELECT TOP 1 LocalNewQty
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE ProductID=@ProductID
 AND BaseProductID=@BaseProductID
 AND StoreID=@StoreID
@@ -9265,7 +8126,7 @@ ORDER BY LedgerID DESC
             Dim insertedLedgerID As Integer = 0
 
             Using cmd As New SqlCommand("
-INSERT INTO Inventory_CostLedger
+INSERT INTO inv.CostLedger
 (
     LedgerID,
     TransactionID,
@@ -9296,8 +8157,6 @@ INSERT INTO Inventory_CostLedger
     CreatedAt,
     OperationGroupID,
     GroupSeq,
-    ScopeKeyType,
-    ScopeKeyID,
     LedgerSequence,
     IsActive
 )
@@ -9333,8 +8192,6 @@ NEXT VALUE FOR Seq_CostLedgerID,
     SYSDATETIME(),
     @OperationGroupID,
     2,
-    'PRODUCT',
-    @ProductID,
     @LedgerSequence,
     1
 );
@@ -9388,6 +8245,995 @@ NEXT VALUE FOR Seq_CostLedgerID,
         Return firstLedgerID
 
     End Function
+    Public Sub InsertCostLedger_OUT(
+    transactionID As Integer,
+    operationGroupID As Guid,
+     ledgerSequence As Integer,
+        oldQtyDict As Dictionary(Of Integer, Decimal),
+    con As SqlConnection,
+    tran As SqlTransaction
+)
+
+        Dim userID As Integer
+
+        Using cmdUser As New SqlCommand("
+SELECT CreatedBy
+FROM inv.TransactionHeader
+WHERE TransactionID=@TransactionID
+", con, tran)
+
+            cmdUser.Parameters.AddWithValue("@TransactionID", transactionID)
+
+            Dim v = cmdUser.ExecuteScalar()
+            If v Is Nothing OrElse IsDBNull(v) Then
+                Throw New Exception("TransactionHeader not found")
+            End If
+
+            userID = Convert.ToInt32(v)
+        End Using
+
+        Dim postDate As DateTime
+        Dim operationTypeID As Integer
+
+        Using cmdHead As New SqlCommand("
+SELECT PostingDate, OperationTypeID
+FROM inv.TransactionHeader
+WHERE TransactionID=@T
+", con, tran)
+
+            cmdHead.Parameters.AddWithValue("@T", transactionID)
+
+            Dim dtHead As New DataTable()
+            Using da As New SqlDataAdapter(cmdHead)
+                da.Fill(dtHead)
+            End Using
+
+            If dtHead.Rows.Count = 0 Then
+                Throw New Exception("TransactionHeader not found")
+            End If
+
+            postDate = Convert.ToDateTime(dtHead.Rows(0)("PostingDate"))
+            operationTypeID = Convert.ToInt32(dtHead.Rows(0)("OperationTypeID"))
+        End Using
+
+        Dim outRows As New DataTable()
+
+        Dim getOutRowsSql As String = "
+SELECT
+    d.ProductID,
+    ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
+    d.SourceStoreID AS StoreID,
+    SUM(d.Quantity) AS OutQty,
+    MIN(d.DetailID) AS SourceDetailID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
+WHERE d.TransactionID = @TransactionID
+  AND d.SourceStoreID IS NOT NULL
+GROUP BY
+    d.ProductID,
+    ISNULL(p.BaseProductID, p.ProductID),
+    d.SourceStoreID
+HAVING SUM(d.Quantity) <> 0
+"
+
+        Using cmdGet As New SqlCommand(getOutRowsSql, con, tran)
+            cmdGet.Parameters.AddWithValue("@TransactionID", transactionID)
+            Using da As New SqlDataAdapter(cmdGet)
+                da.Fill(outRows)
+            End Using
+        End Using
+        Dim seq As Integer = ledgerSequence
+        For Each row As DataRow In outRows.Rows
+
+            Dim prodID As Integer = CInt(row("ProductID"))
+            Dim baseProdID As Integer = CInt(row("BaseProductID"))
+            Dim storeID As Integer = CInt(row("StoreID"))
+            Dim trxQty As Decimal = CDec(row("OutQty"))
+            Dim outQty As Decimal = ConvertQtyToLedgerUnit(prodID, trxQty, con, tran)
+            Dim sourceDetailID As Integer = CInt(row("SourceDetailID"))
+
+            ' منع التكرار لنفس العملية
+            Using cmdExists As New SqlCommand("
+SELECT TOP 1 1
+FROM inv.CostLedger
+WHERE TransactionID=@T
+  AND ProductID=@P
+  AND BaseProductID=@B
+  AND StoreID=@S
+  AND OutQty > 0
+  AND IsActive=1
+  AND IsReversed=0
+", con, tran)
+
+                cmdExists.Parameters.AddWithValue("@T", transactionID)
+                cmdExists.Parameters.AddWithValue("@P", prodID)
+                cmdExists.Parameters.AddWithValue("@B", baseProdID)
+                cmdExists.Parameters.AddWithValue("@S", storeID)
+
+                Dim exv = cmdExists.ExecuteScalar()
+                If exv IsNot Nothing Then
+                    Continue For
+                End If
+            End Using
+
+
+            Dim prevLedgerID As Object
+            Dim oldAvgCost As Decimal
+
+            GetCostChainContext(
+            prodID,
+            baseProdID,
+            operationGroupID,
+             transactionID,
+            con,
+            tran,
+            prevLedgerID,
+            oldAvgCost
+        )
+
+            ' ==============================
+            ' 1) OLD QTY (STORE) للفحص + لتعبئة LocalOldQty/LocalNewQty
+            ' ==============================
+            Dim localOldQtyBalance As Decimal = 0D
+            Using cmdBalStore As New SqlCommand("
+SELECT TOP 1 LocalNewQty
+FROM inv.CostLedger
+WHERE ProductID=@P
+AND StoreID=@S
+AND IsActive=1
+AND IsReversed=0
+ORDER BY LedgerID DESC
+", con, tran)
+
+                cmdBalStore.Parameters.AddWithValue("@P", prodID)
+
+                cmdBalStore.Parameters.AddWithValue("@S", storeID)
+
+                Dim v = cmdBalStore.ExecuteScalar()
+                localOldQtyBalance = If(v Is Nothing OrElse IsDBNull(v), 0D, Convert.ToDecimal(v))
+            End Using
+
+            Dim localOldQty As Decimal = ConvertBalanceQtyToLedgerUnit(prodID, localOldQtyBalance, con, tran)
+
+            If localOldQty < outQty Then
+                Throw New Exception("Stock would become negative Product=" & prodID.ToString() & " Store=" & storeID.ToString())
+            End If
+
+            Dim localNewQty As Decimal = localOldQty - outQty
+
+            ' ==========================================
+            ' 2) OLD QTY (GLOBAL) لحساب المتوسط عالمي
+            ' ==========================================
+            Dim oldQtyGlobalBalance As Decimal = 0D
+            Using cmdBalGlobal As New SqlCommand("
+SELECT TOP 1 NewQty
+FROM inv.CostLedger
+WHERE ProductID=@P
+AND BaseProductID=@B
+AND IsActive=1
+AND IsReversed=0
+ORDER BY LedgerID DESC
+", con, tran)
+
+                cmdBalGlobal.Parameters.AddWithValue("@P", prodID)
+                cmdBalGlobal.Parameters.AddWithValue("@B", baseProdID)
+
+                Dim v = cmdBalGlobal.ExecuteScalar()
+
+                oldQtyGlobalBalance = If(v Is Nothing OrElse IsDBNull(v), 0D, Convert.ToDecimal(v))
+
+            End Using
+
+            Dim oldQtyGlobal As Decimal =
+    ConvertBalanceQtyToLedgerUnit(prodID, oldQtyGlobalBalance, con, tran)
+
+
+            Dim sqlInsert As String = "
+INSERT INTO inv.CostLedger
+(
+    LedgerID,
+    TransactionID,
+    SourceDetailID,
+    ProductID,
+    BaseProductID,
+    StoreID,
+    OperationTypeID,
+
+    LocalOldQty,
+    LocalNewQty,
+
+    OldQty,
+    InQty,
+    OutQty,
+    NewQty,
+    OldAvgCost,
+    InUnitCost,
+    InTotalCost,
+    OutUnitCost,
+    OutTotalCost,
+    NewAvgCost,
+    PostingDate,
+    IsReversed,
+    IsRevaluation,
+    PrevLedgerID,
+    CostSourceType,
+    RootTransactionID,
+    CreatedBy,
+    CreatedAt,
+    OperationGroupID,
+    GroupSeq,
+    LedgerSequence,
+    IsActive
+)
+VALUES
+(
+    NEXT VALUE FOR Seq_CostLedgerID,
+    @TransactionID,
+    @SourceDetailID,
+    @ProductID,
+    @BaseProductID,
+    @StoreID,
+    @OperationTypeID,
+
+    @LocalOldQty,
+    @LocalNewQty,
+
+    @OldQtyGlobal,
+    0,
+    @OutQty,
+    @OldQtyGlobal - @OutQty,
+    @OldAvgCost,
+    0,
+    0,
+    @OldAvgCost,
+    @OutQty * @OldAvgCost,
+    @OldAvgCost,
+    @PostingDate,
+    0,
+    0,
+    @PrevLedgerID,
+    @OperationTypeID,
+    @TransactionID,
+    @UserID,
+    SYSDATETIME(),
+    @OperationGroupID,
+    1,
+    @LedgerSequence,
+    1
+)
+"
+
+            Using cmd As New SqlCommand(sqlInsert, con, tran)
+
+                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
+                cmd.Parameters.AddWithValue("@SourceDetailID", sourceDetailID)
+                cmd.Parameters.AddWithValue("@ProductID", prodID)
+                cmd.Parameters.AddWithValue("@BaseProductID", baseProdID)
+                cmd.Parameters.AddWithValue("@StoreID", storeID)
+                cmd.Parameters.AddWithValue("@OperationTypeID", operationTypeID)
+
+                ' ✅ الأعمدة الجديدة (Local)
+                cmd.Parameters.AddWithValue("@LocalOldQty", localOldQty)
+                cmd.Parameters.AddWithValue("@LocalNewQty", localNewQty)
+
+                ' ✅ Global
+                cmd.Parameters.AddWithValue("@OldQtyGlobal", oldQtyGlobal)
+                cmd.Parameters.AddWithValue("@OutQty", outQty)
+                cmd.Parameters.AddWithValue("@OldAvgCost", oldAvgCost)
+                cmd.Parameters.AddWithValue("@PostingDate", postDate)
+
+                ' 🚨 OUT لازم يكون له PrevLedgerID دائماً
+                If prevLedgerID Is DBNull.Value Then
+                    Throw New Exception("OUT operation بدون PrevLedgerID - هذا خطأ في السلسلة")
+                End If
+                cmd.Parameters.AddWithValue("@SourceLedgerID", CLng(prevLedgerID))
+                cmd.Parameters.AddWithValue("@PrevLedgerID", CLng(prevLedgerID))
+
+                cmd.Parameters.AddWithValue("@UserID", userID)
+                cmd.Parameters.AddWithValue("@OperationGroupID", operationGroupID)
+                cmd.Parameters.AddWithValue("@LedgerSequence", seq)
+                cmd.ExecuteNonQuery()
+            End Using
+            seq += 1
+        Next
+
+    End Sub
+    Public Sub InsertProductionLedgerLinks(
+    transactionID As Integer,
+    operationGroupID As Guid,
+    userID As Integer,
+    con As SqlConnection,
+    tran As SqlTransaction)
+
+        Dim dt As New DataTable()
+
+        Dim sql As String = "
+SELECT
+    LedgerID,
+    ProductID,
+    BaseProductID,
+    StoreID,
+    OutQty,
+    InQty,
+    OutUnitCost,
+    PostingDate,
+    GroupSeq
+FROM inv.CostLedger
+WHERE TransactionID = @TransactionID
+  AND IsActive = 1
+  AND IsReversed = 0
+"
+
+        Using cmd As New SqlCommand(sql, con, tran)
+            cmd.Parameters.Add("@TransactionID", SqlDbType.Int).Value = transactionID
+            Using da As New SqlDataAdapter(cmd)
+                da.Fill(dt)
+            End Using
+        End Using
+
+        Dim rawRows = dt.Select("OutQty > 0")
+        Dim fgRows = dt.Select("InQty > 0")
+
+        If rawRows.Length = 0 Then Exit Sub
+        If fgRows.Length = 0 Then Exit Sub
+
+        If fgRows.Length <> 1 Then
+            Throw New Exception("PRO expects exactly 1 FG IN ledger, found " &
+                            fgRows.Length & " for TransactionID=" & transactionID.ToString())
+        End If
+
+        Dim fg As DataRow = fgRows(0)
+        Dim targetLedgerID As Long = CLng(fg("LedgerID"))
+        Dim targetStore As Integer = CInt(fg("StoreID"))
+
+        ' ✅ Policy: Link.ProductID = Target product (FG)
+        Dim targetProductID As Integer = CInt(fg("ProductID"))
+
+        For Each raw As DataRow In rawRows
+
+            Dim sourceLedgerID As Long = CLng(raw("LedgerID"))
+            Dim sourceStore As Integer = CInt(raw("StoreID"))
+
+            Dim qty As Decimal = CDec(raw("OutQty"))
+            Dim unitCost As Decimal = CDec(raw("OutUnitCost"))
+            Dim postingDate As DateTime = CDate(raw("PostingDate"))
+            Dim groupSeq As Integer = CInt(raw("GroupSeq"))
+
+
+            InsertLedgerLink(
+            sourceLedgerID:=sourceLedgerID,
+            targetLedgerID:=targetLedgerID,
+            linkType:=CShort(2),   ' PROD_CONSUME
+            qty:=qty,
+            unitCost:=unitCost,
+            transactionID:=transactionID,
+            storeSource:=sourceStore,
+            storeTarget:=targetStore,
+            productID:=targetProductID,   ' ✅ FG product
+            baseProductID:=Nothing,       ' keep NULL policy (or pass CInt(raw("BaseProductID")) if you still want it)
+            postingDate:=postingDate,
+            operationGroupID:=operationGroupID,
+            groupSeq:=groupSeq,
+            userID:=userID,
+            con:=con,
+            tran:=tran
+        )
+
+        Next
+
+    End Sub
+    Public Sub ApplyInventoryOut(
+    transactionID As Integer,
+    con As SqlConnection,
+    tran As SqlTransaction
+)
+
+        '=====================================================
+        ' خصم الكميات من المستودع المصدر فقط
+        '=====================================================
+
+        Dim sqlUpdateQty As String = "
+
+;WITH src AS
+(
+SELECT
+d.ProductID,
+ISNULL(p.BaseProductID,p.ProductID) AS BaseProductID,
+d.SourceStoreID AS StoreID,
+SUM(d.Quantity) AS Quantity
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
+WHERE d.TransactionID = @TransactionID
+AND d.SourceStoreID IS NOT NULL
+GROUP BY
+d.ProductID,
+ISNULL(p.BaseProductID,p.ProductID),
+d.SourceStoreID
+)
+
+UPDATE b
+SET
+b.QtyOnHand = b.QtyOnHand - src.Quantity,
+b.LastUpdatedAt = SYSDATETIME()
+FROM inv.Balance b
+JOIN src
+ON src.ProductID = b.ProductID
+AND src.BaseProductID = b.BaseProductID
+AND src.StoreID = b.StoreID
+"
+
+        Dim sqlUpdateMovement As String = "
+
+;WITH LastLedger AS
+(
+SELECT
+cl.ProductID,
+cl.BaseProductID,
+cl.StoreID,
+MAX(cl.LedgerID) AS LastLedgerID
+FROM inv.CostLedger cl
+WHERE cl.TransactionID = @TransactionID
+AND cl.OutQty > 0
+AND cl.IsReversed = 0
+GROUP BY
+cl.ProductID,
+cl.BaseProductID,
+cl.StoreID
+)
+
+UPDATE b
+SET
+b.LastMovementLedgerID = ll.LastLedgerID,
+b.LastMovementDate = SYSDATETIME(),
+b.LastUpdatedAt = SYSDATETIME()
+FROM inv.Balance b
+JOIN LastLedger ll
+ON ll.ProductID = b.ProductID
+AND ll.BaseProductID = b.BaseProductID
+AND ll.StoreID = b.StoreID
+"
+
+        Try
+
+            Using cmd As New SqlCommand(sqlUpdateQty, con, tran)
+                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
+                cmd.ExecuteNonQuery()
+            End Using
+
+            Using cmd As New SqlCommand(sqlUpdateMovement, con, tran)
+                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
+                cmd.ExecuteNonQuery()
+            End Using
+
+        Catch ex As Exception
+
+            MessageBox.Show("🔴 [ApplyInventoryOut] فشل التنفيذ:" & vbCrLf & ex.Message & vbCrLf & ex.StackTrace)
+            Throw
+
+        End Try
+
+    End Sub
+    Public Sub ApplyInventoryIn(
+    transactionID As Integer,
+    m3UnitID As Integer,
+    ledgerID As Integer,
+    con As SqlConnection,
+    tran As SqlTransaction
+)
+        ' =====================================================
+        ' تحديث رصيد المخزن الهدف فقط
+        ' =====================================================
+
+        Dim sqlMerge As String = "
+
+;WITH src AS
+(
+    SELECT
+        d.ProductID,
+        ISNULL(p.BaseProductID,p.ProductID) AS BaseProductID,
+        d.TargetStoreID AS StoreID,
+        SUM(d.Quantity) AS Quantity
+    FROM inv.TransactionDetails d
+    JOIN md.Product p ON p.ProductID = d.ProductID
+    WHERE d.TransactionID = @TransactionID
+      AND d.TargetStoreID IS NOT NULL
+    GROUP BY
+        d.ProductID,
+        ISNULL(p.BaseProductID,p.ProductID),
+        d.TargetStoreID
+)
+
+MERGE inv.Balance AS tgt
+USING src
+ON  tgt.ProductID      = src.ProductID
+AND tgt.BaseProductID  = src.BaseProductID
+AND tgt.StoreID        = src.StoreID
+
+WHEN MATCHED THEN
+UPDATE SET
+    tgt.QtyOnHand     = tgt.QtyOnHand + src.Quantity,
+    tgt.LastUpdatedAt = SYSDATETIME()
+
+WHEN NOT MATCHED THEN
+INSERT
+(
+    ProductID,
+    BaseProductID,
+    StoreID,
+    QtyOnHand,
+    CreatedAt,
+    LastUpdatedAt
+)
+VALUES
+(
+    src.ProductID,
+    src.BaseProductID,
+    src.StoreID,
+    src.Quantity,
+    SYSDATETIME(),
+    SYSDATETIME()
+);
+"
+
+        Try
+
+            Using cmd As New SqlCommand(sqlMerge, con, tran)
+                cmd.Parameters.AddWithValue("@TransactionID", transactionID)
+                cmd.ExecuteNonQuery()
+            End Using
+
+
+            ' =====================================================
+            ' تحديث معلومات آخر حركة لكل صنف ومستودع (IN)
+            ' ملاحظة: نربط بالحركة عن طريق SourceDetailID (DetailID) لتفادي تعميم أول LedgerID على الجميع
+            ' =====================================================
+
+            ' =====================================================
+            ' تحديث معلومات آخر حركة لكل صنف ومستودع (IN) - مثل أسلوب OUT
+            ' =====================================================
+
+            Dim sqlUpdateMovement As String = "
+
+;WITH LastLedger AS
+(
+    SELECT
+        cl.ProductID,
+        cl.BaseProductID,
+        cl.StoreID,
+        MAX(cl.LedgerID) AS LastLedgerID
+    FROM inv.CostLedger cl
+    WHERE cl.TransactionID = @TransactionID
+      AND cl.InQty > 0
+      AND cl.IsReversed = 0
+    GROUP BY
+        cl.ProductID,
+        cl.BaseProductID,
+        cl.StoreID
+)
+UPDATE b
+SET
+    b.LastMovementLedgerID = ll.LastLedgerID,
+    b.LastMovementDate = SYSDATETIME(),
+    b.LastUpdatedAt = SYSDATETIME()
+FROM inv.Balance b
+JOIN LastLedger ll
+  ON ll.ProductID = b.ProductID
+ AND ll.BaseProductID = b.BaseProductID
+ AND ll.StoreID = b.StoreID;
+"
+            Using cmdFix As New SqlCommand(sqlUpdateMovement, con, tran)
+                cmdFix.Parameters.AddWithValue("@TransactionID", transactionID)
+                cmdFix.ExecuteNonQuery()
+            End Using
+
+
+        Catch ex As Exception
+            MessageBox.Show("🔴 [ApplyInventoryIn] فشل التنفيذ:" & vbCrLf & ex.Message & vbCrLf & ex.StackTrace)
+            Throw
+        End Try
+
+    End Sub
+    Public Sub RecalculateAverage_PUR_PRO_BySnapshot(
+    transactionID As Integer,
+    m3UnitID As Integer,
+    productIds As List(Of Integer),
+    con As SqlConnection,
+    tran As SqlTransaction
+)
+
+        If productIds Is Nothing OrElse productIds.Count = 0 Then Return
+
+        Dim sql As String = "
+;WITH P AS
+(
+    SELECT
+        p.ProductID,
+        ISNULL(p.BaseProductID, p.ProductID) AS BaseProductID,
+        p.StorageUnitID
+    FROM md.Product p
+    WHERE p.ProductID IN (" & String.Join(",", productIds) & ")
+),
+L AS
+(
+    SELECT
+        cl.ProductID,
+        MAX(cl.LedgerID) AS MaxLedgerID
+    FROM inv.CostLedger cl
+WHERE cl.IsReversed = 0
+      AND cl.ProductID IN (" & String.Join(",", productIds) & ")
+    GROUP BY cl.ProductID
+),
+V AS
+(
+    SELECT
+        cl.ProductID,
+        cl.NewAvgCost
+    FROM inv.CostLedger cl
+    JOIN L
+      ON L.ProductID = cl.ProductID
+     AND L.MaxLedgerID = cl.LedgerID
+)
+SELECT
+    P.ProductID,
+    P.BaseProductID,
+    P.StorageUnitID,
+    ISNULL(V.NewAvgCost, 0) AS NewAvgCost
+FROM P
+LEFT JOIN V ON V.ProductID = P.ProductID
+ORDER BY P.ProductID;
+"
+
+        Dim dt As New DataTable()
+        Using cmd As New SqlCommand(sql, con, tran)
+            cmd.Parameters.AddWithValue("@TransactionID", transactionID)
+            Using da As New SqlDataAdapter(cmd)
+                da.Fill(dt)
+            End Using
+        End Using
+
+        If dt.Rows.Count = 0 Then Return
+        ' 2) نفّذ "نقل القيمة" حسب السياسة
+        For Each row As DataRow In dt.Rows
+
+            Dim productId As Integer = CInt(row("ProductID"))
+            Dim baseProductId As Integer = CInt(row("BaseProductID"))
+            Dim storageUnitId As Integer = 0
+
+            If dt.Columns.Contains("StorageUnitID") Then
+                storageUnitId = Convert.ToInt32(row("StorageUnitID"))
+            End If
+            Dim newAvgCost As Decimal = CDec(row("NewAvgCost"))
+
+            Dim isM3 As Boolean = (storageUnitId = m3UnitID)
+            Dim hasParent As Boolean = (baseProductId <> productId)
+
+            If isM3 Then
+                ' ========= (A) M3 =========
+                ' Update then Insert (AvgCostPerM3 NOT NULL)
+                Using cmdUp As New SqlCommand("
+UPDATE inv.FinalProductAvgCost
+SET AvgCostPerM3 = @Val,
+    LastUpdated = SYSDATETIME()
+WHERE BaseProductID = @BaseProductID;
+SELECT @@ROWCOUNT;
+", con, tran)
+                    cmdUp.Parameters.AddWithValue("@Val", newAvgCost)
+                    cmdUp.Parameters.AddWithValue("@BaseProductID", baseProductId)
+
+                    Dim affected As Integer = CInt(cmdUp.ExecuteScalar())
+                    If affected = 0 Then
+                        Using cmdIns As New SqlCommand("
+INSERT INTO inv.FinalProductAvgCost
+(
+    BaseProductID,
+    AvgCostPerM3,
+    AvgCostPerM3forFG,
+    LastUpdated
+)
+VALUES
+(
+    @BaseProductID,
+    @AvgCostPerM3,
+    NULL,
+    SYSDATETIME()
+);
+", con, tran)
+                            cmdIns.Parameters.AddWithValue("@BaseProductID", baseProductId)
+                            cmdIns.Parameters.AddWithValue("@AvgCostPerM3", newAvgCost)
+                            cmdIns.ExecuteNonQuery()
+                        End Using
+                    End If
+                End Using
+
+            ElseIf hasParent Then
+                ' ========= (B) Non-M3 + Parent =========
+                ' Update then Insert (AvgCostPerM3 NOT NULL => نعطيه 0 عند Insert)
+                Using cmdUp As New SqlCommand("
+UPDATE inv.FinalProductAvgCost
+SET AvgCostPerM3forFG = @Val,
+    LastUpdated = SYSDATETIME()
+WHERE BaseProductID = @BaseProductID;
+SELECT @@ROWCOUNT;
+", con, tran)
+                    cmdUp.Parameters.AddWithValue("@Val", newAvgCost)
+                    cmdUp.Parameters.AddWithValue("@BaseProductID", baseProductId)
+
+                    Dim affected As Integer = CInt(cmdUp.ExecuteScalar())
+                    If affected = 0 Then
+                        Using cmdIns As New SqlCommand("
+INSERT INTO inv.FinalProductAvgCost
+(
+    BaseProductID,
+    AvgCostPerM3,
+    AvgCostPerM3forFG,
+    LastUpdated
+)
+VALUES
+(
+    @BaseProductID,
+    0,
+    @AvgCostPerM3forFG,
+    SYSDATETIME()
+);
+", con, tran)
+                            cmdIns.Parameters.AddWithValue("@BaseProductID", baseProductId)
+                            cmdIns.Parameters.AddWithValue("@AvgCostPerM3forFG", newAvgCost)
+                            cmdIns.ExecuteNonQuery()
+                        End Using
+                    End If
+                End Using
+
+            Else
+                ' ========= (C) Non-M3 + No Parent =========
+                Using cmdUp As New SqlCommand("
+UPDATE md.Product
+SET AvgCost = @Val
+WHERE ProductID = @ProductID;
+", con, tran)
+                    cmdUp.Parameters.AddWithValue("@Val", newAvgCost)
+                    cmdUp.Parameters.AddWithValue("@ProductID", productId)
+                    cmdUp.ExecuteNonQuery()
+                End Using
+            End If
+
+        Next
+
+    End Sub
+    Public Sub GetCostChainContext(
+    productID As Integer,
+    baseProductID As Object,
+    operationGroupID As Guid,
+    transactionID As Integer,
+    con As SqlConnection,
+    tran As SqlTransaction,
+    ByRef prevLedgerID As Object,
+    ByRef oldAvgCost As Decimal
+)
+
+        prevLedgerID = DBNull.Value
+        oldAvgCost = 0D
+
+        '====================================================
+        ' 1) PrevLedger + AvgCost (لنفس المنتج فقط)
+        '====================================================
+        Dim dtPrev As New DataTable()
+
+        Using cmd As New SqlCommand("
+SELECT TOP 1
+    LedgerID,
+    NewAvgCost
+FROM inv.CostLedger
+WHERE ProductID = @ProductID
+AND IsActive = 1
+AND IsReversed = 0
+AND OperationGroupID <> @G
+AND TransactionID <> @CurrentTransactionID
+AND (InQty <> 0 OR OutQty <> 0)
+ORDER BY LedgerID DESC
+", con, tran)
+
+            cmd.Parameters.AddWithValue("@ProductID", productID)
+            cmd.Parameters.Add("@G", SqlDbType.UniqueIdentifier).Value = operationGroupID
+            cmd.Parameters.Add("@CurrentTransactionID", SqlDbType.Int).Value = transactionID
+
+            Using da As New SqlDataAdapter(cmd)
+                da.Fill(dtPrev)
+            End Using
+
+        End Using
+
+        If dtPrev.Rows.Count > 0 Then
+
+            prevLedgerID = CLng(dtPrev.Rows(0)("LedgerID"))
+
+            oldAvgCost = If(IsDBNull(dtPrev.Rows(0)("NewAvgCost")), 0D, Convert.ToDecimal(dtPrev.Rows(0)("NewAvgCost")))
+
+        End If
+
+
+    End Sub
+    Public Sub InsertLedgerLink(
+    sourceLedgerID As Long?,
+    targetLedgerID As Long?,
+    linkType As Short,
+    qty As Decimal,
+    unitCost As Decimal,
+    transactionID As Integer,
+    storeSource As Integer?,
+    storeTarget As Integer?,
+    productID As Integer,
+    baseProductID As Integer?,
+    postingDate As DateTime,
+    operationGroupID As Guid,
+    groupSeq As Integer,
+    userID As Integer,
+    con As SqlConnection,
+    tran As SqlTransaction
+)
+
+        '========================================
+        ' 1) Direction
+        '========================================
+        Dim linkDirection As Integer = 2 ' حسب نظامك الحالي
+
+        '========================================
+        ' 2) Hash
+        '========================================
+        Dim linkHash As Byte() =
+        CalculateLinkHash(
+            sourceLedgerID,
+            targetLedgerID,
+            linkType,
+            qty,
+            unitCost,
+            operationGroupID)
+
+        '========================================
+        ' 4) DetailIDs (Null-safe)
+        '========================================
+        Dim sourceTransactionDetailID As Object = DBNull.Value
+        Dim targetTransactionDetailID As Object = DBNull.Value
+
+        Using cmdDet As New SqlCommand("
+        SELECT
+            (SELECT SourceDetailID FROM inv.CostLedger WHERE LedgerID=@SrcL) AS SrcDetailID,
+            (SELECT SourceDetailID FROM inv.CostLedger WHERE LedgerID=@TgtL) AS TgtDetailID
+    ", con, tran)
+
+            ' Source
+            If sourceLedgerID.HasValue Then
+                cmdDet.Parameters.Add("@SrcL", SqlDbType.BigInt).Value = sourceLedgerID.Value
+            Else
+                cmdDet.Parameters.Add("@SrcL", SqlDbType.BigInt).Value = DBNull.Value
+            End If
+
+            ' Target
+            If targetLedgerID.HasValue Then
+                cmdDet.Parameters.Add("@TgtL", SqlDbType.BigInt).Value = targetLedgerID.Value
+            Else
+                cmdDet.Parameters.Add("@TgtL", SqlDbType.BigInt).Value = DBNull.Value
+            End If
+
+            Using rdr = cmdDet.ExecuteReader()
+                If rdr.Read() Then
+
+                    If rdr("SrcDetailID") IsNot DBNull.Value Then
+                        sourceTransactionDetailID = Convert.ToInt32(rdr("SrcDetailID"))
+                    End If
+
+                    If rdr("TgtDetailID") IsNot DBNull.Value Then
+                        targetTransactionDetailID = Convert.ToInt32(rdr("TgtDetailID"))
+                    End If
+
+                End If
+            End Using
+        End Using
+
+        '========================================
+        ' 5) Insert
+        '========================================
+        Dim sql As String = "
+    INSERT INTO inv.CostLedgerLink
+    (
+        SourceLedgerID,
+        TargetLedgerID,
+        LinkType,
+        FlowQty,
+        FlowUnitCost,
+        SourceTransactionDetailID,
+        TargetTransactionDetailID,
+        SourceStoreID,
+        TargetStoreID,
+        ProductID,
+        BaseProductID,
+        PostingDate,
+        OperationGroupID,
+        GroupSeq,
+        IsActive,
+        CreatedAt,
+        CreatedBy,
+        LinkDirection,
+        LinkHash
+    )
+    VALUES
+    (
+        @SourceLedgerID,
+        @TargetLedgerID,
+        @LinkType,
+        @FlowQty,
+        @FlowUnitCost,
+        @SourceTransactionDetailID,
+        @TargetTransactionDetailID,
+        @SourceStoreID,
+        @TargetStoreID,
+        @ProductID,
+        @BaseProductID,
+        @PostingDate,
+        @OperationGroupID,
+        @GroupSeq,
+        1,
+        SYSDATETIME(),
+        @UserID,
+        @LinkDirection,
+        @LinkHash
+    );"
+
+        Using cmd As New SqlCommand(sql, con, tran)
+
+            '========================================
+            ' Ledger IDs
+            '========================================
+            cmd.Parameters.Add("@SourceLedgerID", SqlDbType.BigInt).Value =
+            If(sourceLedgerID.HasValue, sourceLedgerID.Value, CType(DBNull.Value, Object))
+
+            cmd.Parameters.Add("@TargetLedgerID", SqlDbType.BigInt).Value =
+            If(targetLedgerID.HasValue, targetLedgerID.Value, CType(DBNull.Value, Object))
+
+            '========================================
+            ' Basic
+            '========================================
+            cmd.Parameters.Add("@LinkType", SqlDbType.SmallInt).Value = linkType
+            cmd.Parameters.Add("@FlowQty", SqlDbType.Decimal).Value = qty
+            cmd.Parameters.Add("@FlowUnitCost", SqlDbType.Decimal).Value = unitCost
+
+            '========================================
+            ' Details
+            '========================================
+            cmd.Parameters.Add("@SourceTransactionDetailID", SqlDbType.Int).Value = sourceTransactionDetailID
+            cmd.Parameters.Add("@TargetTransactionDetailID", SqlDbType.Int).Value = targetTransactionDetailID
+
+            '========================================
+            ' Stores
+            '========================================
+            cmd.Parameters.Add("@SourceStoreID", SqlDbType.Int).Value =
+            If(storeSource.HasValue, storeSource.Value, CType(DBNull.Value, Object))
+
+            cmd.Parameters.Add("@TargetStoreID", SqlDbType.Int).Value =
+            If(storeTarget.HasValue, storeTarget.Value, CType(DBNull.Value, Object))
+
+            '========================================
+            ' Product
+            '========================================
+            cmd.Parameters.Add("@ProductID", SqlDbType.Int).Value = productID
+
+            cmd.Parameters.Add("@BaseProductID", SqlDbType.Int).Value =
+            If(baseProductID.HasValue, baseProductID.Value, CType(DBNull.Value, Object))
+
+            '========================================
+            ' Meta
+            '========================================
+            cmd.Parameters.Add("@PostingDate", SqlDbType.DateTime2).Value = postingDate
+            cmd.Parameters.Add("@OperationGroupID", SqlDbType.UniqueIdentifier).Value = operationGroupID
+            cmd.Parameters.Add("@GroupSeq", SqlDbType.Int).Value = groupSeq
+            cmd.Parameters.Add("@UserID", SqlDbType.Int).Value = userID
+
+            cmd.Parameters.Add("@LinkDirection", SqlDbType.Int).Value = linkDirection
+            cmd.Parameters.Add("@LinkHash", SqlDbType.VarBinary, 32).Value = linkHash
+
+            cmd.ExecuteNonQuery()
+        End Using
+
+    End Sub
 
 
 

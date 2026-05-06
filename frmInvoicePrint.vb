@@ -42,7 +42,7 @@ SELECT
     PartnerName,
     PartnerVATNumber,
     IssueDateTime
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE TransactionID = @TransactionID
 ", con)
 
@@ -74,8 +74,8 @@ SELECT
     D.Quantity,
     D.UnitPrice,
     D.LineTotalWithVAT
-FROM Inventory_TransactionDetails D
-INNER JOIN Master_Product P ON P.ProductID = D.ProductID
+FROM inv.TransactionDetails D
+INNER JOIN md.Product P ON P.ProductID = D.ProductID
 WHERE D.TransactionID = @TransactionID
 ", con)
 

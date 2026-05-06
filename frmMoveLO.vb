@@ -50,7 +50,7 @@ Public Class frmMoveLO
 
                     Using cmdType As New SqlCommand("
 SELECT TOP 1 OperationTypeID
-FROM dbo.Workflow_OperationType
+FROM wf.OperationType
 WHERE OperationCode = @Code
   AND IsActive = 1
 ", con, tran)
@@ -67,7 +67,7 @@ WHERE OperationCode = @Code
                     End Using
                     ' 2- إنشاء Header (Status=1)
                     Using cmdLO As New SqlCommand("
-INSERT INTO dbo.Logistics_LoadingOrder
+INSERT INTO log.LoadingOrder
 (LOCode, InitiatedDateTime, LoadingStatusID, OperationTypeID, CreatedAt, CreatedBy)
 VALUES
 (@LOCode, GETDATE(), 1, @OperationTypeID, GETDATE(), @UserID);
@@ -84,7 +84,7 @@ SELECT SCOPE_IDENTITY();
 
                     ' 3- ربط SR
                     Using cmdLOS As New SqlCommand("
-INSERT INTO dbo.Logistics_LoadingOrderSR (LOID, SRID)
+INSERT INTO log.LoadingOrderSR (LOID, SRID)
 VALUES (@LOID, @SRID)
 ", con, tran)
 
@@ -95,7 +95,7 @@ VALUES (@LOID, @SRID)
 
                     ' 4- نسخ التفاصيل (LoadedQty=0)
                     Using cmdLOD As New SqlCommand("
-INSERT INTO dbo.Logistics_LoadingOrderDetail
+INSERT INTO log.LoadingOrderDetail
 (LOID, SourceHeaderID, SourceDetailID, ProductID, LoadedQty,
  Length_cm, Width_cm, Height_cm,
  ProductTypeID, CreatedAt)
@@ -111,7 +111,7 @@ SELECT
     SRD.HeightCM,
     SRD.ProductTypeID,
     GETDATE()
-FROM dbo.Business_SRD SRD
+FROM inv.SRD SRD
 WHERE SRD.SRID = @SRID
 ", con, tran)
 

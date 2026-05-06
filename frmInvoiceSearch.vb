@@ -21,10 +21,10 @@ SELECT
     P.PartnerName,
     H.TotalAmount,
     S.StatusName
-FROM Inventory_DocumentHeader H
-INNER JOIN Master_Partner P
+FROM inv.DocumentHeader H
+INNER JOIN md.Partner P
     ON P.PartnerID = H.PartnerID
-INNER JOIN Workflow_Status S
+INNER JOIN wf.Status S
     ON S.StatusID = H.StatusID
 WHERE H.DocumentType = 'SAL'
   AND H.IsOutbound = 1

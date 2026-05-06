@@ -23,7 +23,7 @@ Public Class GoodsIssueService
 
                     Using cmd As New SqlCommand("
 SELECT TOP 1 TransactionID
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE SourceDocumentID = @LOID
   AND OperationTypeID = 4
 ORDER BY TransactionID DESC
@@ -43,11 +43,11 @@ ORDER BY TransactionID DESC
                     ' ============================================
                     Dim clearanceCode As String
 
-                    Using cmd As New SqlCommand("cfg.GenerateInvoiceNumber", con, tran)
+                    Using cmd As New SqlCommand("cfg.GenerateDocumentNumber", con, tran)
 
                         cmd.CommandType = CommandType.StoredProcedure
 
-                        cmd.Parameters.AddWithValue("@InvoiceType", "GIS")
+                        cmd.Parameters.AddWithValue("@DocumentType", "GIS")
 
                         Dim outParam As New SqlParameter("@NewNumber", SqlDbType.NVarChar, 50)
                         outParam.Direction = ParameterDirection.Output
@@ -71,7 +71,7 @@ ORDER BY TransactionID DESC
 
                     Using cmd As New SqlCommand("
 SELECT TOP 1 LOSRID
-FROM Logistics_LoadingOrderSR
+FROM log.LoadingOrderSR
 WHERE LOID = @LOID AND SRID = @SRID
 ", con, tran)
 
@@ -92,7 +92,7 @@ WHERE LOID = @LOID AND SRID = @SRID
                     ' ============================================
 
                     Using cmd As New SqlCommand("
-INSERT INTO Logistics_GoodsClearance
+INSERT INTO log.GoodsClearance
 (
     LOSRID,
     ClearanceCode,
@@ -126,7 +126,7 @@ VALUES
                     ' 5️⃣ تحديث حالة LO
                     ' ============================================
                     Using cmd As New SqlCommand("
-UPDATE Logistics_LoadingOrder
+UPDATE log.LoadingOrder
 SET LoadingStatusID = 15
 WHERE LOID = @LOID
 ", con, tran)

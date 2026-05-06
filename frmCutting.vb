@@ -1,5 +1,6 @@
 ﻿Imports System.Data
 Imports System.Data.SqlClient
+Imports System.Runtime.Remoting
 
 Public Class frmCutting
     Inherits AABaseOperationForm
@@ -24,13 +25,14 @@ Public Class frmCutting
     Private IsEditingOutput As Boolean = False
     Private EditingOutRowIndex As Integer = -1
     Private IsNewCutting As Boolean = True
-
+    Private OriginalOutputTable As DataTable
+    Private IsPostedEditMode As Boolean = False
     Protected Overrides ReadOnly Property FormScopeCode As String
         Get
             Return "CUT"
         End Get
     End Property
-
+    Private service As CuttingService
 #End Region
 
 #Region "================= تحميل الفورم ================="
@@ -39,7 +41,7 @@ Public Class frmCutting
         LoadWorkflowPolicy(0)
         txtCuttingStatus.Text = GetStatusNameByID(FormStatusID)
 
-
+        service = New CuttingService(ConnStr)
         ' منع الأعمدة التلقائية
         dgvInPut.AutoGenerateColumns = False
         dgvOutPut.AutoGenerateColumns = False
@@ -120,7 +122,7 @@ Public Class frmCutting
 
         Dim sql As String =
         "SELECT StoreID, StoreName
-         FROM Master_Store
+         FROM md.Store
          WHERE IsActive = 1
          ORDER BY StoreName;"
 
@@ -144,7 +146,7 @@ Public Class frmCutting
 
         Dim sql As String =
         "SELECT StoreID, StoreName
-         FROM Master_Store
+         FROM md.Store
          WHERE IsActive = 1
          ORDER BY StoreName;"
 
@@ -184,18 +186,18 @@ Public Class frmCutting
     mt.ProductCode AS MixTypeName,
     p.Description,
     p.Density
-FROM Master_Product p
-INNER JOIN Master_ProductCategory c
+FROM md.Product p
+INNER JOIN md.ProductCategory c
     ON p.ProductCategoryID = c.CategoryID
-LEFT JOIN Master_ProductGroup pg
+LEFT JOIN md.ProductGroup pg
     ON p.ProductGroupID = pg.ProductGroupID
-LEFT JOIN Master_ProductColor clr
+LEFT JOIN md.ProductColor clr
     ON p.ProductColorID = clr.ColorID
-LEFT JOIN Master_ProductType pt
+LEFT JOIN md.ProductType pt
     ON p.ProductTypeID = pt.ProductTypeID
-LEFT JOIN Master_Product mt
+LEFT JOIN md.Product mt
     ON p.MixTypeID = mt.ProductID
-INNER JOIN Inventory_Balance ib
+INNER JOIN inv.Balance ib
     ON ib.ProductID = p.ProductID
 WHERE p.IsActive = 1
   AND p.ProductCategoryID = 2
@@ -225,7 +227,7 @@ ORDER BY p.ProductCode;
 
         Dim sql As String =
             "SELECT ProductTypeID, TypeName
-             FROM Master_ProductType
+             FROM md.ProductType
              WHERE IsActive = 1
              ORDER BY TypeName;"
 
@@ -403,7 +405,7 @@ ORDER BY p.ProductCode;
             If r.IsNewRow Then Continue For
 
             ' جمع الحجم الإجمالي
-            totalVolume += GetDec(r.Cells("colOutTotalVolume").Value)
+            totalVolume += GetDec(r.Cells("colOutPieceVolume").Value) * GetDec(r.Cells("colOutQty").Value)
 
             ' جمع الكمية
             totalQty += GetDec(r.Cells("colOutQty").Value)
@@ -505,7 +507,7 @@ ORDER BY p.ProductCode;
            dgvOutPut.Rows.Count > 0 Then
 
                 Dim res = MessageBox.Show(
-                "تغيير المنتج سيؤدي إلى حذف جميع نواتج القص الحالية." & vbCrLf &
+                "تغيير المنتج سيؤدي إلى تغيير كود النواتج ." & vbCrLf &
                 "هل تريد المتابعة؟",
                 "تنبيه",
                 MessageBoxButtons.YesNo,
@@ -516,8 +518,7 @@ ORDER BY p.ProductCode;
                     Exit Sub
                 End If
 
-                dgvOutPut.Rows.Clear()
-                dgvInPut.Rows.Clear()
+                RebuildOutputsAfterBaseChange()
             End If
         End If
         ' =========================
@@ -612,7 +613,18 @@ ORDER BY p.ProductCode;
                 MessageBox.Show("يرجى اختيار نوع المنتج")
                 Exit Sub
             End If
+            ' =========================
+            ' التحقق من ترتيب الأبعاد
+            ' =========================
+            If w > l Then
+                MessageBox.Show("لا يمكن أن يكون العرض أكبر من الطول")
+                Exit Sub
+            End If
 
+            If h > w Then
+                MessageBox.Show("لا يمكن أن يكون الارتفاع أكبر من العرض")
+                Exit Sub
+            End If
             Dim typeID As Integer = CInt(row.Cells("colProductType").Value)
             Dim typeName As String = GetTypeName(typeID)
 
@@ -692,6 +704,63 @@ ORDER BY p.ProductCode;
         End Try
 
     End Sub
+    Private Function GenOutCode(
+    baseCode As String,
+    l As Decimal,
+    w As Decimal,
+    h As Decimal
+) As String
+
+        ' =========================
+        ' ترتيب من الأكبر للأصغر (احتياط)
+        ' =========================
+        Dim dims = New List(Of Decimal) From {l, w, h}
+        dims.Sort(Function(a, b) b.CompareTo(a)) ' Descending
+
+        Dim L1 = dims(0)
+        Dim W1 = dims(1)
+        Dim H1 = dims(2)
+
+        ' =========================
+        ' تحويل إلى نص بثلاث خانات
+        ' =========================
+        Dim sL = FormatDimension(L1)
+        Dim sW = FormatDimension(W1)
+        Dim sH = FormatDimension(H1)
+
+        Return $"{baseCode}-{sL}{sW}{sH}"
+
+    End Function
+    Private Function FormatDimension(val As Decimal) As String
+
+        ' =========================
+        ' 1) تقريب إلى منزلة عشرية واحدة
+        ' =========================
+        val = Math.Round(val, 1)
+
+        ' =========================
+        ' 2) تحويل إلى نص بدون .0
+        ' =========================
+        Dim txt As String
+
+        If val = Math.Truncate(val) Then
+            txt = CInt(val).ToString()
+        Else
+            txt = val.ToString("0.0")
+        End If
+
+        ' =========================
+        ' 3) ضمان 3 خانات (padding)
+        ' =========================
+        If txt.Length = 1 Then
+            txt = "00" & txt
+        ElseIf txt.Length = 2 Then
+            txt = "0" & txt
+        End If
+
+        Return txt
+
+    End Function
 
     ' الضغط على صف الإخراج لإرجاعه للتعديل
     Private Sub dgvOutPut_CellClick(
@@ -770,16 +839,6 @@ ORDER BY p.ProductCode;
 #Region "================= توليد الأكواد ================="
 
     ' توليد كود الناتج
-    Private Function GenOutCode(
-        baseCode As String,
-        l As Decimal,
-        w As Decimal,
-        h As Decimal
-    ) As String
-
-        Return $"{baseCode}-{CInt(l):000}{CInt(w):000}{CInt(h):000}"
-
-    End Function
 
 
     ' توليد كود القص CT-00001
@@ -789,7 +848,7 @@ ORDER BY p.ProductCode;
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-                "SELECT CuttingCode FROM Production_CuttingHeader WHERE CuttingCode LIKE 'CUT-%';", con)
+                "SELECT CuttingCode FROM prod.CuttingHeader WHERE CuttingCode LIKE 'CUT-%';", con)
 
                 con.Open()
                 Using dr = cmd.ExecuteReader()
@@ -816,7 +875,7 @@ ORDER BY p.ProductCode;
         IsLoading = True
         CurrentCuttingID = 0
         IsNewCutting = True
-
+        service = New CuttingService(ConnStr)
         dgvInPut.Rows.Clear()
         dgvOutPut.Rows.Clear()
 
@@ -870,6 +929,7 @@ ORDER BY p.ProductCode;
         PendingOutData = Nothing
         AllowedInputRowIndex = -1
         IsLoading = False
+        IsPostedEditMode = False
     End Sub
     ' =========================
     ' خطوة 2: Save
@@ -884,7 +944,7 @@ ORDER BY p.ProductCode;
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
 SELECT TOP 1 ProductID
-FROM Master_Product
+FROM md.Product
 WHERE ProductCode = @Code
   AND IsActive = 1
 ", con)
@@ -942,7 +1002,7 @@ WHERE ProductCode = @Code
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
         "SELECT TOP 1 ProductID
-         FROM Production_CuttingInput
+         FROM prod.CuttingInput
          WHERE CutID = @ID", con)
 
                 cmd.Parameters.AddWithValue("@ID", cuttingID)
@@ -989,8 +1049,8 @@ WHERE ProductCode = @Code
     h.Notes,
     h.StatusID,
     s.StatusName
-FROM Production_CuttingHeader h
-LEFT JOIN Workflow_Status s
+FROM prod.CuttingHeader h
+LEFT JOIN wf.Status s
     ON s.StatusID = h.StatusID
 WHERE h.CuttingID = @ID",
         con)
@@ -1024,7 +1084,7 @@ WHERE h.CuttingID = @ID",
             SUM(TotalVolume_m3) AS TotalVolume_m3,
             MAX(SourceStoreID) AS SourceStoreID,
             MAX(TargetStoreID) AS TargetStoreID
-         FROM Production_CuttingOutput
+         FROM prod.CuttingOutput
          WHERE CutID = @ID
          GROUP BY ProductID, OutProductCode, ProductTypeID", con)
 
@@ -1068,8 +1128,8 @@ WHERE h.CuttingID = @ID",
             Using cmd As New SqlCommand(
         "
         SELECT TOP 1 p.BaseProductID
-        FROM Production_CuttingOutput co
-        INNER JOIN Master_Product p
+        FROM prod.CuttingOutput co
+        INNER JOIN md.Product p
             ON p.ProductID = co.ProductID
         WHERE co.CutID = @ID
           AND p.BaseProductID IS NOT NULL
@@ -1138,7 +1198,7 @@ WHERE h.CuttingID = @ID",
         dgvOutPut.Enabled = True
         cboSourceStore.Enabled = False
         cboTargetedStore.Enabled = False
-        SetEditMode()
+        SetEditMode(statusID)
 
         IsLoading = False
     End Sub
@@ -1151,7 +1211,7 @@ WHERE h.CuttingID = @ID",
 
             Using cmd As New SqlCommand(
             "SELECT TOP 1 ProductID
-             FROM Production_CuttingInput
+             FROM prod.CuttingInput
              WHERE CutID = @ID", con)
 
                 cmd.Parameters.AddWithValue("@ID", cuttingID)
@@ -1175,43 +1235,32 @@ WHERE h.CuttingID = @ID",
 
     End Sub
 
-    Private Sub SetEditMode()
+    Private Sub SetEditMode(statusID As Integer)
 
         ' =========================
-        ' الهيدر (وضع تعديل)
+        ' المنتج الأب
         ' =========================
+        Select Case statusID
+            Case 1, 2, 5
+                cboProductCode.Enabled = True
+            Case Else
+                cboProductCode.Enabled = False
+        End Select
 
-        ' ❌ منع تغيير المنتج
-        cboProductCode.Enabled = False
-
-        ' ❌ منع البحث عن منتج
+        ' باقي الإعدادات
         btnFind.Enabled = False
-
-        ' ❌ منع تغيير المخزن والتاريخ
         cboSourceStore.Enabled = False
         dtpCuttingDate.Enabled = False
 
-        ' ملاحظات (للعرض فقط حالياً)
         txtNotes.Enabled = True
 
-        ' =========================
-        ' الجريدات
-        ' =========================
-
-        ' ❌ لا إدخال جديد
         dgvInPut.Enabled = False
-
-        ' ✔ يسمح بتعديل نواتج القص فقط
         dgvOutPut.Enabled = True
 
-        ' =========================
-        ' زر الحفظ
-        ' =========================
         btnSave.Text = "Update"
         btnSave.Enabled = True
 
     End Sub
-
     Private Sub btnClose_Click(sender As Object, e As EventArgs) Handles btnClose.Click
         Me.Close()
     End Sub
@@ -1245,7 +1294,7 @@ WHERE h.CuttingID = @ID",
 
 
         RefreshAvailableQty()
-
+        GetTotalOutputVolume()
     End Sub
     Private Function GetTotalOutputVolume() As Decimal
 
@@ -1335,26 +1384,30 @@ WHERE h.CuttingID = @ID",
             Exit Sub
         End If
 
-        Dim service As New CuttingService(ConnStr)
 
-        Dim availableQty As Decimal =
-    service.GetAvailableQty(
-        CInt(cboProductCode.SelectedValue),
-        CInt(cboSourceStore.SelectedValue)
-    )
+        Dim dbStatus As Integer = 1
 
-        Dim totalOutputQty As Decimal = GetTotalOutputVolume()
+        If Not IsNewCutting Then
+            dbStatus = service.GetCuttingStatus(CurrentCuttingID)
+        End If
 
+        Dim mode = GetSaveMode(dbStatus)
+        If mode <> SaveMode.EditPosted Then
 
-
-        If totalOutputQty > availableQty Then
-            MessageBox.Show(
-            "إجمالي الكمية المقصوصة أكبر من المتوفر",
-            "تنبيه",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Warning
+            ' 🔥 فقط في غير المرحل
+            Dim availableQty As Decimal =
+        service.GetAvailableQty(
+            CInt(cboProductCode.SelectedValue),
+            CInt(cboSourceStore.SelectedValue)
         )
-            Exit Sub
+
+            Dim totalOutputQty As Decimal = GetTotalOutputVolume()
+
+            If totalOutputQty > availableQty Then
+                MessageBox.Show("إجمالي الكمية المقصوصة أكبر من المتوفر")
+                Exit Sub
+            End If
+
         End If
 
         ' =========================
@@ -1437,11 +1490,11 @@ WHERE h.CuttingID = @ID",
     qtyPieces,             ' QtyPieces
     (typeID = 4),           ' IsMix
     DBNull.Value,           ' Notes
-    If(l > 0, l, DBNull.Value),
-    If(w > 0, w, DBNull.Value),
-    If(h > 0, h, DBNull.Value),
-    If(pv > 0, pv, DBNull.Value),
-    If(tv > 0, tv, DBNull.Value),
+    l,
+    w,
+   h,
+    pv,
+    tv,
     typeID,                 ' ProductTypeID
     outCode,                ' OutProductCode
     targetStoreID           ' TargetStoreID
@@ -1470,24 +1523,23 @@ WHERE h.CuttingID = @ID",
                 End Using
             End Using
 
-            Dim dbStatus As Integer = 1 ' افتراضي للجديد
 
-            If Not IsNewCutting Then
-                dbStatus = service.GetCuttingStatus(CurrentCuttingID)
-            End If
-
-            Dim mode = GetSaveMode(dbStatus)
-
-            If mode = SaveMode.NotAllowed Then
+            If mode = SaveMode.NotAllowed AndAlso Not IsPostedEditMode Then
                 MessageBox.Show("لا يمكن تعديل هذا السند حسب حالته")
                 Exit Sub
+            End If
+            If CurrentCuttingID > 0 Then
+                If service.IsCuttingInCorrectionQueue(CurrentCuttingID) Then
+                    MessageBox.Show("لا يمكن تعديل السند لأنه موجود في قائمة التصحيح")
+                    Exit Sub
+                End If
             End If
             ' =================================================
             ' 2) استدعاء الإجراء المخزن
             ' =================================================
-Dim consumedVolume As Decimal = GetTotalOutputVolume()
+            Dim consumedVolume As Decimal = GetTotalOutputVolume()
 
-service.SaveCuttingWITHMIX(
+            service.SaveCuttingWITHMIX(
     CurrentCuttingID,
     cuttingCode,
     dtpCuttingDate.Value.Date,
@@ -1499,42 +1551,90 @@ service.SaveCuttingWITHMIX(
     dtOutputs
 )
 
-If mode = SaveMode.EditWithTransaction Then
+            Select Case mode
 
-    Using con As New SqlConnection(ConnStr)
-        con.Open()
+    ' =========================
+    ' 1) تعديل عادي (1,2)
+    ' =========================
+                Case SaveMode.DirectEdit
 
-        Using tran = con.BeginTransaction()
-            Try
-                Using cmd As New SqlCommand("
-DELETE FROM Inventory_TransactionDetails
+                    service.ReserveCutting(CurrentCuttingID, 1)
+
+    ' =========================
+    ' 2) حالة 5 (قبل الاستلام)
+    ' =========================
+                Case SaveMode.EditWithTransaction
+
+                    ' 🔥 حذف الترانسكشن القديم (صحيح هنا فقط)
+                    Using con As New SqlConnection(ConnStr)
+                        con.Open()
+
+                        Using tran = con.BeginTransaction()
+                            Try
+                                Using cmd As New SqlCommand("
+DELETE FROM inv.TransactionDetails
 WHERE TransactionID IN (
     SELECT TransactionID
-    FROM Inventory_TransactionHeader
+    FROM inv.TransactionHeader
     WHERE SourceDocumentID=@ID AND OperationTypeID=11
 );
 
-DELETE FROM Inventory_TransactionHeader
+DELETE FROM inv.TransactionHeader
 WHERE SourceDocumentID=@ID AND OperationTypeID=11;
 ", con, tran)
 
-                    cmd.Parameters.AddWithValue("@ID", CurrentCuttingID)
-                    cmd.ExecuteNonQuery()
-                End Using
+                                    cmd.Parameters.AddWithValue("@ID", CurrentCuttingID)
+                                    cmd.ExecuteNonQuery()
+                                End Using
 
-                tran.Commit()
+                                tran.Commit()
 
-            Catch ex As Exception
-                tran.Rollback()
-                Throw
-            End Try
-        End Using
-    End Using
+                            Catch ex As Exception
+                                tran.Rollback()
+                                Throw
+                            End Try
+                        End Using
+                    End Using
 
-    service.SendCutting(CurrentCuttingID, 1)
-End If
+                    ' 🔥 إعادة إرسال
+                    service.SendCutting(CurrentCuttingID, 1)
 
-            service.ReserveCutting(CurrentCuttingID, 1)
+                    ' 🔥 إعادة الحجز
+                    service.ReserveCutting(CurrentCuttingID, 1)
+
+    ' =========================
+    ' 3) 🔥 حالة 6 (الأهم)
+    ' =========================
+                Case SaveMode.EditPosted
+
+                    If Not IsPostedEditMode Then
+                        MessageBox.Show("لا يمكن تعديل السند المرحل بدون الدخول في وضع التعديل")
+                        Exit Sub
+                    End If
+
+                    Dim newTable = BuildNewOutputTable()
+
+                    service.ValidatePostedCuttingEdit(
+    CurrentCuttingID,
+    oldTable:=OriginalOutputTable,
+    newTable:=newTable
+)
+
+                    service.HandlePostedCuttingEdit(
+    CurrentCuttingID,
+    oldTable:=OriginalOutputTable,
+    newTable:=newTable
+)
+
+
+                    ' =========================
+                    ' 4) ممنوع
+                    ' =========================
+                Case Else
+                    MessageBox.Show("لا يمكن تعديل هذا السند حسب حالته")
+                    Exit Sub
+
+            End Select
 
 
             savedOk = True
@@ -1583,7 +1683,7 @@ End If
                     If mode = CancelMode.Delete Then
                         ' 🔥 حذف الحجز
                         Using cmd As New SqlCommand("
-DELETE FROM Inventory_Reservation
+DELETE FROM inv.Reservation
 WHERE SourceID=@ID AND SourceOperationTypeID=11
 ", con, tran)
 
@@ -1592,8 +1692,8 @@ WHERE SourceID=@ID AND SourceOperationTypeID=11
                         End Using
                         ' 🗑 حذف كامل
                         Using cmd As New SqlCommand("
-DELETE FROM Production_CuttingOutput WHERE CutID=@ID;
-DELETE FROM Production_CuttingHeader WHERE CuttingID=@ID;
+DELETE FROM prod.CuttingOutput WHERE CutID=@ID;
+DELETE FROM prod.CuttingHeader WHERE CuttingID=@ID;
 ", con, tran)
 
                             cmd.Parameters.AddWithValue("@ID", CurrentCuttingID)
@@ -1604,7 +1704,7 @@ DELETE FROM Production_CuttingHeader WHERE CuttingID=@ID;
 
                         ' 🚫 تحويل الحالة فقط
                         Using cmd As New SqlCommand("
-UPDATE Production_CuttingHeader
+UPDATE prod.CuttingHeader
 SET StatusID = 10
 WHERE CuttingID=@ID
 ", con, tran)
@@ -1615,7 +1715,7 @@ WHERE CuttingID=@ID
 
                         ' 🔥 تحديث الترانسكشن فقط (بدون أي تغيير آخر)
                         Using cmd As New SqlCommand("
-UPDATE Inventory_TransactionHeader
+UPDATE inv.TransactionHeader
 SET StatusID = 10
 WHERE SourceDocumentID = @ID
 AND OperationTypeID = 11
@@ -1626,7 +1726,7 @@ AND OperationTypeID = 11
                         End Using
                         ' 🔥 حذف الحجز
                         Using cmd As New SqlCommand("
-DELETE FROM Inventory_Reservation
+DELETE FROM inv.Reservation
 WHERE SourceID=@ID AND SourceOperationTypeID=11
 ", con, tran)
 
@@ -1649,17 +1749,22 @@ WHERE SourceID=@ID AND SourceOperationTypeID=11
 
     End Sub
     Private Enum SaveMode
-        DirectEdit
-        EditWithTransaction
+        DirectEdit          ' 1,2
+        EditWithTransaction ' 5
+        EditPosted          ' 🔥 جديد (6)
         NotAllowed
     End Enum
-
     Private Function GetSaveMode(statusID As Integer) As SaveMode
         Select Case statusID
             Case 1, 2
                 Return SaveMode.DirectEdit
+
             Case 5
                 Return SaveMode.EditWithTransaction
+
+            Case 6
+                Return SaveMode.EditPosted   ' 🔥 المهم
+
             Case Else
                 Return SaveMode.NotAllowed
         End Select
@@ -1694,7 +1799,7 @@ WHERE SourceID=@ID AND SourceOperationTypeID=11
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT ProductID
-            FROM Master_Product
+            FROM md.Product
             WHERE ProductCode = @Code
               AND ProductTypeID = @TypeID
               AND IsActive = 1
@@ -1754,4 +1859,185 @@ WHERE SourceID=@ID AND SourceOperationTypeID=11
 
     End Function
 
+    Private Sub RebuildOutputsAfterBaseChange()
+
+        If dgvOutPut.Rows.Count = 0 Then Exit Sub
+
+        Dim baseCode As String = cboProductCode.Text.Trim()
+
+        For Each r As DataGridViewRow In dgvOutPut.Rows
+
+            If r.IsNewRow Then Continue For
+
+            Dim typeID As Integer = CInt(r.Cells("colOutProductTypeID").Value)
+
+            Dim l As Decimal = GetDec(r.Cells("colOutLength").Value)
+            Dim w As Decimal = GetDec(r.Cells("colOutWidth").Value)
+            Dim h As Decimal = GetDec(r.Cells("colOutHeight").Value)
+
+            Dim newCode As String
+
+            If typeID = 4 Then
+                ' مكس لا يتغير
+                newCode = txtProductMixType.Text.Trim()
+            Else
+                newCode = GenOutCode(baseCode, l, w, h)
+            End If
+
+            r.Cells("colOutProductCode").Value = newCode
+
+        Next
+
+    End Sub
+
+    Private Function GetOutputSnapshotWithLinks(cuttingID As Integer) As DataTable
+
+        Dim dt As New DataTable
+
+        Using con As New SqlConnection(ConnStr)
+
+            Using cmd As New SqlCommand("
+                                                                                            SELECT
+                                                                                                o.CutOutputID AS CutOutputID,
+                                                                                                TD.DetailID AS TransactionDetailID,
+                                                                                                TD.SourceDocumentDetailID AS DocumentDetailID,
+                                                                                                CL.LedgerID,
+                                                                                                TD.ProductID,
+                                                                                                CL.InQty AS Qty
+                                                                                            FROM prod.CuttingOutput o
+                                                                                            INNER JOIN inv.TransactionDetails TD
+                                                                                                ON TD.SourceDocumentDetailID = o.CutOutputID
+                                                                                            INNER JOIN inv.TransactionHeader TH
+                                                                                                ON TH.TransactionID = TD.TransactionID
+                                                                                            INNER JOIN inv.CostLedger CL
+                                                                                                ON CL.SourceDetailID = TD.DetailID
+                                                                                            WHERE o.CutID = @CuttingID
+                                                                                              AND TH.SourceDocumentID = @CuttingID
+                                                                                              AND TH.OperationTypeID = 11
+                                                                                            ORDER BY o.CutOutputID
+                                                                                            ", con)
+
+                cmd.Parameters.AddWithValue("@CuttingID", cuttingID)
+
+                Using da As New SqlDataAdapter(cmd)
+                    da.Fill(dt)
+                End Using
+
+            End Using
+
+        End Using
+
+        Return dt
+
+    End Function
+    Private Function BuildNewOutputTable() As DataTable
+
+        Dim dt As New DataTable
+
+        dt.Columns.Add("ProductID", GetType(Integer))
+        dt.Columns.Add("Qty", GetType(Decimal))
+
+        For Each r As DataGridViewRow In dgvOutPut.Rows
+
+            If r.IsNewRow Then Continue For
+
+            Dim outCode = r.Cells("colOutProductCode").Value.ToString()
+            Dim typeID = CInt(r.Cells("colOutProductTypeID").Value)
+
+            Dim l = GetDec(r.Cells("colOutLength").Value)
+            Dim w = GetDec(r.Cells("colOutWidth").Value)
+            Dim h = GetDec(r.Cells("colOutHeight").Value)
+
+            Dim productID = GetOrCreateOutputProductID(outCode, typeID, l, w, h)
+
+            dt.Rows.Add(productID, GetDec(r.Cells("colOutTotalVolume").Value))
+        Next
+
+        Return dt
+
+    End Function
+
+    Private Sub btnEditPostedCutting_Click(sender As Object, e As EventArgs) Handles btnEditPostedCutting.Click
+
+
+        If CurrentCuttingID <= 0 Then
+            MessageBox.Show("لا يوجد سند مفتوح")
+            Exit Sub
+        End If
+        Dim dbStatus As Integer = 1
+
+        If Not IsNewCutting Then
+            dbStatus = service.GetCuttingStatus(CurrentCuttingID)
+        End If
+
+        If dbStatus <> 6 Then
+            MessageBox.Show("هذا التعديل مخصص للسندات المرحلة فقط ")
+            Exit Sub
+        End If
+
+        If service.IsCuttingInCorrectionQueue(CurrentCuttingID) Then
+            MessageBox.Show("لا يمكن تعديل السند لأنه موجود في قائمة التصحيح")
+            Exit Sub
+        End If        ' 🔥 تفعيل وضع التعديل
+        IsPostedEditMode = True
+
+        ' 🔥 نحفظ نسخة من الجريد الحالي
+        OriginalOutputTable = GetOutputSnapshotWithLinks(CurrentCuttingID)
+        ' 🔥 فك القفل
+        dgvOutPut.ReadOnly = False
+        dgvOutPut.Enabled = True
+        cboProductCode.Enabled = True
+        MessageBox.Show("تم تفعيل وضع تعديل سند القص")
+
+    End Sub
+    Private Sub btnDeletePostedCutting_Click_1(sender As Object, e As EventArgs) Handles btnDeletePostedCutting.Click
+        Dim dbStatus As Integer = 1
+
+        If Not IsNewCutting Then
+            dbStatus = service.GetCuttingStatus(CurrentCuttingID)
+        End If
+
+        If dbStatus <> 6 Then
+            MessageBox.Show("هذا التعديل مخصص للسندات المرحلة فقط ")
+            Exit Sub
+        End If
+
+
+        If service.IsCuttingInCorrectionQueue(CurrentCuttingID) Then
+            MessageBox.Show("لا يمكن تعديل السند لأنه موجود في قائمة التصحيح")
+            Exit Sub
+        End If
+        If CurrentCuttingID <= 0 Then Exit Sub
+
+        Dim result = MessageBox.Show(
+            "سيتم إلغاء عملية القص بالكامل، هل أنت متأكد؟",
+            "تأكيد",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning
+        )
+
+        If result <> DialogResult.Yes Then Exit Sub
+
+        ' 🔥 وضع التعديل
+        btnEditPostedCutting.PerformClick()
+
+        dgvOutPut.EndEdit()
+
+        ' 🔥 تصفير + إعادة حساب
+        For Each row As DataGridViewRow In dgvOutPut.Rows
+            If row.IsNewRow Then Continue For
+
+            Dim pv As Decimal = GetDec(row.Cells("colOutPieceVolume").Value)
+
+            row.Cells("colOutQty").Value = 0D
+            row.Cells("colOutPieceVolume").Value = 0D
+            row.Cells("colOutTotalVolume").Value = 0D
+        Next
+
+        dgvOutPut.Refresh()
+
+        RefreshAvailableQty()
+        UpdateOutPutTotals()
+
+    End Sub
 End Class

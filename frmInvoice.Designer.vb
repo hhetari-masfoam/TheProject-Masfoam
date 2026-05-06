@@ -82,12 +82,16 @@ Partial Class frmInvoice
         Me.colDetNote = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.colDetDelete = New System.Windows.Forms.DataGridViewButtonColumn()
         Me.pnlInvoiceSupport = New System.Windows.Forms.Panel()
+        Me.txtDeliveryValue = New System.Windows.Forms.TextBox()
+        Me.cboShippingMode = New System.Windows.Forms.ComboBox()
         Me.cboTaxReason = New System.Windows.Forms.ComboBox()
         Me.txtInvoiceNote = New System.Windows.Forms.TextBox()
         Me.chkIsIncludeVAT = New System.Windows.Forms.CheckBox()
         Me.chkIsExport = New System.Windows.Forms.CheckBox()
         Me.Label23 = New System.Windows.Forms.Label()
         Me.Label5 = New System.Windows.Forms.Label()
+        Me.Label25 = New System.Windows.Forms.Label()
+        Me.Label24 = New System.Windows.Forms.Label()
         Me.Label4 = New System.Windows.Forms.Label()
         Me.Label20 = New System.Windows.Forms.Label()
         Me.lblTotalVolume = New System.Windows.Forms.Label()
@@ -121,6 +125,8 @@ Partial Class frmInvoice
         Me.Label1 = New System.Windows.Forms.Label()
         Me.Label8 = New System.Windows.Forms.Label()
         Me.Label9 = New System.Windows.Forms.Label()
+        Me.txtAmountDue = New System.Windows.Forms.TextBox()
+        Me.lblAmountDue = New System.Windows.Forms.Label()
         Me.pnlControl.SuspendLayout()
         Me.pnl2.SuspendLayout()
         Me.pnl1.SuspendLayout()
@@ -442,7 +448,7 @@ Partial Class frmInvoice
         'txtGrandTotal
         '
         Me.txtGrandTotal.Enabled = False
-        Me.txtGrandTotal.Location = New System.Drawing.Point(10, 121)
+        Me.txtGrandTotal.Location = New System.Drawing.Point(10, 125)
         Me.txtGrandTotal.Margin = New System.Windows.Forms.Padding(4)
         Me.txtGrandTotal.Name = "txtGrandTotal"
         Me.txtGrandTotal.Size = New System.Drawing.Size(164, 24)
@@ -451,7 +457,7 @@ Partial Class frmInvoice
         'txtTotalTax
         '
         Me.txtTotalTax.Enabled = False
-        Me.txtTotalTax.Location = New System.Drawing.Point(10, 92)
+        Me.txtTotalTax.Location = New System.Drawing.Point(10, 101)
         Me.txtTotalTax.Margin = New System.Windows.Forms.Padding(4)
         Me.txtTotalTax.Name = "txtTotalTax"
         Me.txtTotalTax.Size = New System.Drawing.Size(164, 24)
@@ -693,6 +699,7 @@ Partial Class frmInvoice
         '
         'pnlInvoiceSupport
         '
+        Me.pnlInvoiceSupport.Controls.Add(Me.txtAmountDue)
         Me.pnlInvoiceSupport.Controls.Add(Me.cboTaxReason)
         Me.pnlInvoiceSupport.Controls.Add(Me.txtInvoiceNote)
         Me.pnlInvoiceSupport.Controls.Add(Me.chkIsIncludeVAT)
@@ -701,17 +708,33 @@ Partial Class frmInvoice
         Me.pnlInvoiceSupport.Controls.Add(Me.Label5)
         Me.pnlInvoiceSupport.Controls.Add(Me.Label4)
         Me.pnlInvoiceSupport.Controls.Add(Me.Label20)
+        Me.pnlInvoiceSupport.Controls.Add(Me.lblAmountDue)
         Me.pnlInvoiceSupport.Dock = System.Windows.Forms.DockStyle.Top
         Me.pnlInvoiceSupport.Location = New System.Drawing.Point(4, 186)
         Me.pnlInvoiceSupport.Name = "pnlInvoiceSupport"
         Me.pnlInvoiceSupport.Size = New System.Drawing.Size(1184, 113)
         Me.pnlInvoiceSupport.TabIndex = 22
         '
+        'txtDeliveryValue
+        '
+        Me.txtDeliveryValue.Location = New System.Drawing.Point(10, 77)
+        Me.txtDeliveryValue.Name = "txtDeliveryValue"
+        Me.txtDeliveryValue.Size = New System.Drawing.Size(164, 24)
+        Me.txtDeliveryValue.TabIndex = 24
+        '
+        'cboShippingMode
+        '
+        Me.cboShippingMode.FormattingEnabled = True
+        Me.cboShippingMode.Location = New System.Drawing.Point(17, 125)
+        Me.cboShippingMode.Name = "cboShippingMode"
+        Me.cboShippingMode.Size = New System.Drawing.Size(165, 24)
+        Me.cboShippingMode.TabIndex = 23
+        '
         'cboTaxReason
         '
         Me.cboTaxReason.Enabled = False
         Me.cboTaxReason.FormattingEnabled = True
-        Me.cboTaxReason.Location = New System.Drawing.Point(14, 87)
+        Me.cboTaxReason.Location = New System.Drawing.Point(497, 80)
         Me.cboTaxReason.Name = "cboTaxReason"
         Me.cboTaxReason.Size = New System.Drawing.Size(263, 24)
         Me.cboTaxReason.TabIndex = 21
@@ -719,16 +742,16 @@ Partial Class frmInvoice
         'txtInvoiceNote
         '
         Me.txtInvoiceNote.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
-        Me.txtInvoiceNote.Location = New System.Drawing.Point(617, 6)
+        Me.txtInvoiceNote.Location = New System.Drawing.Point(781, 6)
         Me.txtInvoiceNote.Multiline = True
         Me.txtInvoiceNote.Name = "txtInvoiceNote"
-        Me.txtInvoiceNote.Size = New System.Drawing.Size(458, 103)
+        Me.txtInvoiceNote.Size = New System.Drawing.Size(294, 103)
         Me.txtInvoiceNote.TabIndex = 20
         '
         'chkIsIncludeVAT
         '
         Me.chkIsIncludeVAT.AutoSize = True
-        Me.chkIsIncludeVAT.Location = New System.Drawing.Point(259, 42)
+        Me.chkIsIncludeVAT.Location = New System.Drawing.Point(742, 32)
         Me.chkIsIncludeVAT.Name = "chkIsIncludeVAT"
         Me.chkIsIncludeVAT.Size = New System.Drawing.Size(18, 17)
         Me.chkIsIncludeVAT.TabIndex = 18
@@ -737,7 +760,7 @@ Partial Class frmInvoice
         'chkIsExport
         '
         Me.chkIsExport.AutoSize = True
-        Me.chkIsExport.Location = New System.Drawing.Point(259, 12)
+        Me.chkIsExport.Location = New System.Drawing.Point(742, 9)
         Me.chkIsExport.Name = "chkIsExport"
         Me.chkIsExport.Size = New System.Drawing.Size(18, 17)
         Me.chkIsExport.TabIndex = 17
@@ -746,7 +769,7 @@ Partial Class frmInvoice
         'Label23
         '
         Me.Label23.AutoSize = True
-        Me.Label23.Location = New System.Drawing.Point(108, 65)
+        Me.Label23.Location = New System.Drawing.Point(591, 58)
         Me.Label23.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label23.Name = "Label23"
         Me.Label23.Size = New System.Drawing.Size(131, 17)
@@ -756,17 +779,37 @@ Partial Class frmInvoice
         'Label5
         '
         Me.Label5.AutoSize = True
-        Me.Label5.Location = New System.Drawing.Point(108, 41)
+        Me.Label5.Location = New System.Drawing.Point(591, 31)
         Me.Label5.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label5.Name = "Label5"
         Me.Label5.Size = New System.Drawing.Size(137, 17)
         Me.Label5.TabIndex = 1
         Me.Label5.Text = "الاسعار شاملة الضريبة"
         '
+        'Label25
+        '
+        Me.Label25.AutoSize = True
+        Me.Label25.Location = New System.Drawing.Point(189, 132)
+        Me.Label25.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label25.Name = "Label25"
+        Me.Label25.Size = New System.Drawing.Size(89, 17)
+        Me.Label25.TabIndex = 1
+        Me.Label25.Text = "طريقة الشحن"
+        '
+        'Label24
+        '
+        Me.Label24.AutoSize = True
+        Me.Label24.Location = New System.Drawing.Point(184, 78)
+        Me.Label24.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.Label24.Name = "Label24"
+        Me.Label24.Size = New System.Drawing.Size(92, 17)
+        Me.Label24.TabIndex = 1
+        Me.Label24.Text = "الشحن ش.ض"
+        '
         'Label4
         '
         Me.Label4.AutoSize = True
-        Me.Label4.Location = New System.Drawing.Point(155, 11)
+        Me.Label4.Location = New System.Drawing.Point(638, 8)
         Me.Label4.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label4.Name = "Label4"
         Me.Label4.Size = New System.Drawing.Size(90, 17)
@@ -811,6 +854,7 @@ Partial Class frmInvoice
         Me.pnlTotals.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.pnlTotals.BackColor = System.Drawing.Color.Transparent
         Me.pnlTotals.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle
+        Me.pnlTotals.Controls.Add(Me.txtDeliveryValue)
         Me.pnlTotals.Controls.Add(Me.txtTotalDiscount)
         Me.pnlTotals.Controls.Add(Me.txtTotalTaxableAmount)
         Me.pnlTotals.Controls.Add(Me.txtTotalAmount)
@@ -819,6 +863,7 @@ Partial Class frmInvoice
         Me.pnlTotals.Controls.Add(Me.Label19)
         Me.pnlTotals.Controls.Add(Me.Label18)
         Me.pnlTotals.Controls.Add(Me.Label3)
+        Me.pnlTotals.Controls.Add(Me.Label24)
         Me.pnlTotals.Controls.Add(Me.Label13)
         Me.pnlTotals.Controls.Add(Me.Label14)
         Me.pnlTotals.Location = New System.Drawing.Point(3, 8)
@@ -829,7 +874,7 @@ Partial Class frmInvoice
         'txtTotalDiscount
         '
         Me.txtTotalDiscount.Enabled = False
-        Me.txtTotalDiscount.Location = New System.Drawing.Point(10, 34)
+        Me.txtTotalDiscount.Location = New System.Drawing.Point(10, 29)
         Me.txtTotalDiscount.Margin = New System.Windows.Forms.Padding(4)
         Me.txtTotalDiscount.Name = "txtTotalDiscount"
         Me.txtTotalDiscount.Size = New System.Drawing.Size(164, 24)
@@ -838,7 +883,7 @@ Partial Class frmInvoice
         'txtTotalTaxableAmount
         '
         Me.txtTotalTaxableAmount.Enabled = False
-        Me.txtTotalTaxableAmount.Location = New System.Drawing.Point(10, 63)
+        Me.txtTotalTaxableAmount.Location = New System.Drawing.Point(10, 53)
         Me.txtTotalTaxableAmount.Margin = New System.Windows.Forms.Padding(4)
         Me.txtTotalTaxableAmount.Name = "txtTotalTaxableAmount"
         Me.txtTotalTaxableAmount.Size = New System.Drawing.Size(164, 24)
@@ -847,7 +892,7 @@ Partial Class frmInvoice
         'Label19
         '
         Me.Label19.AutoSize = True
-        Me.Label19.Location = New System.Drawing.Point(225, 16)
+        Me.Label19.Location = New System.Drawing.Point(225, 9)
         Me.Label19.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label19.Name = "Label19"
         Me.Label19.Size = New System.Drawing.Size(51, 17)
@@ -857,7 +902,7 @@ Partial Class frmInvoice
         'Label18
         '
         Me.Label18.AutoSize = True
-        Me.Label18.Location = New System.Drawing.Point(197, 44)
+        Me.Label18.Location = New System.Drawing.Point(197, 33)
         Me.Label18.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label18.Name = "Label18"
         Me.Label18.Size = New System.Drawing.Size(79, 17)
@@ -867,7 +912,7 @@ Partial Class frmInvoice
         'Label3
         '
         Me.Label3.AutoSize = True
-        Me.Label3.Location = New System.Drawing.Point(189, 72)
+        Me.Label3.Location = New System.Drawing.Point(189, 57)
         Me.Label3.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label3.Name = "Label3"
         Me.Label3.Size = New System.Drawing.Size(87, 17)
@@ -877,7 +922,7 @@ Partial Class frmInvoice
         'Label13
         '
         Me.Label13.AutoSize = True
-        Me.Label13.Location = New System.Drawing.Point(198, 100)
+        Me.Label13.Location = New System.Drawing.Point(198, 103)
         Me.Label13.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
         Me.Label13.Name = "Label13"
         Me.Label13.Size = New System.Drawing.Size(78, 17)
@@ -899,12 +944,14 @@ Partial Class frmInvoice
         Me.pnlPayment.Anchor = CType((System.Windows.Forms.AnchorStyles.Top Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.pnlPayment.BackColor = System.Drawing.Color.Transparent
         Me.pnlPayment.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle
+        Me.pnlPayment.Controls.Add(Me.cboShippingMode)
         Me.pnlPayment.Controls.Add(Me.txtVehicleCode)
         Me.pnlPayment.Controls.Add(Me.txtDriverName)
         Me.pnlPayment.Controls.Add(Me.txtSRCode)
         Me.pnlPayment.Controls.Add(Me.Label22)
         Me.pnlPayment.Controls.Add(Me.Label21)
         Me.pnlPayment.Controls.Add(Me.cboSourceStoreID)
+        Me.pnlPayment.Controls.Add(Me.Label25)
         Me.pnlPayment.Controls.Add(Me.Label12)
         Me.pnlPayment.Controls.Add(Me.Label11)
         Me.pnlPayment.Location = New System.Drawing.Point(599, 8)
@@ -1120,6 +1167,23 @@ Partial Class frmInvoice
         Me.Label9.TabIndex = 1
         Me.Label9.Text = "تاريخ التسليم"
         '
+        'txtAmountDue
+        '
+        Me.txtAmountDue.Location = New System.Drawing.Point(14, 12)
+        Me.txtAmountDue.Name = "txtAmountDue"
+        Me.txtAmountDue.Size = New System.Drawing.Size(164, 24)
+        Me.txtAmountDue.TabIndex = 22
+        '
+        'lblAmountDue
+        '
+        Me.lblAmountDue.AutoSize = True
+        Me.lblAmountDue.Location = New System.Drawing.Point(188, 19)
+        Me.lblAmountDue.Margin = New System.Windows.Forms.Padding(4, 0, 4, 0)
+        Me.lblAmountDue.Name = "lblAmountDue"
+        Me.lblAmountDue.Size = New System.Drawing.Size(141, 17)
+        Me.lblAmountDue.TabIndex = 1
+        Me.lblAmountDue.Text = "المبلغ الكلي المستحق"
+        '
         'frmInvoice
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(7.0!, 16.0!)
@@ -1253,4 +1317,10 @@ Partial Class frmInvoice
     Friend WithEvents colDetDelete As DataGridViewButtonColumn
     Friend WithEvents btnForLoading As Button
     Friend WithEvents btnReOpenRI As Button
+    Friend WithEvents txtDeliveryValue As TextBox
+    Friend WithEvents cboShippingMode As ComboBox
+    Friend WithEvents Label25 As Label
+    Friend WithEvents Label24 As Label
+    Friend WithEvents txtAmountDue As TextBox
+    Friend WithEvents lblAmountDue As Label
 End Class

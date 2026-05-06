@@ -16,9 +16,9 @@ Public Module PermissionService
 
             Using cmd As New SqlCommand("
             SELECT DISTINCT p.PermissionCode
-            FROM Security_EmployeeRole er
-            INNER JOIN Security_RolePermission rp ON rp.RoleID = er.RoleID
-            INNER JOIN Security_Permission p ON p.PermissionID = rp.PermissionID
+            FROM sec.EmployeeRole er
+            INNER JOIN sec.RolePermission rp ON rp.RoleID = er.RoleID
+            INNER JOIN sec.Permission p ON p.PermissionID = rp.PermissionID
             WHERE er.EmployeeID = @EmployeeID
               AND er.IsActive = 1
               AND rp.IsAllowed = 1

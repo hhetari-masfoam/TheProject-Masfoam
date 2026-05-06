@@ -115,14 +115,14 @@ SELECT
     SR.SRCode,
     ISNULL(E.EmpName, '')     AS DriverName,
     ISNULL(V.VehicleCode, '') AS VehicleCode
-FROM dbo.Logistics_LoadingOrder LO
-INNER JOIN dbo.Logistics_LoadingOrderSR LOS
+FROM log.LoadingOrder LO
+INNER JOIN log.LoadingOrderSR LOS
     ON LOS.LOID = LO.LOID
-INNER JOIN dbo.Business_SR SR
+INNER JOIN inv.SR SR
     ON SR.SRID = LOS.SRID
-LEFT JOIN dbo.Security_Employee E
+LEFT JOIN sec.Employee E
     ON E.EmployeeID = LO.DriverEmployeeID
-LEFT JOIN dbo.Master_Vehicle V
+LEFT JOIN md.Vehicle V
     ON V.VehicleID = LO.VehicleID
 WHERE LO.LOID = @LOID
   AND SR.SRID = @SRID
@@ -239,12 +239,12 @@ SELECT
     ISNULL(SRD.Quantity, 0)  AS RequiredQty,
     ISNULL(LOD.LoadedQty, 0) AS LoadedQty,
     ISNULL(U.UnitName, '')   AS UnitName
-FROM dbo.Logistics_LoadingOrderDetail LOD
-INNER JOIN dbo.Business_SRD SRD
+FROM log.LoadingOrderDetail LOD
+INNER JOIN inv.SRD SRD
     ON SRD.SRDID = LOD.SourceDetailID
-INNER JOIN dbo.Master_Product P
+INNER JOIN md.Product P
     ON P.ProductID = LOD.ProductID
-LEFT JOIN dbo.Master_Unit U
+LEFT JOIN md.Unit U
     ON U.UnitID = P.StorageUnitID
 WHERE LOD.LOID = @LOID
   AND LOD.SourceHeaderID = @SRID
@@ -301,7 +301,7 @@ ORDER BY P.ProductCode
 
             Using cmd As New SqlCommand("
 SELECT TOP 1 TransactionID
-FROM Inventory_TransactionHeader
+FROM inv.TransactionHeader
 WHERE SourceDocumentID = @LOID
   AND OperationTypeID = 4
 ORDER BY TransactionID DESC

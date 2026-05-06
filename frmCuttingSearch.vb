@@ -18,7 +18,7 @@ Public Class frmCuttingSearch
 
         Dim sql As String =
             "SELECT *
-             FROM Production_CuttingHeader
+             FROM prod.CuttingHeader
              ORDER BY CuttingID DESC"
 
         Using con As New SqlConnection(ConnStr)

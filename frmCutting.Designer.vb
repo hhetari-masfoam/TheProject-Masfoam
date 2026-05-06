@@ -23,6 +23,9 @@ Partial Class frmCutting
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
         Me.Panel1 = New System.Windows.Forms.Panel()
+        Me.btnDeletePostedCutting = New System.Windows.Forms.Button()
+        Me.btnEditPostedCutting = New System.Windows.Forms.Button()
+        Me.btnCancel = New System.Windows.Forms.Button()
         Me.txtCuttingStatus = New System.Windows.Forms.TextBox()
         Me.btnSend = New System.Windows.Forms.Button()
         Me.Button1 = New System.Windows.Forms.Button()
@@ -90,7 +93,6 @@ Partial Class frmCutting
         Me.colAdd = New System.Windows.Forms.DataGridViewButtonColumn()
         Me.tabCuttingFollow = New System.Windows.Forms.TabPage()
         Me.DataGridView1 = New System.Windows.Forms.DataGridView()
-        Me.btnCancel = New System.Windows.Forms.Button()
         Me.Panel1.SuspendLayout()
         Me.pnlProductSpecs.SuspendLayout()
         CType(Me.dgvOutPut, System.ComponentModel.ISupportInitialize).BeginInit()
@@ -108,6 +110,8 @@ Partial Class frmCutting
         '
         'Panel1
         '
+        Me.Panel1.Controls.Add(Me.btnDeletePostedCutting)
+        Me.Panel1.Controls.Add(Me.btnEditPostedCutting)
         Me.Panel1.Controls.Add(Me.btnCancel)
         Me.Panel1.Controls.Add(Me.txtCuttingStatus)
         Me.Panel1.Controls.Add(Me.btnSend)
@@ -122,6 +126,34 @@ Partial Class frmCutting
         Me.Panel1.Name = "Panel1"
         Me.Panel1.Size = New System.Drawing.Size(140, 753)
         Me.Panel1.TabIndex = 0
+        '
+        'btnDeletePostedCutting
+        '
+        Me.btnDeletePostedCutting.Location = New System.Drawing.Point(8, 82)
+        Me.btnDeletePostedCutting.Name = "btnDeletePostedCutting"
+        Me.btnDeletePostedCutting.Size = New System.Drawing.Size(105, 42)
+        Me.btnDeletePostedCutting.TabIndex = 24
+        Me.btnDeletePostedCutting.Text = "حذف مرحل"
+        Me.btnDeletePostedCutting.UseVisualStyleBackColor = True
+        '
+        'btnEditPostedCutting
+        '
+        Me.btnEditPostedCutting.Location = New System.Drawing.Point(8, 34)
+        Me.btnEditPostedCutting.Name = "btnEditPostedCutting"
+        Me.btnEditPostedCutting.Size = New System.Drawing.Size(105, 42)
+        Me.btnEditPostedCutting.TabIndex = 25
+        Me.btnEditPostedCutting.Text = "تعديل مرحل"
+        Me.btnEditPostedCutting.UseVisualStyleBackColor = True
+        '
+        'btnCancel
+        '
+        Me.btnCancel.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
+        Me.btnCancel.Location = New System.Drawing.Point(8, 445)
+        Me.btnCancel.Name = "btnCancel"
+        Me.btnCancel.Size = New System.Drawing.Size(129, 55)
+        Me.btnCancel.TabIndex = 11
+        Me.btnCancel.Text = "إلغاء"
+        Me.btnCancel.UseVisualStyleBackColor = True
         '
         'txtCuttingStatus
         '
@@ -745,16 +777,6 @@ Partial Class frmCutting
         Me.DataGridView1.Size = New System.Drawing.Size(896, 275)
         Me.DataGridView1.TabIndex = 0
         '
-        'btnCancel
-        '
-        Me.btnCancel.Font = New System.Drawing.Font("Tahoma", 10.2!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(0, Byte))
-        Me.btnCancel.Location = New System.Drawing.Point(8, 445)
-        Me.btnCancel.Name = "btnCancel"
-        Me.btnCancel.Size = New System.Drawing.Size(129, 55)
-        Me.btnCancel.TabIndex = 11
-        Me.btnCancel.Text = "إلغاء"
-        Me.btnCancel.UseVisualStyleBackColor = True
-        '
         'frmCutting
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(7.0!, 16.0!)
@@ -854,4 +876,6 @@ Partial Class frmCutting
     Friend WithEvents colProductType As DataGridViewComboBoxColumn
     Friend WithEvents colAdd As DataGridViewButtonColumn
     Friend WithEvents btnCancel As Button
+    Friend WithEvents btnDeletePostedCutting As Button
+    Friend WithEvents btnEditPostedCutting As Button
 End Class

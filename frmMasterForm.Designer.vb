@@ -39,12 +39,12 @@ Partial Class frmMasterForm
         Me.frmPermission = New System.Windows.Forms.Button()
         Me.frmInvoice = New System.Windows.Forms.Button()
         Me.Button17 = New System.Windows.Forms.Button()
-        Me.Button18 = New System.Windows.Forms.Button()
-        Me.Button19 = New System.Windows.Forms.Button()
-        Me.Button20 = New System.Windows.Forms.Button()
-        Me.Button21 = New System.Windows.Forms.Button()
-        Me.Button22 = New System.Windows.Forms.Button()
-        Me.Button23 = New System.Windows.Forms.Button()
+        Me.frmfinAccountStatment = New System.Windows.Forms.Button()
+        Me.frmfinPaymentVouchers = New System.Windows.Forms.Button()
+        Me.frmfinSupplierPayments = New System.Windows.Forms.Button()
+        Me.frmfinCustomerPayments = New System.Windows.Forms.Button()
+        Me.frmTrialBalance = New System.Windows.Forms.Button()
+        Me.frmChartOfAccounts = New System.Windows.Forms.Button()
         Me.frmGoodsIssue = New System.Windows.Forms.Button()
         Me.Button25 = New System.Windows.Forms.Button()
         Me.Button26 = New System.Windows.Forms.Button()
@@ -210,59 +210,59 @@ Partial Class frmMasterForm
         Me.Button17.Text = "Button1"
         Me.Button17.UseVisualStyleBackColor = True
         '
-        'Button18
+        'frmfinAccountStatment
         '
-        Me.Button18.Location = New System.Drawing.Point(926, 235)
-        Me.Button18.Name = "Button18"
-        Me.Button18.Size = New System.Drawing.Size(146, 62)
-        Me.Button18.TabIndex = 0
-        Me.Button18.Text = "Button1"
-        Me.Button18.UseVisualStyleBackColor = True
+        Me.frmfinAccountStatment.Location = New System.Drawing.Point(926, 235)
+        Me.frmfinAccountStatment.Name = "frmfinAccountStatment"
+        Me.frmfinAccountStatment.Size = New System.Drawing.Size(146, 62)
+        Me.frmfinAccountStatment.TabIndex = 0
+        Me.frmfinAccountStatment.Text = "Account Statment"
+        Me.frmfinAccountStatment.UseVisualStyleBackColor = True
         '
-        'Button19
+        'frmfinPaymentVouchers
         '
-        Me.Button19.Location = New System.Drawing.Point(774, 235)
-        Me.Button19.Name = "Button19"
-        Me.Button19.Size = New System.Drawing.Size(146, 62)
-        Me.Button19.TabIndex = 0
-        Me.Button19.Text = "Button1"
-        Me.Button19.UseVisualStyleBackColor = True
+        Me.frmfinPaymentVouchers.Location = New System.Drawing.Point(774, 235)
+        Me.frmfinPaymentVouchers.Name = "frmfinPaymentVouchers"
+        Me.frmfinPaymentVouchers.Size = New System.Drawing.Size(146, 62)
+        Me.frmfinPaymentVouchers.TabIndex = 0
+        Me.frmfinPaymentVouchers.Text = "Payment Vouchers"
+        Me.frmfinPaymentVouchers.UseVisualStyleBackColor = True
         '
-        'Button20
+        'frmfinSupplierPayments
         '
-        Me.Button20.Location = New System.Drawing.Point(622, 235)
-        Me.Button20.Name = "Button20"
-        Me.Button20.Size = New System.Drawing.Size(146, 62)
-        Me.Button20.TabIndex = 0
-        Me.Button20.Text = "Button1"
-        Me.Button20.UseVisualStyleBackColor = True
+        Me.frmfinSupplierPayments.Location = New System.Drawing.Point(622, 235)
+        Me.frmfinSupplierPayments.Name = "frmfinSupplierPayments"
+        Me.frmfinSupplierPayments.Size = New System.Drawing.Size(146, 62)
+        Me.frmfinSupplierPayments.TabIndex = 0
+        Me.frmfinSupplierPayments.Text = "Supplier Payments"
+        Me.frmfinSupplierPayments.UseVisualStyleBackColor = True
         '
-        'Button21
+        'frmfinCustomerPayments
         '
-        Me.Button21.Location = New System.Drawing.Point(470, 235)
-        Me.Button21.Name = "Button21"
-        Me.Button21.Size = New System.Drawing.Size(146, 62)
-        Me.Button21.TabIndex = 0
-        Me.Button21.Text = "Button1"
-        Me.Button21.UseVisualStyleBackColor = True
+        Me.frmfinCustomerPayments.Location = New System.Drawing.Point(470, 235)
+        Me.frmfinCustomerPayments.Name = "frmfinCustomerPayments"
+        Me.frmfinCustomerPayments.Size = New System.Drawing.Size(146, 62)
+        Me.frmfinCustomerPayments.TabIndex = 0
+        Me.frmfinCustomerPayments.Text = "Customer Payments"
+        Me.frmfinCustomerPayments.UseVisualStyleBackColor = True
         '
-        'Button22
+        'frmTrialBalance
         '
-        Me.Button22.Location = New System.Drawing.Point(318, 235)
-        Me.Button22.Name = "Button22"
-        Me.Button22.Size = New System.Drawing.Size(146, 62)
-        Me.Button22.TabIndex = 0
-        Me.Button22.Text = "Button1"
-        Me.Button22.UseVisualStyleBackColor = True
+        Me.frmTrialBalance.Location = New System.Drawing.Point(318, 235)
+        Me.frmTrialBalance.Name = "frmTrialBalance"
+        Me.frmTrialBalance.Size = New System.Drawing.Size(146, 62)
+        Me.frmTrialBalance.TabIndex = 0
+        Me.frmTrialBalance.Text = "Trial Balance"
+        Me.frmTrialBalance.UseVisualStyleBackColor = True
         '
-        'Button23
+        'frmChartOfAccounts
         '
-        Me.Button23.Location = New System.Drawing.Point(166, 235)
-        Me.Button23.Name = "Button23"
-        Me.Button23.Size = New System.Drawing.Size(146, 62)
-        Me.Button23.TabIndex = 0
-        Me.Button23.Text = "Button1"
-        Me.Button23.UseVisualStyleBackColor = True
+        Me.frmChartOfAccounts.Location = New System.Drawing.Point(166, 235)
+        Me.frmChartOfAccounts.Name = "frmChartOfAccounts"
+        Me.frmChartOfAccounts.Size = New System.Drawing.Size(146, 62)
+        Me.frmChartOfAccounts.TabIndex = 0
+        Me.frmChartOfAccounts.Text = "Account Chart"
+        Me.frmChartOfAccounts.UseVisualStyleBackColor = True
         '
         'frmGoodsIssue
         '
@@ -365,27 +365,27 @@ Partial Class frmMasterForm
         Me.Controls.Add(Me.frmInvoice)
         Me.Controls.Add(Me.frmProduction)
         Me.Controls.Add(Me.Button31)
-        Me.Controls.Add(Me.Button23)
+        Me.Controls.Add(Me.frmChartOfAccounts)
         Me.Controls.Add(Me.frmPermission)
         Me.Controls.Add(Me.frmSaleRequest)
         Me.Controls.Add(Me.Button30)
-        Me.Controls.Add(Me.Button22)
+        Me.Controls.Add(Me.frmTrialBalance)
         Me.Controls.Add(Me.btnfrmSalesReturn)
         Me.Controls.Add(Me.frmSRDistripution)
         Me.Controls.Add(Me.Button29)
-        Me.Controls.Add(Me.Button21)
+        Me.Controls.Add(Me.frmfinCustomerPayments)
         Me.Controls.Add(Me.frmCuttingScrabCalculator)
         Me.Controls.Add(Me.frmCutting)
         Me.Controls.Add(Me.Button28)
-        Me.Controls.Add(Me.Button20)
+        Me.Controls.Add(Me.frmfinSupplierPayments)
         Me.Controls.Add(Me.frmCostCorrection)
         Me.Controls.Add(Me.btnfrmStockTransaction)
         Me.Controls.Add(Me.Button27)
-        Me.Controls.Add(Me.Button19)
+        Me.Controls.Add(Me.frmfinPaymentVouchers)
         Me.Controls.Add(Me.frmPurchaseReturn)
         Me.Controls.Add(Me.btnfrmPurchases)
         Me.Controls.Add(Me.Button26)
-        Me.Controls.Add(Me.Button18)
+        Me.Controls.Add(Me.frmfinAccountStatment)
         Me.Controls.Add(Me.frmLogin)
         Me.Controls.Add(Me.frmBOM)
         Me.Controls.Add(Me.Button25)
@@ -416,12 +416,12 @@ Partial Class frmMasterForm
     Friend WithEvents frmPermission As Button
     Friend WithEvents frmInvoice As Button
     Friend WithEvents Button17 As Button
-    Friend WithEvents Button18 As Button
-    Friend WithEvents Button19 As Button
-    Friend WithEvents Button20 As Button
-    Friend WithEvents Button21 As Button
-    Friend WithEvents Button22 As Button
-    Friend WithEvents Button23 As Button
+    Friend WithEvents frmfinAccountStatment As Button
+    Friend WithEvents frmfinPaymentVouchers As Button
+    Friend WithEvents frmfinSupplierPayments As Button
+    Friend WithEvents frmfinCustomerPayments As Button
+    Friend WithEvents frmTrialBalance As Button
+    Friend WithEvents frmChartOfAccounts As Button
     Friend WithEvents frmGoodsIssue As Button
     Friend WithEvents Button25 As Button
     Friend WithEvents Button26 As Button

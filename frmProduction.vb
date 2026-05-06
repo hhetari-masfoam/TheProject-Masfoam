@@ -1,4 +1,6 @@
 ﻿Imports System.Data.SqlClient
+Imports System.Net.Mime.MediaTypeNames
+Imports System.Runtime.Remoting
 Imports THE_PROJECT.frmProductSearch
 
 Public Class frmProduction
@@ -35,7 +37,10 @@ Public Class frmProduction
     ' =========================
     Private Const OPERATION_TYPE_CODE As String = "PRO"
     Private OperationTypeID As Integer = 0
-    Private CurrentPolicy As EditPolicy
+    '   Private CurrentPolicy As EditPolicy
+    Private IsPostedEditMode As Boolean = False
+    Private service As ProductionService
+
     Private Sub InitWorkflowContext()
 
         ' جلب OperationTypeID من الكود (مرة واحدة)
@@ -43,7 +48,7 @@ Public Class frmProduction
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
                 SELECT OperationTypeID
-                FROM Workflow_OperationType
+                FROM wf.OperationType
                 WHERE OperationCode = @Code
                   AND IsActive = 1
             ", con)
@@ -609,7 +614,9 @@ Public Class frmProduction
         cboBOMVersion.Enabled = canEdit
         cboSourceStore.Enabled = canEdit
         cboTargetStore.Enabled = canEdit
-
+        ChkIsCleaningUsed.Enabled = canEdit
+        cboCleaningChemical.Enabled = canEdit
+        txtCleaningChemicalQTY.Enabled = canEdit
         txtProductionAmount.ReadOnly = Not canEdit
         txtNotes.ReadOnly = Not canEdit
 
@@ -636,6 +643,7 @@ Public Class frmProduction
         ' حساب موقع المركز
         Dim newX As Integer = (screenW - newWidth) \ 2
         Dim newY As Integer = (screenH - newHeight) \ 2
+        service = New ProductionService(ConnStr)
 
         ' تعيين الموقع والحجم مباشرة
         Me.SetBounds(newX, newY, newWidth, newHeight)
@@ -767,7 +775,7 @@ Public Class frmProduction
             ProductGroupID,
             ProductCategoryID,
             ProductSubCategoryID
-         FROM Master_Product
+         FROM md.Product
          WHERE IsActive = 1
          ORDER BY ProductCode", con)
 
@@ -790,7 +798,7 @@ Public Class frmProduction
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT StoreID, StoreName
-             FROM Master_Store
+             FROM md.Store
              WHERE IsActive = 1
              ORDER BY StoreName", con)
 
@@ -842,8 +850,8 @@ Public Class frmProduction
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT u.UnitName
-         FROM Master_Product p
-         INNER JOIN Master_Unit u
+         FROM md.Product p
+         INNER JOIN md.Unit u
              ON u.UnitID = p.StorageUnitID
          WHERE p.ProductID = @ProductID", con)
 
@@ -925,7 +933,7 @@ Public Class frmProduction
             Using cmd As New SqlCommand("
             SELECT TOP 1 
                 AvgCostPerM3
-            FROM dbo.Master_FinalProductAvgCost
+            FROM inv.FinalProductAvgCost
             WHERE BaseProductID = @ProductID
             ORDER BY LastUpdated DESC
         ", con)
@@ -959,8 +967,8 @@ Public Class frmProduction
             SELECT 
                 sc.SubcategoryID,
                 sc.SubcategoryName
-            FROM Master_Product p
-            INNER JOIN Master_SubCategory sc
+            FROM md.Product p
+            INNER JOIN md.ProductSubCategory sc
                 ON sc.SubcategoryID = p.ProductSubCategoryID
             WHERE p.ProductID = @ProductID
         ", con)
@@ -1012,7 +1020,7 @@ SELECT TOP 1
     VersionNo,
     BOMCode,
     IsActive
-FROM Production_BOMHeader
+FROM prod.BOMHeader
 WHERE ProductID = @ProductID
   AND IsActive = 1
 ORDER BY VersionNo DESC
@@ -1198,7 +1206,7 @@ ORDER BY VersionNo DESC
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand(
                     "SELECT ProductID
-                 FROM Production_BOMHeader
+                 FROM prod.BOMHeader
                  WHERE BOMID = @BOMID", con)
 
                     cmd.Parameters.Add("@BOMID", SqlDbType.Int).Value = f.SelectedBOMID
@@ -1239,7 +1247,7 @@ ORDER BY VersionNo DESC
                 ProductCode,
                 ProductName,
                 StorageUnitID
-             FROM Master_Product
+             FROM md.Product
              WHERE IsActive = 1
              ORDER BY ProductCode", con)
 
@@ -1321,7 +1329,7 @@ ORDER BY VersionNo DESC
             IsFormLoading = True
 
             Using con As New SqlConnection(ConnStr)
-                ' نجلب آخر استخدام للمواد في Production_Consumption
+                ' نجلب آخر استخدام للمواد في prod.ProductionConsumption
                 Using cmd As New SqlCommand("
                 SELECT TOP 1
                     c.ComponentProductID,
@@ -1329,9 +1337,9 @@ ORDER BY VersionNo DESC
                     p.ProductCode,
                     p.ProductName,
                     p.StorageUnitID
-                FROM Production_Consumption c
-                INNER JOIN Production_Header h ON h.ProductionID = c.ProductionID
-                INNER JOIN Master_Product p ON p.ProductID = c.ComponentProductID
+                FROM prod.ProductionConsumption c
+                INNER JOIN prod.ProductionHeader h ON h.ProductionID = c.ProductionID
+                INNER JOIN md.Product p ON p.ProductID = c.ComponentProductID
                 WHERE h.CreatedByUserID = @UserID  -- آخر استخدام لهذا المستخدم
                 ORDER BY c.ConsumptionID DESC
             ", con)
@@ -1422,10 +1430,10 @@ ORDER BY VersionNo DESC
                 p.ProductName,
                 u.UnitName,
                 d.Quantity
-             FROM Production_BOMDetails d
-             INNER JOIN Master_Product p
+             FROM prod.BOMDetails d
+             INNER JOIN md.Product p
                  ON p.ProductID = d.ComponentProductID
-             INNER JOIN Master_Unit u
+             INNER JOIN md.Unit u
                  ON u.UnitID = d.UnitID
              WHERE d.BOMID = @BOMID
              ORDER BY d.LineNumber", con)
@@ -1470,15 +1478,33 @@ ORDER BY VersionNo DESC
     End Sub
 
     Private Function GetProductionFactor() As Decimal
-        Select Case CurrentSubCategoryID
-            Case 9, 11
-                Return GetDec(txtProductionAmount.Text)
 
+        Select Case CurrentSubCategoryID
+
+        ' إسفنج + مراتب
+            Case 9, 11
+                Dim v As Decimal = GetDec(txtProductionAmount.Text)
+
+                ' 🔴 لو ما فيه إدخال → صفر
+                If v <= 0 Then Return 0D
+
+                Return v
+
+        ' مضغوط
             Case 10
-                Return GetDec(txtTotalProductionVolume.Text)
+                Dim v As Decimal = GetDec(txtTotalProductionVolume.Text)
+
+                ' 🔴 لو ما فيه حجم → صفر
+                If v <= 0 Then Return 0D
+
+                Return v
+
         End Select
+
         Return 0D
+
     End Function
+
     ' ===== خطأ 2: SelectedValueChanged مقفول دائمًا بسبب IsCleaningManualChange =====
     Private Sub cboCleaningChemical_SelectedValueChanged(
     sender As Object,
@@ -1575,8 +1601,8 @@ ORDER BY VersionNo DESC
             Using cmd As New SqlCommand("
             SELECT 
                 u.UnitName
-            FROM Master_Product p
-            INNER JOIN Master_Unit u
+            FROM md.Product p
+            INNER JOIN md.Unit u
                 ON u.UnitID = p.ProductionUnitID
             WHERE p.ProductID = @ProductID
         ", con)
@@ -1601,7 +1627,7 @@ ORDER BY VersionNo DESC
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-                "SELECT UnitName FROM Master_Unit WHERE UnitID = @UnitID", con)
+                "SELECT UnitName FROM md.Unit WHERE UnitID = @UnitID", con)
 
                 cmd.Parameters.Add("@UnitID", SqlDbType.Int).Value = unitID
                 con.Open()
@@ -1623,7 +1649,7 @@ ORDER BY VersionNo DESC
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT AvgCost
-             FROM Master_Product
+             FROM md.Product
              WHERE ProductID = @ProductID", con)
 
                 cmd.Parameters.Add("@ProductID", SqlDbType.Int).Value = productID
@@ -1646,7 +1672,7 @@ ORDER BY VersionNo DESC
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT QtyOnHand
-             FROM Inventory_Balance
+             FROM inv.Balance
              WHERE ProductID = @ProductID
                AND StoreID = @StoreID", con)
 
@@ -1746,7 +1772,7 @@ ORDER BY VersionNo DESC
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT CategoryName
-             FROM Master_ProductCategory
+             FROM md.ProductCategory
              WHERE CategoryID = @CategoryID", con)
 
                 cmd.Parameters.Add("@CategoryID", SqlDbType.Int).Value = categoryID
@@ -1769,7 +1795,7 @@ ORDER BY VersionNo DESC
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT SubcategoryName
-             FROM Master_Subcategory
+             FROM md.ProductSubCategory
              WHERE SubcategoryID = @SubcategoryID", con)
 
                 cmd.Parameters.Add("@SubcategoryID", SqlDbType.Int).Value = subCategoryID
@@ -1793,7 +1819,7 @@ ORDER BY VersionNo DESC
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT UnitName
-             FROM Master_Unit
+             FROM md.Unit
              WHERE UnitID = @UnitID", con)
 
                 cmd.Parameters.Add("@UnitID", SqlDbType.Int).Value = unitID
@@ -1817,7 +1843,7 @@ ORDER BY VersionNo DESC
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT GroupName
-             FROM Master_ProductGroup
+             FROM md.ProductGroup
              WHERE ProductGroupID = @ProductGroupID", con)
 
                 cmd.Parameters.Add("@ProductGroupID", SqlDbType.Int).Value = groupID
@@ -1887,7 +1913,7 @@ ORDER BY VersionNo DESC
     Private Function GetProductCodeByID(productID As Integer) As String
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-            "SELECT ProductCode FROM Master_Product WHERE ProductID=@ID", con)
+            "SELECT ProductCode FROM md.Product WHERE ProductID=@ID", con)
                 cmd.Parameters.AddWithValue("@ID", productID)
                 con.Open()
                 Dim r = cmd.ExecuteScalar()
@@ -1983,8 +2009,8 @@ ORDER BY VersionNo DESC
     s.StatusID,
     s.StatusCode,
     s.StatusName
-FROM Workflow_StatusScope ss
-INNER JOIN Workflow_Status s
+FROM wf.StatusScope ss
+INNER JOIN wf.Status s
     ON s.StatusID = ss.StatusID
 WHERE ss.ScopeCode = 'PRO'
   AND ss.IsActive = 1
@@ -2087,29 +2113,36 @@ ORDER BY
         Next
         If CurrentSubCategoryID <> 11 Then
             ' إسفنج / مضغوط
-            If tvpOutput.Rows.Count = 0 Then
-                MessageBox.Show("أدخل صف واحد على الأقل في جدول الإنتاج.")
-                Exit Sub
+
+            If Not (CurrentStatusID = 6 AndAlso IsPostedEditMode) Then
+                If tvpOutput.Rows.Count = 0 Then
+                    MessageBox.Show("أدخل صف واحد على الأقل في جدول الإنتاج.")
+                    Exit Sub
+                End If
             End If
+
         Else
             ' مراتب → إنشاء Output افتراضي
+
             Dim Quantity As Decimal = GetDec(txtProductionAmount.Text)
-            If Quantity <= 0D Then
-                MessageBox.Show("أدخل كمية إنتاج صحيحة للمراتب.")
-                Exit Sub
+
+            If Not (CurrentStatusID = 6 AndAlso IsPostedEditMode) Then
+                If Quantity <= 0D Then
+                    MessageBox.Show("أدخل كمية إنتاج صحيحة للمراتب.")
+                    Exit Sub
+                End If
             End If
 
-            ' ✅ صف Output إلزامي للمراتب
+            ' ✅ في حالة التعديل المرحل نسمح بالصفر
             tvpOutput.Rows.Add(
         SelectedProductID,
-        0D,   ' Length
-        0D,   ' Width
-        0D,   ' Height
-        Quantity   ' Quantity
+        0D,
+        0D,
+        0D,
+        Quantity
     )
+
         End If
-
-
         ' =========================
         ' تجهيز TVP – ProductionConsumption
         ' =========================
@@ -2133,7 +2166,54 @@ ORDER BY
             GetDec(r.Cells("colCalAvailableStock").Value)
         )
         Next
+        ' =========================
+        ' 🔥 تعديل سند مرحل
+        ' =========================
+        If CurrentStatusID = 6 AndAlso IsPostedEditMode Then
+            If service.IsProductionInCorrectionQueue(CurrentProductionID) Then
+                MessageBox.Show("لا يمكن تعديل السند لأنه موجود في قائمة التصحيح")
+                Exit Sub
+            End If        ' 🔥 تفعيل وضع التعديل
 
+            Try
+                ' تأكد من إعادة الحساب قبل الحفظ
+                RecalculateAllProduction()
+
+
+                service.SavePostedProductionEdit(
+            CurrentProductionID,
+            dtpProductionDate.Value.Date,
+            txtNotes.Text,
+            GetPostedProductionBaseValue(),
+            GetDec(txtProductUnitCost.Text),
+            BuildPostedOutputEditTable(),
+            BuildPostedConsumptionEditTable(),
+            CurrentUserID
+        )
+
+                MessageBox.Show("تم حفظ تعديل السند المرحل وإضافته إلى قائمة التصحيح.",
+                        "تم",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information)
+
+                ' إعادة ضبط الحالة
+                IsPostedEditMode = False
+                IsSaved = True
+
+                ' إعادة تحميل السند بعد الحفظ
+                LoadProduction(CurrentProductionID)
+                RefreshWorkflowPolicy()
+
+            Catch ex As Exception
+                MessageBox.Show("خطأ أثناء حفظ تعديل السند المرحل: " & ex.Message,
+                        "خطأ",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error)
+            End Try
+
+            Exit Sub
+
+        End If
         ' =========================
         ' قيم الهيدر
         ' =========================
@@ -2145,7 +2225,7 @@ ORDER BY
                 isValidProduction = (GetDec(txtProductionAmount.Text) > 0D)
 
             Case 10      ' مضغوط
-                isValidProduction = (GetDec(txtTotalProductionVolume.Text) > 0D)
+                isValidProduction = (CDec(txtTotalProductionVolume.Tag) > 0D)
 
         End Select
 
@@ -2162,7 +2242,7 @@ ORDER BY
                 baseValue = GetDec(txtProductionAmount.Text)
 
             Case 10      ' مضغوط
-                baseValue = GetDec(txtTotalProductionVolume.Text)
+                baseValue = CDec(txtTotalProductionVolume.Tag)
         End Select
 
         ' =========================
@@ -2337,7 +2417,7 @@ ORDER BY
                 ProductionBaseValue,
                 StatusID,
                 IsInventoryPosted
-            FROM Production_Header
+            FROM prod.ProductionHeader
             WHERE ProductionID = @ProductionID
         ", con)
 
@@ -2421,15 +2501,16 @@ ORDER BY
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
-            SELECT
-                Length,
-                Width,
-                Height,
-                Quantity
-            FROM Production_Output
-            WHERE ProductionID = @ProductionID
-            ORDER BY OutputID
-        ", con)
+SELECT
+    OutputID,
+    Length,
+    Width,
+    Height,
+    Quantity
+FROM prod.ProductionOutPut
+WHERE ProductionID = @ProductionID
+ORDER BY OutputID
+", con)
 
                 cmd.Parameters.Add("@ProductionID", SqlDbType.Int).Value = productionID
                 con.Open()
@@ -2443,7 +2524,7 @@ ORDER BY
                         dgvProduced.Rows(i).Cells("colManWidth").Value = dr("Width")
                         dgvProduced.Rows(i).Cells("colManHeight").Value = dr("Height")
                         dgvProduced.Rows(i).Cells("colManQTY").Value = dr("Quantity")
-
+                        dgvProduced.Rows(i).Cells("colManOutputID").Value = dr("OutputID")
                     End While
                 End Using
 
@@ -2468,6 +2549,7 @@ ORDER BY
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT
+                   pc.ConsumptionID,
                 pc.ComponentProductID,
                 p.ProductCode,
                 p.ProductName,
@@ -2476,10 +2558,10 @@ ORDER BY
                 pc.ActualConsumedQty,
                 pc.StockQtyAtTime,
                 pc.TotalCost
-            FROM Production_Consumption pc
-            INNER JOIN Master_Product p
+            FROM prod.ProductionConsumption pc
+            INNER JOIN md.Product p
                 ON p.ProductID = pc.ComponentProductID
-            INNER JOIN Master_Unit u
+            INNER JOIN md.Unit u
                 ON u.UnitID = p.StorageUnitID
             WHERE pc.ProductionID = @ProductionID
             ORDER BY pc.ConsumptionID
@@ -2493,6 +2575,7 @@ ORDER BY
                         Dim i As Integer = dgvProductionCalculations.Rows.Add()
 
                         With dgvProductionCalculations.Rows(i)
+                            .Cells("colCalConsumptionID").Value = dr("ConsumptionID")
                             .Cells("colCalProductID").Value = dr("ComponentProductID")
                             .Cells("colCalProductCode").Value = dr("ProductCode").ToString()
                             .Cells("colCalProductName").Value = dr("ProductName").ToString()
@@ -2575,7 +2658,7 @@ ORDER BY
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT StatusID
-            FROM Production_Header
+            FROM prod.ProductionHeader
             WHERE ProductionID = @ProductionID
         ", con)
 
@@ -2811,8 +2894,21 @@ ORDER BY
         If CurrentSubCategoryID <> 11 Then
             For Each r As DataGridViewRow In dgvProduced.Rows
                 If r.IsNewRow Then Continue For
-                totalProductionVolume += GetDec(r.Cells("colManTotalProductVolume").Value)
-                totalProductionQty += GetDec(r.Cells("colManQTY").Value)
+
+                Dim length As Decimal = GetDec(r.Cells("colManLength").Value)
+                Dim width As Decimal = GetDec(r.Cells("colManWidth").Value)
+                Dim height As Decimal = GetDec(r.Cells("colManHeight").Value)
+                Dim qty As Decimal = GetDec(r.Cells("colManQTY").Value)
+
+                Dim volume As Decimal = 0D
+
+                If length > 0D AndAlso width > 0D AndAlso height > 0D AndAlso qty > 0D Then
+                    volume = (length * width * height * qty) / 1000000D
+                End If
+
+                totalProductionVolume += volume
+                totalProductionQty += qty
+
             Next
         Else
             totalProductionQty = GetDec(txtProductionAmount.Text)
@@ -2826,7 +2922,9 @@ ORDER BY
         Next
 
         txtTotalProductionVolume.Text = totalProductionVolume.ToString("N2")
+        txtTotalProductionVolume.Tag = totalProductionVolume
         txtTotalProductionQTY.Text = totalProductionQty.ToString("N2")
+        txtTotalProductionQTY.Tag = totalProductionQty
         txtTotalChemicalConsumption.Text = totalChemicalQty.ToString("N2")
         txtTotalProductionCost.Text = totalProductionCost.ToString("N2")
 
@@ -2891,7 +2989,19 @@ ORDER BY
         If IsFormLoading Then Exit Sub
 
         Dim factor As Decimal = GetProductionFactor()
+        For Each r As DataGridViewRow In dgvProductionCalculations.Rows
+            If r.IsNewRow Then Continue For
 
+            Dim bomQty As Decimal = GetDec(r.Cells("colCalBOMQTY").Tag)
+
+            ' 🔥 الحل الحقيقي
+            If factor <= 0 Then
+                r.Cells("colCalActualQTY").Value = 0D
+                Continue For
+            End If
+
+            r.Cells("colCalActualQTY").Value = bomQty * factor
+        Next
         ' ✅ مهم: لا نحسب إذا factor=0 حتى لا نصفر
         If factor <= 0D Then Exit Sub
 
@@ -2976,7 +3086,6 @@ ORDER BY
         ' =========================
         Try
 
-            Dim service As New ProductionService(ConnStr)
 
             service.CancelProduction(CurrentProductionID, CurrentUserID)
 
@@ -3020,7 +3129,7 @@ ORDER BY
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
 SELECT StatusID 
-FROM Production_Header
+FROM prod.ProductionHeader
 WHERE ProductionID = @ID
 ", con)
 
@@ -3036,6 +3145,195 @@ WHERE ProductionID = @ID
 
             End Using
         End Using
+
+    End Function
+
+    Private Sub btnEditPostedProduction_Click(sender As Object, e As EventArgs) Handles btnEditPostedProduction.Click
+
+        ' تحقق أن السند مرحل
+        If CurrentStatusID <> 6 Then Exit Sub
+
+        If CurrentStatusID <> 6 Then
+            MessageBox.Show("السند ليس مرحل")
+            Exit Sub
+        End If
+        If service.IsProductionInCorrectionQueue(CurrentProductionID) Then
+            MessageBox.Show("لا يمكن تعديل السند لأنه موجود في قائمة التصحيح")
+            Exit Sub
+        End If        ' 🔥 تفعيل وضع التعديل
+
+        ' تفعيل وضع التعديل الجزئي
+        EnablePostedEditMode()
+
+    End Sub
+    Private Sub btnDeletePostedProduction_Click(sender As Object, e As EventArgs) Handles btnDeletePostedProduction.Click
+
+        If CurrentProductionID <= 0 Then Exit Sub
+        If CurrentStatusID <> 6 Then Exit Sub
+        If service.IsProductionInCorrectionQueue(CurrentProductionID) Then
+            MessageBox.Show("لا يمكن تعديل السند لأنه موجود في قائمة التصحيح")
+            Exit Sub
+        End If        ' 🔥 تفعيل وضع التعديل
+
+        IsPostedEditMode = True
+
+        ' 🔒 منع التداخل
+        IsFormLoading = True
+
+        ' 1) تصفير
+        txtProductionAmount.Text = "0"
+        txtCleaningChemicalQTY.Text = "0"
+
+        For Each r As DataGridViewRow In dgvProduced.Rows
+            If r.IsNewRow Then Continue For
+            r.Cells("colManQTY").Value = 0
+        Next
+
+        IsFormLoading = False
+
+        ' 🔥 إعادة حساب إجباري
+        RecalculateAllProduction()
+        btnSave.Enabled = True
+        btnSave.Text = "تعديل"
+
+        MarkAsDirty()
+
+    End Sub
+    Private Sub EnablePostedEditMode()
+
+        ' 1) لا تعتمد على EnableEditing هنا
+        IsPostedEditMode = True
+        ' 2) افتح الجريد بالكامل أولاً
+        dgvProduced.ReadOnly = False
+
+        ' 3) اقفل كل الأعمدة
+        For Each col As DataGridViewColumn In dgvProduced.Columns
+            col.ReadOnly = True
+        Next
+
+        ' 4) افتح فقط العمود المطلوب
+        If dgvProduced.Columns.Contains("colManQTY") Then
+            dgvProduced.Columns("colManQTY").ReadOnly = False
+        End If
+
+        ' 5) باقي الحقول
+        txtProductionAmount.ReadOnly = False
+        txtCleaningChemicalQTY.ReadOnly = False
+        btnSave.Enabled = True
+        btnSave.Text = "تعديل"
+        MessageBox.Show("تم فتح وضع تعديل السند المرحل.", "تم",
+                   MessageBoxButtons.OK, MessageBoxIcon.Information)
+    End Sub
+    Private Sub RecalculateAllProduction()
+
+        ResetManualOverridesToAuto()
+
+        RecalculateTotalProductionValue()
+        RecalculateActualQuantities()
+
+        FillAvailableStockInGrid()
+
+        RecalculateChemicalCost()
+        RecalculateProductionTotals()
+        UpdateDeviation()
+
+        dgvProductionCalculations.Refresh()
+        dgvProduced.Refresh()
+
+    End Sub
+    Private Function BuildPostedOutputEditTable() As DataTable
+
+        Dim dt As New DataTable()
+
+        dt.Columns.Add("OutputID", GetType(Integer))
+        dt.Columns.Add("ProductID", GetType(Integer))
+        dt.Columns.Add("Length", GetType(Decimal))
+        dt.Columns.Add("Width", GetType(Decimal))
+        dt.Columns.Add("Height", GetType(Decimal))
+        dt.Columns.Add("Quantity", GetType(Decimal))
+        dt.Columns.Add("VolumeM3", GetType(Decimal))
+        dt.Columns.Add("BatchAvgCost", GetType(Decimal))
+
+        For Each r As DataGridViewRow In dgvProduced.Rows
+
+            If r.IsNewRow Then Continue For
+
+            If r.Cells("colManOutputID").Value Is Nothing Then Continue For
+
+            Dim length = GetDec(r.Cells("colManLength").Value)
+            Dim width = GetDec(r.Cells("colManWidth").Value)
+            Dim height = GetDec(r.Cells("colManHeight").Value)
+            Dim qty = GetDec(r.Cells("colManQTY").Value)
+
+            Dim volume As Decimal = 0D
+
+            If length > 0D AndAlso width > 0D AndAlso height > 0D AndAlso qty > 0D Then
+                volume = (length * width * height * qty) / 1000000D
+            End If
+            dt.Rows.Add(
+            CInt(r.Cells("colManOutputID").Value),
+            SelectedProductID,
+            length,
+            width,
+            height,
+            qty,
+            volume,
+            GetDec(txtProductUnitCost.Text)
+        )
+        Next
+
+        Return dt
+
+    End Function
+    Private Function BuildPostedConsumptionEditTable() As DataTable
+
+        Dim dt As New DataTable()
+
+        dt.Columns.Add("ConsumptionID", GetType(Integer))
+        dt.Columns.Add("ComponentProductID", GetType(Integer))
+        dt.Columns.Add("BOMQty", GetType(Decimal))
+        dt.Columns.Add("ActualConsumedQty", GetType(Decimal))
+        dt.Columns.Add("StockQtyAtTime", GetType(Decimal))
+        dt.Columns.Add("AvgCost", GetType(Decimal))
+        dt.Columns.Add("TotalCost", GetType(Decimal))
+
+        For Each r As DataGridViewRow In dgvProductionCalculations.Rows
+            If r.IsNewRow Then Continue For
+            If r.Cells("colCalConsumptionID").Value Is Nothing Then Continue For
+            If r.Cells("colCalProductID").Value Is Nothing Then Continue For
+
+            Dim actualQty As Decimal = GetDec(r.Cells("colCalActualQTY").Value)
+            Dim costPerUnit As Decimal = GetDec(r.Cells("colCalCost").Value)
+
+            dt.Rows.Add(
+                CInt(r.Cells("colCalConsumptionID").Value),
+                CInt(r.Cells("colCalProductID").Value),
+                GetDec(r.Cells("colCalBOMQTY").Value),
+                actualQty,
+                GetDec(r.Cells("colCalAvailableStock").Value),
+                costPerUnit,
+                actualQty * costPerUnit
+            )
+        Next
+
+        Return dt
+
+    End Function
+    Private Function GetPostedProductionBaseValue() As Decimal
+
+        Select Case CurrentSubCategoryID
+
+        ' إسفنج + مراتب
+            Case 9, 11
+                Return GetDec(txtProductionAmount.Text)
+
+        ' مضغوط
+            Case 10
+                Return CDec(txtTotalProductionVolume.Tag)
+
+        End Select
+
+        Return 0D
 
     End Function
 End Class

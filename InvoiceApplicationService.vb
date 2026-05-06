@@ -24,18 +24,22 @@ Public Class InvoiceApplicationService
                 Dim invoiceNo As String
 
                 ' توليد رقم الفاتورة
-                Using cmdNo As New SqlCommand("cfg.GenerateInvoiceNumber", con, tran)
+                Using cmdNo As New SqlCommand("cfg.GenerateDocumentNumber", con, tran)
+
                     cmdNo.CommandType = CommandType.StoredProcedure
-                    cmdNo.Parameters.AddWithValue("@InvoiceType", "SAL")
+
+                    ' 🔥 التغيير هنا فقط
+                    cmdNo.Parameters.AddWithValue("@DocumentType", "SAL")
 
                     Dim outParam As New SqlParameter("@NewNumber", SqlDbType.NVarChar, 50)
                     outParam.Direction = ParameterDirection.Output
                     cmdNo.Parameters.Add(outParam)
 
                     cmdNo.ExecuteNonQuery()
-                    invoiceNo = outParam.Value.ToString()
-                End Using
 
+                    invoiceNo = outParam.Value.ToString()
+
+                End Using
                 Try
 
                     Dim documentID As Integer
@@ -44,7 +48,7 @@ Public Class InvoiceApplicationService
                     ' إدخال الهيدر (متوافق مع الجدول)
                     ' ======================================
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_DocumentHeader
+INSERT INTO inv.DocumentHeader
 (
     DocumentType,
     DocumentNo,
@@ -71,7 +75,11 @@ INSERT INTO Inventory_DocumentHeader
     IsTaxInclusive,
     IsOutbound,
     GrandTotal,
+    DeliveryNet,      -- 🔥 جديد
+    DeliveryTax,      -- 🔥 جديد
+    ShippingMode,     -- 🔥 جديد
     IsInventoryPosted,
+TotalNetAmount,
     IsZatcaReported,
     CreatedAt
 )
@@ -103,7 +111,11 @@ VALUES
     @IsTaxInclusive,
     @IsOutbound,
     @GrandTotal,
+@DeliveryNet,
+@DeliveryTax,
+@ShippingMode,
     0,
+@TotalNetAmount,
     0,
     GETDATE()
 )", con, tran)
@@ -149,17 +161,19 @@ VALUES
                         cmd.Parameters.AddWithValue("@IsTaxInclusive", header.IsTaxInclusive)
                         cmd.Parameters.AddWithValue("@IsOutbound", header.IsOutbound)
                         cmd.Parameters.AddWithValue("@GrandTotal", header.GrandTotal)
-
+                        cmd.Parameters.AddWithValue("@DeliveryNet", header.DeliveryNet)
+                        cmd.Parameters.AddWithValue("@DeliveryTax", header.DeliveryTax)
+                        cmd.Parameters.AddWithValue("@ShippingMode", header.ShippingMode)
+                        cmd.Parameters.AddWithValue("@TotalNetAmount", header.TotalNetAmount)
                         documentID = CInt(cmd.ExecuteScalar())
                     End Using
-
                     ' ======================================
                     ' إدخال التفاصيل
                     ' ======================================
                     For Each r As DataRow In details.Rows
 
                         Using cmd As New SqlCommand("
-INSERT INTO Inventory_DocumentDetails
+INSERT INTO inv.DocumentDetails
 (
     DocumentID,
     ProductID,
@@ -204,8 +218,13 @@ VALUES
                             cmd.Parameters.AddWithValue("@Quantity", r("Quantity"))
                             cmd.Parameters.AddWithValue("@UnitPrice", r("UnitPrice"))
                             cmd.Parameters.AddWithValue("@GrossAmount", r("GrossAmount"))
-                            cmd.Parameters.AddWithValue("@DiscountRate", r("DiscountRate"))
-                            cmd.Parameters.AddWithValue("@DiscountAmount", r("DiscountAmount"))
+                            cmd.Parameters.AddWithValue("@DiscountRate",
+    If(IsDBNull(r("DiscountRate")), 0D, r("DiscountRate"))
+)
+
+                            cmd.Parameters.AddWithValue("@DiscountAmount",
+    If(IsDBNull(r("DiscountAmount")), 0D, r("DiscountAmount"))
+)
                             cmd.Parameters.AddWithValue("@NetAmount", r("NetAmount"))
                             cmd.Parameters.AddWithValue("@TaxRate", r("TaxRate"))
                             cmd.Parameters.AddWithValue("@TaxAmount", r("TaxAmount"))
@@ -237,14 +256,6 @@ VALUES
         End Using
 
     End Function
-    Private Sub ShowUserError(message As String)
-        MessageBox.Show(
-        message,
-        "تنبيه",
-        MessageBoxButtons.OK,
-        MessageBoxIcon.Warning
-    )
-    End Sub
     Public Function UpdateInvoiceDraft(
     header As InvoiceHeaderInput,
     details As DataTable,
@@ -263,7 +274,7 @@ VALUES
                     ' ======================================
                     Using chk As New SqlCommand("
 SELECT StatusID, IsZatcaReported
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @DocumentID
 ", con, tran)
 
@@ -289,7 +300,7 @@ WHERE DocumentID = @DocumentID
                     ' 2️⃣ تحديث الهيدر (متوافق مع الجدول)
                     ' ======================================
                     Using cmd As New SqlCommand("
-UPDATE Inventory_DocumentHeader SET
+UPDATE inv.DocumentHeader SET
     DocumentDate = @DocumentDate,
     DueDate = @DueDate,
     PartnerID = @PartnerID,
@@ -310,7 +321,11 @@ UPDATE Inventory_DocumentHeader SET
     PaymentTermID = @PaymentTermID,
     IsTaxInclusive = @IsTaxInclusive,
     IsOutbound = @IsOutbound,
-    GrandTotal = @GrandTotal
+    GrandTotal = @GrandTotal,
+DeliveryNet = @DeliveryNet,
+DeliveryTax = @DeliveryTax,
+TotalNetAmount = @TotalNetAmount,
+ShippingMode = @ShippingMode
 WHERE DocumentID = @DocumentID
 ", con, tran)
 
@@ -358,7 +373,10 @@ WHERE DocumentID = @DocumentID
                         cmd.Parameters.AddWithValue("@IsTaxInclusive", header.IsTaxInclusive)
                         cmd.Parameters.AddWithValue("@IsOutbound", header.IsOutbound)
                         cmd.Parameters.AddWithValue("@GrandTotal", header.GrandTotal)
-
+                        cmd.Parameters.AddWithValue("@DeliveryNet", header.DeliveryNet)
+                        cmd.Parameters.AddWithValue("@DeliveryTax", header.DeliveryTax)
+                        cmd.Parameters.AddWithValue("@ShippingMode", header.ShippingMode)
+                        cmd.Parameters.AddWithValue("@TotalNetAmount", header.TotalNetAmount)
                         cmd.ExecuteNonQuery()
                     End Using
 
@@ -366,7 +384,7 @@ WHERE DocumentID = @DocumentID
                     ' 3️⃣ حذف التفاصيل القديمة
                     ' ======================================
                     Using delCmd As New SqlCommand("
-DELETE FROM Inventory_DocumentDetails
+DELETE FROM inv.DocumentDetails
 WHERE DocumentID = @DocumentID
 ", con, tran)
 
@@ -381,7 +399,7 @@ WHERE DocumentID = @DocumentID
                     For Each r As DataRow In details.Rows
 
                         Using cmd As New SqlCommand("
-INSERT INTO Inventory_DocumentDetails
+INSERT INTO inv.DocumentDetails
 (
     DocumentID,
     ProductID,
@@ -426,8 +444,13 @@ VALUES
                             cmd.Parameters.AddWithValue("@Quantity", r("Quantity"))
                             cmd.Parameters.AddWithValue("@UnitPrice", r("UnitPrice"))
                             cmd.Parameters.AddWithValue("@GrossAmount", r("GrossAmount"))
-                            cmd.Parameters.AddWithValue("@DiscountRate", r("DiscountRate"))
-                            cmd.Parameters.AddWithValue("@DiscountAmount", r("DiscountAmount"))
+                            cmd.Parameters.AddWithValue("@DiscountRate",
+    If(IsDBNull(r("DiscountRate")), 0D, r("DiscountRate"))
+)
+
+                            cmd.Parameters.AddWithValue("@DiscountAmount",
+    If(IsDBNull(r("DiscountAmount")), 0D, r("DiscountAmount"))
+)
                             cmd.Parameters.AddWithValue("@NetAmount", r("NetAmount"))
                             cmd.Parameters.AddWithValue("@TaxRate", r("TaxRate"))
                             cmd.Parameters.AddWithValue("@TaxAmount", r("TaxAmount"))
@@ -460,6 +483,14 @@ VALUES
         End Using
 
     End Function
+    Private Sub ShowUserError(message As String)
+        MessageBox.Show(
+        message,
+        "تنبيه",
+        MessageBoxButtons.OK,
+        MessageBoxIcon.Warning
+    )
+    End Sub
 
 
     Public Sub SendAndPostInvoice(
@@ -484,7 +515,7 @@ VALUES
 
                     Using cmd As New SqlCommand("
 SELECT IsOutbound, StatusID, DocumentNo, TotalAmount
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 ", con, tran)
                         cmd.Parameters.AddWithValue("@ID", documentID)
@@ -508,8 +539,8 @@ WHERE DocumentID = @ID
 
                     Using cmd As New SqlCommand("
 SELECT TOP 1 LOD.LOID
-FROM Inventory_DocumentDetails D
-INNER JOIN Logistics_LoadingOrderDetail LOD
+FROM inv.DocumentDetails D
+INNER JOIN log.LoadingOrderDetail LOD
     ON LOD.LoadingOrderDetailID = D.SourceLoadingOrderDetailID
 WHERE D.DocumentID = @DocID
 GROUP BY LOD.LOID
@@ -527,8 +558,8 @@ IF EXISTS (
     SELECT 1
     FROM (
         SELECT DISTINCT LOD.LOID
-        FROM Inventory_DocumentDetails D
-        INNER JOIN Logistics_LoadingOrderDetail LOD
+        FROM inv.DocumentDetails D
+        INNER JOIN log.LoadingOrderDetail LOD
             ON LOD.LoadingOrderDetailID = D.SourceLoadingOrderDetailID
         WHERE D.DocumentID = @DocID
     ) X
@@ -551,10 +582,10 @@ IF EXISTS
     FROM
     (
         SELECT DISTINCT SRD.SRID
-        FROM Inventory_DocumentDetails D
-        INNER JOIN Logistics_LoadingOrderDetail LOD
+        FROM inv.DocumentDetails D
+        INNER JOIN log.LoadingOrderDetail LOD
             ON LOD.LoadingOrderDetailID = D.SourceLoadingOrderDetailID
-        INNER JOIN Business_SRD SRD
+        INNER JOIN inv.SRD SRD
             ON SRD.SRDID = LOD.SourceDetailID
         WHERE D.DocumentID = @DocID
     ) X
@@ -566,10 +597,10 @@ IF EXISTS
 DECLARE @SRID INT;
 
 SELECT @SRID = MIN(SRD.SRID)
-FROM Inventory_DocumentDetails D
-INNER JOIN Logistics_LoadingOrderDetail LOD
+FROM inv.DocumentDetails D
+INNER JOIN log.LoadingOrderDetail LOD
     ON LOD.LoadingOrderDetailID = D.SourceLoadingOrderDetailID
-INNER JOIN Business_SRD SRD
+INNER JOIN inv.SRD SRD
     ON SRD.SRDID = LOD.SourceDetailID
 WHERE D.DocumentID = @DocID;
 
@@ -581,8 +612,8 @@ DECLARE @InvoicedSum DECIMAL(18,6);
 
 SELECT
     @LoadedSum = ISNULL(SUM(LOD.LoadedQty),0)
-FROM Logistics_LoadingOrderDetail LOD
-INNER JOIN Business_SRD SRD
+FROM log.LoadingOrderDetail LOD
+INNER JOIN inv.SRD SRD
     ON SRD.SRDID = LOD.SourceDetailID
 WHERE LOD.LOID = @LOID
   AND LOD.LoadedQty > 0
@@ -590,10 +621,10 @@ WHERE LOD.LOID = @LOID
 
 SELECT
     @InvoicedSum = ISNULL(SUM(D.Quantity),0)
-FROM Inventory_DocumentDetails D
-INNER JOIN Logistics_LoadingOrderDetail LOD
+FROM inv.DocumentDetails D
+INNER JOIN log.LoadingOrderDetail LOD
     ON LOD.LoadingOrderDetailID = D.SourceLoadingOrderDetailID
-INNER JOIN Business_SRD SRD
+INNER JOIN inv.SRD SRD
     ON SRD.SRDID = LOD.SourceDetailID
 WHERE D.DocumentID = @DocID
   AND SRD.SRID = @SRID;
@@ -605,7 +636,7 @@ IF ABS(@LoadedSum - @InvoicedSum) > 0.000001
 IF NOT EXISTS
 (
     SELECT 1
-    FROM Logistics_LoadingOrderSR LOSR
+    FROM log.LoadingOrderSR LOSR
     WHERE LOSR.LOID = @LOID
       AND LOSR.SRID = @SRID
 )
@@ -624,7 +655,7 @@ IF NOT EXISTS
                     Dim transactionID As Integer
                     Using cmd As New SqlCommand("
 SELECT TOP 1 TH.TransactionID
-FROM Inventory_TransactionHeader TH
+FROM inv.TransactionHeader TH
 WHERE TH.SourceDocumentID = @LOID
 ORDER BY TH.TransactionID DESC
 ", con, tran)
@@ -643,7 +674,7 @@ ORDER BY TH.TransactionID DESC
                     Using cmdLink As New SqlCommand("
 IF NOT EXISTS (
     SELECT 1
-    FROM Document_Link
+    FROM inv.DocumentLink
     WHERE SourceDocumentID = @SAL
       AND SourceType = 'SAL'
       AND TargetDocumentID = @LOD
@@ -651,7 +682,7 @@ IF NOT EXISTS (
       AND LinkType = 'INVOICED'
 )
 BEGIN
-    INSERT INTO Document_Link
+    INSERT INTO inv.DocumentLink
     (
         SourceDocumentID, SourceType,
         TargetDocumentID, TargetType,
@@ -678,7 +709,7 @@ END
                     Dim previousHash As String = Nothing
                     Using cmd As New SqlCommand("
 SELECT TOP 1 InvoiceHash
-FROM Inventory_ZatcaDocument
+FROM inv.ZatcaDocument
 WHERE InvoiceHash IS NOT NULL
   AND LTRIM(RTRIM(InvoiceHash)) <> ''
 ORDER BY CreatedAt DESC, ZatcaID DESC
@@ -699,7 +730,7 @@ ORDER BY CreatedAt DESC, ZatcaID DESC
 
                     Dim zatcaID As Integer
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_ZatcaDocument
+INSERT INTO inv.ZatcaDocument
 (
     DocumentID,
     UUID,
@@ -735,7 +766,7 @@ SELECT SCOPE_IDENTITY();
                     End Using
 
                     Using cmd As New SqlCommand("
-INSERT INTO Inventory_ZatcaTaxTotals
+INSERT INTO inv.ZatcaTaxTotals
 (
     ZatcaID,
     TaxableAmount,
@@ -749,8 +780,8 @@ SELECT
     SUM(D.TaxAmount),
     TT.TaxCategoryCode,
     MAX(D.TaxRate)
-FROM Inventory_DocumentDetails D
-INNER JOIN Master_TaxType TT
+FROM inv.DocumentDetails D
+INNER JOIN md.TaxType TT
     ON TT.TaxTypeID = D.TaxTypeID
 WHERE D.DocumentID = @DocID
 GROUP BY TT.TaxCategoryCode
@@ -763,10 +794,10 @@ GROUP BY TT.TaxCategoryCode
                     Using cmd As New SqlCommand("
 UPDATE H
 SET TotalNetAmount = X.SumNet
-FROM Inventory_DocumentHeader H
+FROM inv.DocumentHeader H
 CROSS APPLY (
     SELECT ISNULL(SUM(NetAmount),0) AS SumNet
-    FROM Inventory_DocumentDetails
+    FROM inv.DocumentDetails
     WHERE DocumentID = H.DocumentID
 ) X
 WHERE H.DocumentID = @ID
@@ -779,7 +810,7 @@ WHERE H.DocumentID = @ID
                     ' 6) Update Document status to REPORTED (17)
                     ' =========================================================
                     Using cmd As New SqlCommand("
-UPDATE Inventory_DocumentHeader
+UPDATE inv.DocumentHeader
 SET StatusID = 17,
     IsZatcaReported = 1
 WHERE DocumentID = @ID
@@ -793,11 +824,11 @@ WHERE DocumentID = @ID
                     ' =========================================================
                     If autoClearInSimulation Then
                         Using cmd As New SqlCommand("
-UPDATE Inventory_DocumentHeader
+UPDATE inv.DocumentHeader
 SET StatusID = 18
 WHERE DocumentID = @ID;
 
-UPDATE Inventory_ZatcaDocument
+UPDATE inv.ZatcaDocument
 SET ZatcaStatus = 18,
     ClearedAt = SYSDATETIME()
 WHERE ZatcaID = @ZID;
@@ -816,7 +847,7 @@ WHERE ZatcaID = @ZID;
 
                     Using cmd As New SqlCommand("
 SELECT ISNULL(SUM(LOD.LoadedQty),0)
-FROM Logistics_LoadingOrderDetail LOD
+FROM log.LoadingOrderDetail LOD
 WHERE LOD.LOID = @LOID
   AND LOD.LoadedQty > 0
 ", con, tran)
@@ -826,15 +857,15 @@ WHERE LOD.LOID = @LOID
 
                     Using cmd As New SqlCommand("
 SELECT ISNULL(SUM(D.Quantity),0)
-FROM Inventory_DocumentDetails D
-INNER JOIN Inventory_DocumentHeader H
+FROM inv.DocumentDetails D
+INNER JOIN inv.DocumentHeader H
     ON H.DocumentID = D.DocumentID
 WHERE H.DocumentType = 'SAL'
   AND H.StatusID = 18              -- ✅ CLEARED فقط
   AND D.SourceLoadingOrderDetailID IN
   (
       SELECT LoadingOrderDetailID
-      FROM Logistics_LoadingOrderDetail
+      FROM log.LoadingOrderDetail
       WHERE LOID = @LOID
         AND LoadedQty > 0
   )
@@ -854,7 +885,7 @@ WHERE H.DocumentType = 'SAL'
 
                     If newLoadingStatusID <> 0 Then
                         Using cmd As New SqlCommand("
-UPDATE Logistics_LoadingOrder
+UPDATE log.LoadingOrder
 SET LoadingStatusID = @StatusID,
     ModifiedAt = SYSDATETIME(),
     ModifiedBy = @UserID
@@ -866,7 +897,17 @@ WHERE LOID = @LOID
                             cmd.ExecuteNonQuery()
                         End Using
                     End If
-
+                    ' =========================================================
+                    ' 9) Financial Posting (🔥 الجديد)
+                    ' =========================================================
+                    Dim finService As New FinPostingService()
+                    finService.Post(
+    transactionID,
+    executedByEmployeeID,
+    con,
+    tran,
+    documentID   ' 🔥 هذا المهم
+)
                     tran.Commit()
 
                 Catch
@@ -886,13 +927,13 @@ WHERE LOID = @LOID
             Using tran = con.BeginTransaction()
                 Try
                     Using cmd As New SqlCommand("
-IF NOT EXISTS (SELECT 1 FROM Inventory_DocumentHeader WHERE DocumentID = @ID)
+IF NOT EXISTS (SELECT 1 FROM inv.DocumentHeader WHERE DocumentID = @ID)
     THROW 50100, N'الفاتورة غير موجودة', 1;
 
-IF EXISTS (SELECT 1 FROM Inventory_DocumentHeader WHERE DocumentID = @ID AND StatusID <> 19)
+IF EXISTS (SELECT 1 FROM inv.DocumentHeader WHERE DocumentID = @ID AND StatusID <> 19)
     THROW 50101, N'لا يمكن إعادة فتح الفاتورة إلا إذا كانت مرفوضة (REJECTED)', 1;
 
-UPDATE Inventory_DocumentHeader
+UPDATE inv.DocumentHeader
 SET StatusID = 2,          -- NEW
     IsZatcaReported = 0
 WHERE DocumentID = @ID;
@@ -956,8 +997,8 @@ WHERE DocumentID = @ID;
         CASE
             WHEN EXISTS (
                 SELECT 1
-                FROM Inventory_DocumentDetails D
-                INNER JOIN Inventory_DocumentHeader H
+                FROM inv.DocumentDetails D
+                INNER JOIN inv.DocumentHeader H
                     ON H.DocumentID = D.DocumentID
                 WHERE D.SourceLoadingOrderDetailID = LOD.LoadingOrderDetailID
                   AND H.DocumentType = 'SAL'
@@ -965,7 +1006,7 @@ WHERE DocumentID = @ID;
             )
             THEN 1 ELSE 0
         END AS IsInvoiced
-    FROM Logistics_LoadingOrderDetail LOD
+    FROM log.LoadingOrderDetail LOD
     WHERE LOD.LOID = @LOID
       AND ISNULL(LOD.LoadedQty,0) > 0
 )
@@ -995,7 +1036,7 @@ FROM L
         End If
 
         Using upd As New SqlCommand("
-UPDATE Logistics_LoadingOrder
+UPDATE log.LoadingOrder
 SET LoadingStatusID = @StatusID,
     ModifiedAt = SYSDATETIME(),
     ModifiedBy = @UserID
@@ -1025,7 +1066,7 @@ WHERE LOID = @LOID
 
                     Using cmdGetLO As New SqlCommand("
 SELECT TOP 1 SourceDocumentID
-FROM Document_Link
+FROM inv.DocumentLink
 WHERE TargetDocumentID = @DocID
   AND TargetType = 'SAL'
   AND SourceType = 'LO'
@@ -1044,7 +1085,7 @@ WHERE TargetDocumentID = @DocID
 
                     ' 2) ✅ لا نحذف Document_Link هنا
                     ' - في سياسة الإلغاء الجديدة نحتاج الاحتفاظ بالسجلات للأثر (Audit).
-                    ' - وإظهار/إخفاء الطلبات في البورد يجب أن يعتمد على Inventory_DocumentDetails
+                    ' - وإظهار/إخفاء الطلبات في البورد يجب أن يعتمد على inv.DocumentDetails
                     '   مع استثناء الفواتير الملغاة StatusID=10 (كما اتفقنا).
 
                     ' 3) إعادة احتساب حالة LO/LOD

@@ -47,7 +47,7 @@ Public Class ValidationEngine
             h.StatusID,
             h.OperationTypeID,
             h.SourceDocumentID
-        FROM Inventory_TransactionHeader h
+        FROM inv.TransactionHeader h
         WHERE h.TransactionID = @TransactionID"
 
         Dim cmd As New SqlCommand(sql, con, tran)
@@ -84,10 +84,10 @@ SELECT
     ISNULL(d.TargetStoreID, d.SourceStoreID) as StoreID,
     d.Quantity,
     b.QtyOnHand
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p
+FROM inv.TransactionDetails d
+JOIN md.Product p
     ON p.ProductID = d.ProductID
-INNER JOIN Inventory_Balance b 
+INNER JOIN inv.Balance b 
     ON b.ProductID = d.ProductID 
     AND b.BaseProductID = ISNULL(p.BaseProductID, p.ProductID)
     AND b.StoreID = ISNULL(d.TargetStoreID, d.SourceStoreID)

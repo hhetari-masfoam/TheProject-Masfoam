@@ -98,7 +98,7 @@ Public Class AABaseOperationForm
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
                 SELECT OperationTypeID
-                FROM Workflow_OperationType
+                FROM wf.OperationType
                 WHERE OperationCode = @Scope
                   AND IsActive = 1
             ", con)
@@ -130,8 +130,8 @@ Public Class AABaseOperationForm
             SELECT TOP 1 
                 s.StatusID,
                 s.StatusName
-            FROM Workflow_StatusScope ss
-            INNER JOIN Workflow_Status s
+            FROM wf.StatusScope ss
+            INNER JOIN wf.Status s
                 ON s.StatusID = ss.StatusID
             WHERE ss.ScopeCode = @Scope
               AND ss.IsInitial = 1
@@ -170,7 +170,7 @@ Public Class AABaseOperationForm
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand("
         SELECT StatusID
-        FROM Inventory_DocumentHeader   -- ✅ هنا التعديل
+        FROM inv.DocumentHeader   -- ✅ هنا التعديل
         WHERE DocumentID = @EntityID
     ", con)
 
@@ -199,7 +199,7 @@ Public Class AABaseOperationForm
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT StatusName
-            FROM Workflow_Status
+            FROM wf.Status
             WHERE StatusID = @ID
         ", con)
 

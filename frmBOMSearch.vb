@@ -17,8 +17,8 @@ Public Class frmBOMSearch
             "BH.VersionNo AS [الإصدار], " &
             "P.ProductName AS [الصنف], " &
             "BH.IsActive AS [نشط] " &
-            "FROM Production_BOMHeader BH " &
-            "INNER JOIN Master_Product P ON P.ProductID = BH.ProductID " &
+            "FROM prod.BOMHeader BH " &
+            "INNER JOIN md.Product P ON P.ProductID = BH.ProductID " &
             "WHERE (@t = '' OR BH.BOMCode LIKE @like OR P.ProductName LIKE @like) " &
             "ORDER BY P.ProductName, BH.VersionNo", con)
 

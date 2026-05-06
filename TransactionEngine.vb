@@ -37,15 +37,15 @@ Public Class TransactionEngine
                     _validationEngine.ValidateReceive(transactionID, con, tran)
 
                     Dim m3UnitID As Integer
-                    Using cmd As New SqlCommand("SELECT UnitID FROM dbo.Master_Unit WHERE UnitCode = 'M3'", con, tran)
+                    Using cmd As New SqlCommand("SELECT UnitID FROM md.Unit WHERE UnitCode = 'M3'", con, tran)
                         m3UnitID = CInt(cmd.ExecuteScalar())
                     End Using
 
-                    Using cmd As New SqlCommand("SELECT OperationTypeID FROM dbo.Inventory_TransactionHeader WHERE TransactionID = @ID", con, tran)
+                    Using cmd As New SqlCommand("SELECT OperationTypeID FROM inv.TransactionHeader WHERE TransactionID = @ID", con, tran)
                         cmd.Parameters.AddWithValue("@ID", transactionID)
                         opTypeID = CInt(cmd.ExecuteScalar())
                     End Using
-                    Using cmd As New SqlCommand("UPDATE Inventory_TransactionHeader SET PostingDate = SYSDATETIME() WHERE TransactionID = @ID", con, tran)
+                    Using cmd As New SqlCommand("UPDATE inv.TransactionHeader SET PostingDate = SYSDATETIME() WHERE TransactionID = @ID", con, tran)
                         cmd.Parameters.AddWithValue("@ID", transactionID)
                         cmd.ExecuteNonQuery()
                     End Using
@@ -255,9 +255,9 @@ Public Class TransactionEngine
                             Dim testM3Count As Integer = 0
                             Using cmd As New SqlCommand("
 SELECT COUNT(*)
-FROM Inventory_TransactionDetails d
-JOIN Master_Product p ON p.ProductID = d.ProductID
-LEFT JOIN Master_Product bp ON bp.ProductID = p.BaseProductID
+FROM inv.TransactionDetails d
+JOIN md.Product p ON p.ProductID = d.ProductID
+LEFT JOIN md.Product bp ON bp.ProductID = p.BaseProductID
 WHERE d.TransactionID = @T
   AND d.TargetStoreID IS NOT NULL
   AND (p.StorageUnitID = @M3 OR bp.StorageUnitID = @M3)
@@ -279,7 +279,7 @@ WHERE d.TransactionID = @T
                             Dim cnt As Integer = 0
                             Using cmd As New SqlCommand("
 SELECT COUNT(*) 
-FROM Inventory_CostLedger
+FROM inv.CostLedger
 WHERE TransactionID=@T AND OperationGroupID=@G
 ", con, tran)
                                 cmd.Parameters.AddWithValue("@T", transactionID)
@@ -305,10 +305,10 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
 
 
-                            ' =====================================================
-                            ' 1️⃣3️⃣ LOAD
-                            ' =====================================================
-                        Case 4
+' =====================================================
+' 1️⃣3️⃣ LOAD
+' =====================================================
+                Case 4
                             oldQtyDict =
                            _inventoryRepo.GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
                     Dim seq As Integer = 1
@@ -322,19 +322,92 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 ' =====================================================
 ' PRT
 ' =====================================================
-                Case 14
-                            oldQtyDict =
-                                _inventoryRepo.GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
+                Case 14 ' PRT
 
-                            Dim seq As Integer = 1
-                            _inventoryRepo.InsertCostLedger_OUT_PRT(transactionID, operationGroupID, seq, oldQtyDict, con, tran)
-                            _inventoryRepo.InsertPRTLinks(transactionID, operationGroupID, userID, con, tran)
+                    oldQtyDict =
+                        _inventoryRepo.GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
 
-                            _inventoryRepo.ApplyInventoryOut(transactionID, con, tran)
+                    Dim dt = _inventoryRepo.GetProductsBySourceStore(transactionID, con, tran)
 
+                    Dim hasM3 As Boolean = False
+                    Dim hasNonM3 As Boolean = False
 
-                            _inventoryRepo.FinalizeLedgerMetadata(operationGroupID, con, tran)
+                    Dim productIdsM3 As New List(Of Integer)
+                    Dim productIdsNonM3 As New List(Of Integer)
 
+                    Dim seq As Integer = 1
+
+                    For Each dr As DataRow In dt.Rows
+
+                        Dim pid As Integer = CInt(dr("ProductID"))
+                        Dim productUnitId As Integer = CInt(dr("StorageUnitID"))
+
+                        Dim baseUnitId As Integer = 0
+                        If dt.Columns.Contains("BaseUnitID") AndAlso Not IsDBNull(dr("BaseUnitID")) Then
+                            baseUnitId = CInt(dr("BaseUnitID"))
+                        End If
+
+                        Dim isM3 As Boolean = (productUnitId = m3UnitID) OrElse (baseUnitId = m3UnitID)
+
+                        If isM3 Then
+                            hasM3 = True
+                            productIdsM3.Add(pid)
+                        Else
+                            hasNonM3 = True
+                            productIdsNonM3.Add(pid)
+                        End If
+
+                    Next
+
+                    ' =========================
+                    ' Ledger
+                    ' =========================
+                    _inventoryRepo.InsertCostLedger_OUT_PRT(
+                        transactionID,
+                        operationGroupID,
+                        seq,
+                        oldQtyDict,
+                        con,
+                        tran
+                    )
+
+                    ' =========================
+                    ' Links
+                    ' =========================
+                    _inventoryRepo.InsertPRTLinks(transactionID, operationGroupID, userID, con, tran)
+
+                    ' =========================
+                    ' Inventory
+                    ' =========================
+                    _inventoryRepo.ApplyInventoryOut(transactionID, con, tran)
+
+                    ' =========================
+                    ' 🔥 Cost Update (الأهم)
+                    ' =========================
+                    If hasM3 Then
+                        _inventoryRepo.RecalculateAverage_PUR_PRO_BySnapshotReturn(
+                            transactionID,
+                            m3UnitID,
+                            productIdsM3,
+                            con,
+                            tran
+                        )
+                    End If
+
+                    If hasNonM3 Then
+                        _inventoryRepo.RecalculateAverage_PUR_PRO_BySnapshotReturn(
+                            transactionID,
+                            m3UnitID,
+                            productIdsNonM3,
+                            con,
+                            tran
+                        )
+                    End If
+
+                    ' =========================
+                    ' Metadata
+                    ' =========================
+                    _inventoryRepo.FinalizeLedgerMetadata(operationGroupID, con, tran)
 
 
 ' =====================================================
@@ -342,7 +415,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 ' =====================================================
 
 
-                        Case 13
+                Case 13
                             oldQtyDict =
                                 _inventoryRepo.GetOldQtyAllStores(transactionID, operationGroupID, con, tran)
 
@@ -365,7 +438,12 @@ WHERE TransactionID=@T AND OperationGroupID=@G
                     UpdateSourceDocumentStatus(transactionID, userID, con, tran)
                     _inventoryRepo.UpdateFinalStatuses(transactionID, con, tran)
             _inventoryRepo.DeleteReservationByTransaction(transactionID, con, tran)
+            ' =========================================
+            ' 🔥 Financial Posting
+            ' =========================================
+            Dim finService As New FinPostingService()
 
+            finService.Post(transactionID, userID, con, tran)
 
         Catch ex As Exception
 
@@ -454,16 +532,92 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
                     IO.File.AppendAllText(logPath, msg.ToString() & Environment.NewLine)
 
-                    ' ===== عرض رسالة مفيدة للمستخدم =====
+            ' ===== عرض رسالة مفيدة للمستخدم =====
 
+            ' =========================================
+            ' 🔥 تحويل رسالة المخزون إلى رسالة مفهومة
+            ' =========================================
+            If ex.Message.Contains("Stock would become negative") Then
+
+                Try
+                    ' استخراج ProductID و StoreID من النص
+                    Dim parts = ex.Message.Split(" "c)
+
+                    Dim productID As Integer = 0
+                    Dim storeID As Integer = 0
+
+                    For Each p In parts
+                        If p.StartsWith("Product=") Then
+                            productID = CInt(p.Replace("Product=", ""))
+                        End If
+                        If p.StartsWith("Store=") Then
+                            storeID = CInt(p.Replace("Store=", ""))
+                        End If
+                    Next
+
+                    ' جلب بيانات مفهومة
+                    Dim productName As String = ""
+                    Dim storeName As String = ""
+                    Dim availableQty As Decimal = 0
+
+                    ' اسم الصنف
+                    Using cmd As New SqlCommand("SELECT ProductName FROM md.Product WHERE ProductID=@P", con, tran)
+                        cmd.Parameters.AddWithValue("@P", productID)
+                        productName = cmd.ExecuteScalar()?.ToString()
+                    End Using
+
+                    ' اسم المستودع
+                    Using cmd As New SqlCommand("SELECT StoreName FROM md.Store WHERE StoreID=@S", con, tran)
+                        cmd.Parameters.AddWithValue("@S", storeID)
+                        storeName = cmd.ExecuteScalar()?.ToString()
+                    End Using
+
+                    ' الكمية المتوفرة
+                    Using cmd As New SqlCommand("
+SELECT TOP 1 NewQty
+FROM Inventory_CostLedger
+WHERE ProductID=@P AND StoreID=@S AND IsActive=1
+ORDER BY LedgerID DESC
+", con, tran)
+
+                        cmd.Parameters.AddWithValue("@P", productID)
+                        cmd.Parameters.AddWithValue("@S", storeID)
+
+                        Dim obj = cmd.ExecuteScalar()
+                        If obj IsNot Nothing Then
+                            availableQty = CDec(obj)
+                        End If
+
+                    End Using
+
+                    ' 🔥 الرسالة النهائية
                     MsgBox(
+            "لا يمكن إتمام العملية" & vbCrLf & vbCrLf &
+            "الصنف: " & productName & vbCrLf &
+            "المستودع: " & storeName & vbCrLf &
+            "الكمية المتوفرة: " & availableQty & vbCrLf & vbCrLf &
+            "السبب: سيصبح المخزون سالب",
+            MsgBoxStyle.Critical
+        )
+
+                Catch
+                    ' fallback
+                    MsgBox("لا يمكن إتمام العملية بسبب نقص في المخزون", MsgBoxStyle.Critical)
+                End Try
+
+            Else
+
+                ' الرسالة العامة
+                MsgBox(
         "حدث خطأ أثناء تنفيذ الاستلام." & vbCrLf &
         "TransactionID: " & transactionID & vbCrLf &
         "راجع الملف ReceiveErrors.txt للتفاصيل.",
         MsgBoxStyle.Critical
     )
 
-                    Throw New Exception(msg.ToString(), ex)
+            End If
+
+            Throw New Exception(msg.ToString(), ex)
 
                 End Try
 
@@ -571,7 +725,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
         con As SqlConnection,
         tran As SqlTransaction
     ) As Decimal
-        Dim sql = "SELECT ISNULL(QtyOnHand, 0) FROM Inventory_Balance WHERE ProductID = @ProductID AND StoreID = @StoreID"
+        Dim sql = "SELECT ISNULL(QtyOnHand, 0) FROM inv.Balance WHERE ProductID = @ProductID AND StoreID = @StoreID"
         Using cmd As New SqlCommand(sql, con, tran)
             cmd.Parameters.AddWithValue("@ProductID", productID)
             cmd.Parameters.AddWithValue("@StoreID", storeID)
@@ -588,7 +742,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
         con As SqlConnection,
         tran As SqlTransaction
     ) As String
-        Dim sql = "SELECT ProductName FROM Master_Product WHERE ProductID = @ProductID"
+        Dim sql = "SELECT ProductName FROM md.Product WHERE ProductID = @ProductID"
         Using cmd As New SqlCommand(sql, con, tran)
             cmd.Parameters.AddWithValue("@ProductID", productID)
             Dim result = cmd.ExecuteScalar()
@@ -722,8 +876,8 @@ WHERE TransactionID=@T AND OperationGroupID=@G
         ' 1️⃣ قراءة نوع العملية + المصدر
         Using cmd As New SqlCommand("
         SELECT h.SourceDocumentID, ot.OperationCode
-        FROM Inventory_TransactionHeader h
-        INNER JOIN Workflow_OperationType ot
+        FROM inv.TransactionHeader h
+        INNER JOIN wf.OperationType ot
             ON ot.OperationTypeID = h.OperationTypeID
         WHERE h.TransactionID = @ID
     ", con, tran)
@@ -740,7 +894,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
         ' 2️⃣ تحديث الترانسكشن نفسه
         Using cmd As New SqlCommand("
-        UPDATE Inventory_TransactionHeader
+        UPDATE inv.TransactionHeader
         SET IsInventoryPosted = 1,
             StatusID = 6,
             ReceivedAt = SYSDATETIME(),
@@ -760,7 +914,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
             Case "PRO"
                 Using cmd As New SqlCommand("
-                UPDATE Production_Header
+                UPDATE prod.ProductionHeader
                 SET IsInventoryPosted = 1,
                     StatusID = 6
                 WHERE ProductionID = @ID
@@ -772,7 +926,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
             Case "PUR"
                 Using cmd As New SqlCommand("
-                UPDATE Inventory_DocumentHeader
+                UPDATE inv.DocumentHeader
                 SET IsInventoryPosted = 1,
                     StatusID = 6
                 WHERE DocumentID = @ID
@@ -783,7 +937,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
             Case "CUT"
                 Using cmd As New SqlCommand("
-                UPDATE Production_CuttingHeader
+                UPDATE prod.CuttingHeader
                 SET IsInventoryPosted = 1,
                     StatusID = 6
                 WHERE CuttingID = @ID
@@ -795,7 +949,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
 
             Case "SRT"
                 Using cmd As New SqlCommand("
-                UPDATE Inventory_DocumentHeader
+                UPDATE inv.DocumentHeader
                 SET IsInventoryPosted = 1,
                     StatusID = 6
                 WHERE DocumentID = @ID
@@ -806,7 +960,7 @@ WHERE TransactionID=@T AND OperationGroupID=@G
                 End Using
             Case "SCR"
                 Using cmd As New SqlCommand("
-        UPDATE dbo.Inventory_WasteHeader
+        UPDATE inv.WasteHeader
         SET StatusID = 6,
             ReceivedAt = SYSDATETIME(),
             ReceivedBy = @UserID
@@ -856,7 +1010,7 @@ ORDER BY PeriodID"
 
                     ' ثم استخدم periodID في INSERT
                     Dim headerSQL As String = "
-INSERT INTO Inventory_TransactionHeader
+INSERT INTO inv.TransactionHeader
 (
     TransactionDate,
     SourceDocumentID,
@@ -918,9 +1072,9 @@ SELECT SCOPE_IDENTITY();"
                         bp.Length AS BaseLength,
                         bp.Width AS BaseWidth,
                         bp.Height AS BaseHeight
-                    FROM Master_Product p
-                    INNER JOIN Master_Unit u ON u.UnitID = p.StorageUnitID
-                    LEFT JOIN Master_Product bp ON bp.ProductID = p.BaseProductID
+                    FROM md.Product p
+                    INNER JOIN md.Unit u ON u.UnitID = p.StorageUnitID
+                    LEFT JOIN md.Product bp ON bp.ProductID = p.BaseProductID
                     WHERE p.ProductID = @ProductID"
 
                         Dim productInfo As DataTable = New DataTable()
@@ -943,7 +1097,7 @@ SELECT SCOPE_IDENTITY();"
                                 ' جلب التكلفة من FinalProductAvgCost
                                 Dim costSQL As String = "
                             SELECT TOP 1 AvgCostPerM3forFG
-                            FROM Master_FinalProductAvgCost
+                            FROM inv.FinalProductAvgCost
                             WHERE BaseProductID = @BaseProductID
                             ORDER BY CreatedAt DESC"
 
@@ -962,7 +1116,7 @@ SELECT SCOPE_IDENTITY();"
                                 Dim baseStorageUnitID As Object = dr("BaseStorageUnitID")
 
                                 ' التحقق من أن وحدة الـ BaseProduct هي M3
-                                Dim checkBaseUnitSQL = "SELECT UnitCode FROM Master_Unit WHERE UnitID = @UnitID"
+                                Dim checkBaseUnitSQL = "SELECT UnitCode FROM md.Unit WHERE UnitID = @UnitID"
                                 Dim baseUnitCode As String = ""
                                 Using cmd As New SqlCommand(checkBaseUnitSQL, con, tran)
                                     cmd.Parameters.AddWithValue("@UnitID", baseStorageUnitID)
@@ -976,7 +1130,7 @@ SELECT SCOPE_IDENTITY();"
                                     ' جلب AvgCostPerM3forFG للـ BaseProduct
                                     Dim costSQL As String = "
                                 SELECT TOP 1 AvgCostPerM3forFG
-                                FROM Master_FinalProductAvgCost
+                                FROM inv.FinalProductAvgCost
                                 WHERE BaseProductID = @BaseProductID
                                 ORDER BY CreatedAt DESC"
 
@@ -1012,7 +1166,7 @@ SELECT SCOPE_IDENTITY();"
 
                         ' إدخال التفاصيل مع التكلفة المحسوبة
                         Dim detailSQL As String = "
-                    INSERT INTO Inventory_TransactionDetails
+                    INSERT INTO inv.TransactionDetails
                     (
                         TransactionID,
                         ProductID,
@@ -1084,7 +1238,7 @@ SELECT SCOPE_IDENTITY();"
                     SELECT 
                         h.StatusID,
                         h.IsInventoryPosted
-                    FROM dbo.Inventory_TransactionHeader h
+                    FROM inv.TransactionHeader h
                     WHERE h.TransactionID = @TransactionID
                 ", con, tran)
 
@@ -1112,7 +1266,7 @@ SELECT SCOPE_IDENTITY();"
 
                     ' 4️⃣ تنفيذ الإلغاء (تغيير الحالة إلى 10)
                     Using cmd As New SqlCommand("
-                    UPDATE dbo.Inventory_TransactionHeader
+                    UPDATE inv.TransactionHeader
                     SET StatusID = 10  -- حالة ملغي
                     WHERE TransactionID = @TransactionID
                 ", con, tran)
@@ -1144,7 +1298,7 @@ SELECT SCOPE_IDENTITY();"
                 Try
                     ' ✅ تحديث الهيدر - الأعمدة الصحيحة
                     Using cmd As New SqlCommand("
-                    UPDATE Inventory_TransactionHeader 
+                    UPDATE inv.TransactionHeader 
                     SET 
                         CreatedBy = @UserID,        -- آخر من عدل
                         CreatedAt = @CurrentDate    -- تاريخ التعديل
@@ -1158,7 +1312,7 @@ SELECT SCOPE_IDENTITY();"
                     End Using
 
                     ' حذف التفاصيل القديمة
-                    Using cmd As New SqlCommand("DELETE FROM Inventory_TransactionDetails WHERE TransactionID = @ID", con, tran)
+                    Using cmd As New SqlCommand("DELETE FROM inv.TransactionDetails WHERE TransactionID = @ID", con, tran)
                         cmd.Parameters.AddWithValue("@ID", transactionID)
                         cmd.ExecuteNonQuery()
                     End Using
@@ -1166,7 +1320,7 @@ SELECT SCOPE_IDENTITY();"
                     ' ✅ إضافة التفاصيل الجديدة - مع الأعمدة الصحيحة
                     For Each row As DataRow In details.Rows
                         Using cmd As New SqlCommand("
-                        INSERT INTO Inventory_TransactionDetails
+                        INSERT INTO inv.TransactionDetails
                         (
                             TransactionID, 
                             ProductID, 
@@ -1299,16 +1453,16 @@ SELECT SCOPE_IDENTITY();"
                         )
 
                         ' 4.5 تسجيل في Correction Table
-                        _inventoryRepo.InsertCorrectionRecord(
-                            correctionCode,
-                            detail,
-                            oldAvgData,
-                            costLedgerID,
-                            userID,
-                            reason,
-                            con,
-                            tran
-                        )
+                        '             _inventoryRepo.InsertCorrectionRecord(
+                        '                  correctionCode,
+                        '                 detail,
+                        '                oldAvgData,
+                        '               costLedgerID,
+                        '              userID,
+                        '             reason,
+                        '            con,
+                        '           tran
+                        '          )
                     Next
 
                     ' 5. تحديث حالة المستندات

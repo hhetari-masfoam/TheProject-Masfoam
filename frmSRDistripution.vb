@@ -51,7 +51,7 @@ Public Class frmSRDistripution
     End Function
 
 
-    Private IsLoading As Boolean = False
+    '    Private IsLoading As Boolean = False
     ' =========================
     ' الحالة التجارية الحالية المعروضة في الفورم
     ' =========================
@@ -117,7 +117,7 @@ Public Class frmSRDistripution
             SELECT
                 StoreID AS StoreID,
                 StoreName
-            FROM Master_Store
+            FROM md.Store
             WHERE IsActive = 1
             ORDER BY StoreName
         ", con)
@@ -229,7 +229,7 @@ Public Class frmSRDistripution
                 StatusID,
                 StatusCode,
                 StatusName
-            FROM Workflow_Status
+            FROM wf.Status
             ORDER BY StatusID
         ", con)
 
@@ -594,7 +594,7 @@ Public Class frmSRDistripution
             con.Open()
 
             Dim sql As String = "
-UPDATE dbo.Business_SRD
+UPDATE inv.SRD
 SET BusinessStatusID = @NewStatusID
 WHERE SRID IN (" & String.Join(",", srIDs) & ")
   AND BusinessStatusID IN (2,3,4)
@@ -615,13 +615,13 @@ WHERE SRID IN (" & String.Join(",", srIDs) & ")
 
             Using cmd As New SqlCommand("
 SELECT TOP 1 LOS.LOID
-FROM Logistics_LoadingOrderSR LOS
-INNER JOIN Logistics_LoadingOrder LO
+FROM log.LoadingOrderSR LOS
+INNER JOIN log.LoadingOrder LO
     ON LO.LOID = LOS.LOID
 WHERE LOS.SRID = @SRID
   AND LO.LoadingStatusID NOT IN (
         SELECT StatusID
-        FROM Workflow_Status
+        FROM wf.Status
   )
 ORDER BY LO.InitiatedDateTime DESC
 ", con)
@@ -679,7 +679,7 @@ ORDER BY LO.InitiatedDateTime DESC
             Using cmdCheckSR As New SqlCommand("
 IF EXISTS (
     SELECT 1
-    FROM dbo.Business_SRD
+    FROM inv.SRD
     WHERE SRID = @SRID
       AND BusinessStatusID IN (4,12)
 )
@@ -691,7 +691,7 @@ ELSE
                 cmdCheckSR.Parameters.AddWithValue("@SRID", srID)
 
                 If CInt(cmdCheckSR.ExecuteScalar()) = 1 Then
-                    MessageBox.Show("لا يوجد أي بند بحالة تسمح بالتحميل",
+                    MessageBox.Show("حالة الطلب لا تسمح بتحميله ",
                                 "تنبيه",
                                 MessageBoxButtons.OK,
                                 MessageBoxIcon.Warning)
@@ -710,12 +710,12 @@ ELSE
 SELECT TOP 1 LO.LOID,
        CASE WHEN EXISTS (
             SELECT 1
-            FROM dbo.Logistics_LoadingOrderSR LOS
+            FROM log.LoadingOrderSR LOS
             WHERE LOS.LOID = LO.LOID
               AND LOS.SRID = @SRID
        )
        THEN 1 ELSE 0 END AS HasSameSR
-FROM dbo.Logistics_LoadingOrder LO
+FROM log.LoadingOrder LO
 WHERE LO.LoadingStatusID IN (1,2,14)
 ORDER BY LO.LOID DESC
 ", con)
@@ -737,6 +737,50 @@ ORDER BY LO.LOID DESC
             If existingLOID > 0 Then
 
                 If sameSRInOpenLO Then
+                    Using cmdFix As New SqlCommand("
+INSERT INTO log.LoadingOrderDetail
+(
+    LOID,
+    SourceHeaderID,
+    SourceDetailID,
+    ProductID,
+    LoadedQty,
+    Length_cm,
+    Width_cm,
+    Height_cm,
+    ProductTypeID,
+    CreatedAt
+)
+SELECT
+    @LOID,
+    SRD.SRID,
+    SRD.SRDID,
+    SRD.ProductID,
+    0,
+    SRD.LengthCM,
+    SRD.WidthCM,
+    SRD.HeightCM,
+    SRD.ProductTypeID,
+    GETDATE()
+FROM inv.SRD SRD
+WHERE SRD.SRID = @SRID
+  AND SRD.BusinessStatusID <> 13
+
+  -- 🔥 هذا هو المهم
+  AND NOT EXISTS (
+        SELECT 1
+        FROM log.LoadingOrderDetail LOD
+        WHERE LOD.LOID = @LOID
+          AND LOD.SourceDetailID = SRD.SRDID
+  )
+", con)
+
+                        cmdFix.Parameters.AddWithValue("@LOID", existingLOID)
+                        cmdFix.Parameters.AddWithValue("@SRID", srID)
+
+                        cmdFix.ExecuteNonQuery()
+
+                    End Using
                     Using frm As New frmLoadingBoard()
                         frm.FocusLOID = existingLOID
                         frm.IsNewLO = False
@@ -784,7 +828,7 @@ ORDER BY LO.LOID DESC
 
                     Using cmdType As New SqlCommand("
 SELECT TOP 1 OperationTypeID
-FROM dbo.Workflow_OperationType
+FROM wf.OperationType
 WHERE OperationCode = @Code
   AND IsActive = 1
 ", con, tran)
@@ -794,7 +838,7 @@ WHERE OperationCode = @Code
                         Dim obj = cmdType.ExecuteScalar()
 
                         If obj Is Nothing OrElse IsDBNull(obj) Then
-                            Throw New ApplicationException("OperationType (LOD) غير موجود أو غير مفعل في Workflow_OperationType.")
+                            Throw New ApplicationException("OperationType (LOD) غير موجود أو غير مفعل في wf.OperationType.")
                         End If
 
                         operationTypeID = CInt(obj)
@@ -804,7 +848,7 @@ WHERE OperationCode = @Code
 
                     ' 4.3 إنشاء Header
                     Using cmdLO As New SqlCommand("
-INSERT INTO dbo.Logistics_LoadingOrder
+INSERT INTO log.LoadingOrder
 (LOCode, InitiatedDateTime, LoadingStatusID, CreatedAt, CreatedBy, OperationTypeID)
 OUTPUT INSERTED.LOID
 VALUES
@@ -821,7 +865,7 @@ VALUES
 
                     ' 4.4 ربط LO مع SR
                     Using cmdLOS As New SqlCommand("
-INSERT INTO dbo.Logistics_LoadingOrderSR (LOID, SRID)
+INSERT INTO log.LoadingOrderSR (LOID, SRID)
 VALUES (@LOID, @SRID)
 ", con, tran)
 
@@ -833,7 +877,7 @@ VALUES (@LOID, @SRID)
 
                     ' 4.5 نسخ التفاصيل
                     Using cmdLOD As New SqlCommand("
-INSERT INTO dbo.Logistics_LoadingOrderDetail
+INSERT INTO log.LoadingOrderDetail
 (LOID, SourceHeaderID, SourceDetailID, ProductID, LoadedQty,
  Length_cm, Width_cm, Height_cm,
  ProductTypeID, CreatedAt)
@@ -849,7 +893,7 @@ SELECT
     SRD.HeightCM,
     SRD.ProductTypeID,
     GETDATE()
-FROM dbo.Business_SRD SRD
+FROM inv.SRD SRD
 WHERE SRD.SRID = @SRID
   AND SRD.BusinessStatusID <> 13
 ", con, tran)
@@ -891,10 +935,10 @@ WHERE SRD.SRID = @SRID
 SELECT CASE 
     WHEN EXISTS (
         SELECT 1
-        FROM Logistics_LoadingOrder LO
+        FROM log.LoadingOrder LO
         WHERE LO.LoadingStatusID NOT IN (
             SELECT StatusID
-            FROM Workflow_Status
+            FROM wf.Status
         )
     )
     THEN 1 ELSE 0
@@ -1073,7 +1117,7 @@ END
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand("
             SELECT StatusID
-            FROM Workflow_Status
+            FROM wf.Status
             WHERE StatusCode IN (" & String.Join(",", statusCodes.Select(Function(s) "'" & s & "'")) & ")
         ", con)
 
@@ -1180,21 +1224,21 @@ SELECT
     LO.LOCode,
     LO.LoadingStatusID
 
-FROM Business_SRD SRD
+FROM inv.SRD SRD
 
-INNER JOIN Business_SR SR
+INNER JOIN inv.SR SR
     ON SR.SRID = SRD.SRID
 
-LEFT JOIN Master_Partner P
+LEFT JOIN md.Partner P
     ON P.PartnerID = SR.PartnerID
 
-LEFT JOIN Security_Employee E
+LEFT JOIN sec.Employee E
     ON E.EmpCode = SR.SalesRepCode
 
-LEFT JOIN Logistics_LoadingOrderDetail LOD
+LEFT JOIN log.LoadingOrderDetail LOD
     ON LOD.SourceDetailID = SRD.SRDID
 
-LEFT JOIN Logistics_LoadingOrder LO
+LEFT JOIN log.LoadingOrder LO
     ON LO.LOID = LOD.LOID
 
 WHERE 1 = 1
@@ -1287,7 +1331,7 @@ ORDER BY SR.SRDate DESC, SRD.SRDID
             con.Open()
             Using cmd As New SqlCommand("
 SELECT TOP 1 LOID
-FROM dbo.Logistics_LoadingOrder
+FROM log.LoadingOrder
 WHERE LOCode = @LOCode
 ", con)
                 cmd.Parameters.AddWithValue("@LOCode", loCode)
@@ -1388,18 +1432,18 @@ SELECT
     LO.LoadingStatusID,
     LS.StatusName AS LoadingStatusName
 
-FROM dbo.Business_SRD SRD
+FROM inv.SRD SRD
 
-INNER JOIN dbo.Workflow_Status BS
+INNER JOIN wf.Status BS
     ON BS.StatusID = SRD.BusinessStatusID
 
-LEFT JOIN dbo.Logistics_LoadingOrderDetail LOD
+LEFT JOIN log.LoadingOrderDetail LOD
     ON LOD.SourceDetailID = SRD.SRDID
 
-LEFT JOIN dbo.Logistics_LoadingOrder LO
+LEFT JOIN log.LoadingOrder LO
     ON LO.LOID = LOD.LOID
 
-LEFT JOIN dbo.Workflow_Status LS
+LEFT JOIN wf.Status LS
     ON LS.StatusID = LO.LoadingStatusID
 
 WHERE SRD.SRID = @SRID
@@ -1471,10 +1515,10 @@ SELECT
     CAST(H.DocumentDate AS date) AS DocDate,
     P.PartnerName,
     ST. StatusName
-FROM dbo.Inventory_DocumentHeader H
-LEFT JOIN Master_Partner P
+FROM inv.DocumentHeader H
+LEFT JOIN md.Partner P
     ON P.PartnerID = H.PartnerID
-LEFT JOIN Workflow_Status ST
+LEFT JOIN wf.Status ST
     ON ST.StatusID = H.StatusID
 WHERE H.DocumentType = 'SAL'
 ORDER BY H.DocumentDate DESC
@@ -1518,12 +1562,12 @@ SELECT
     D.UnitID,
     PT.TypeName,
     U.UnitName
-FROM dbo.Inventory_DocumentDetails D
-INNER JOIN Master_Product P
+FROM inv.DocumentDetails D
+INNER JOIN md.Product P
     ON P. ProductID = D.ProductID
-LEFT JOIN Master_ProductType PT
+LEFT JOIN md.ProductType PT
     ON PT.ProductTypeID = P.ProductTypeID
-LEFT JOIN Master_Unit U
+LEFT JOIN md.Unit U
     ON  U.UnitID = D.UnitID
 WHERE D.DocumentID = @DocumentID
 ORDER BY D.DetailID
@@ -1792,12 +1836,12 @@ AND LO.LoadingStatusID NOT IN (" &
 SELECT
     LOD.SourceDetailID,
     SUM(LOD.LoadedQty) AS LoadedQty
-FROM dbo.Logistics_LoadingOrderDetail LOD
+FROM log.LoadingOrderDetail LOD
 
-INNER JOIN dbo.Business_SRD SRD
+INNER JOIN inv.SRD SRD
     ON SRD.SRDID = LOD.SourceDetailID
 
-INNER JOIN dbo.Logistics_LoadingOrder LO
+INNER JOIN log.LoadingOrder LO
     ON LO.LOID = LOD.LOID
 
 WHERE SRD.SRID = @SRID
@@ -1872,7 +1916,7 @@ GROUP BY LOD.SourceDetailID
 
                     Using cmdGetStatus As New SqlCommand("
     SELECT TOP 1 BusinessStatusID
-    FROM dbo.Business_SRD
+    FROM inv.SRD
     WHERE SRID = @SRID
     ", con, tran)
 
@@ -1894,10 +1938,10 @@ GROUP BY LOD.SourceDetailID
                     Using cmdCheck As New SqlCommand("
     IF EXISTS (
         SELECT 1
-        FROM dbo.Business_SRD SRD
-        INNER JOIN dbo.Logistics_LoadingOrderDetail LOD
+        FROM inv.SRD SRD
+        INNER JOIN log.LoadingOrderDetail LOD
             ON LOD.SourceDetailID = SRD.SRDID
-        INNER JOIN dbo.Logistics_LoadingOrder LO
+        INNER JOIN log.LoadingOrder LO
             ON LO.LOID = LOD.LOID
         WHERE SRD.SRID = @SRID
           AND LO.LoadingStatusID IN (1,2,14,15)
@@ -1927,7 +1971,7 @@ GROUP BY LOD.SourceDetailID
                     ' 3) تنفيذ الإغلاق
                     ' ==========================================
                     Using cmdUpdate As New SqlCommand("
-    UPDATE dbo.Business_SRD
+    UPDATE inv.SRD
     SET BusinessStatusID = 11
     WHERE SRID = @SRID
     ", con, tran)

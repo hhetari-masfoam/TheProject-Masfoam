@@ -65,11 +65,11 @@ Public Class frmPartnerSearch
     p.PartnerName,
     p.Phone,
     a.City
-FROM Master_Partner p
-INNER JOIN Master_PartnerRole pr
+FROM md.Partner p
+INNER JOIN md.PartnerRole pr
     ON pr.PartnerID = p.PartnerID
     AND pr.RoleCode = 'CUSTOMER'
-LEFT JOIN Master_PartnerAddress a
+LEFT JOIN md.PartnerAddress a
     ON a.PartnerID = p.PartnerID
     AND a.IsDefault = 1
 WHERE p.IsActive = 1"

@@ -45,5 +45,8 @@
     Public Property TotalAmount As Decimal
     Public Property GrandTotal As Decimal
     Public Property TotalTaxableAmount As Decimal
+    Public Property DeliveryNet As Decimal
+    Public Property DeliveryTax As Decimal
+    Public Property ShippingMode As Decimal
 
 End Class

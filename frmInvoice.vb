@@ -4,6 +4,14 @@ Imports System.Security.Cryptography
 
 Public Class frmInvoice
     Inherits AABaseOperationForm
+    Private Enum ShippingModeEnum
+        Internal = 1              ' سيارات المصنع
+        ExternalNoTax = 2         ' ايجار بدون فاتورة
+        ExternalWithTax = 3       ' ايجار بفاتورة
+        IncludedInPrice = 4       ' ضمن سعر الأصناف
+    End Enum
+    Private CurrentDeliveryNet As Decimal = 0D
+    Private CurrentDeliveryTax As Decimal = 0D
     Public Property SelectedDocumentID As Integer = 0
     Public Property SourceLOID As Integer
     Private IsProcessingKey As Boolean = False
@@ -59,7 +67,7 @@ SELECT
 ReasonCode,
 ReasonNameAr
 
-FROM Master_TaxReason
+FROM md.TaxReason
 WHERE IsActive = 1
 ORDER BY ReasonNameAr
 ", con)
@@ -106,7 +114,7 @@ ORDER BY ReasonNameAr
         LoadCombo(
         cboSourceStoreID,
         "SELECT StoreID, StoreName 
-         FROM Master_Store 
+         FROM md.Store 
          WHERE IsActive = 1 
            AND StoreID IN (1,4)
          ORDER BY StoreID",
@@ -119,7 +127,7 @@ ORDER BY ReasonNameAr
     Private Sub LoadPaymentMethods()
         LoadCombo(
         cboPaymentMethodID,
-        "SELECT PaymentMethodID, NameAr FROM Master_PaymentMethod WHERE IsActive = 1",
+        "SELECT PaymentMethodID, NameAr FROM md.PaymentMethod WHERE IsActive = 1",
         "NameAr",
         "PaymentMethodID"
     )
@@ -128,7 +136,7 @@ ORDER BY ReasonNameAr
     Private Sub LoadPaymentTerms()
         LoadCombo(
         cboPaymentTerm,
-        "SELECT PaymentTermID, NameAr FROM Master_PaymentTerm WHERE IsActive = 1",
+        "SELECT PaymentTermID, NameAr FROM md.PaymentTerm WHERE IsActive = 1",
         "NameAr",
         "PaymentTermID"
     )
@@ -146,7 +154,7 @@ ORDER BY ReasonNameAr
             VATRegistrationNumber,
             Phone,
             Address
-        FROM Master_Partner
+        FROM md.Partner
         WHERE IsActive = 1
           AND PartnerCode LIKE 'CUS-%'
         ORDER BY PartnerCode
@@ -161,7 +169,7 @@ ORDER BY ReasonNameAr
     Private Sub LoadProductTypes()
         LoadGridCombo(
         colDetProductType,
-        "SELECT ProductTypeID, TypeName FROM Master_ProductType WHERE IsActive = 1",
+        "SELECT ProductTypeID, TypeName FROM md.ProductType WHERE IsActive = 1",
         "TypeName",
         "ProductTypeID"
     )
@@ -171,7 +179,7 @@ ORDER BY ReasonNameAr
     Private Sub LoadTaxTypes()
         LoadGridCombo(
         colDetTaxPercent,
-        "SELECT TaxTypeID, TaxName FROM Master_TaxType WHERE IsActive = 1",
+        "SELECT TaxTypeID, TaxName FROM md.TaxType WHERE IsActive = 1",
         "TaxName",
         "TaxTypeID"
     )
@@ -185,7 +193,7 @@ ORDER BY ReasonNameAr
         StatusID,
         StatusCode,
         StatusName
-    FROM Workflow_Status
+    FROM wf.Status
     ",
     "StatusName",
     "StatusID"
@@ -441,8 +449,8 @@ ORDER BY ReasonNameAr
         Dim sql As String = "
 SELECT DISTINCT
     P.ProductCode
-FROM Master_Product P
-INNER JOIN Inventory_Balance IB ON IB.ProductID = P.ProductID
+FROM md.Product P
+INNER JOIN inv.Balance IB ON IB.ProductID = P.ProductID
 WHERE IB.StoreID = @StoreID
 AND P.IsActive = 1
 ORDER BY P.ProductCode
@@ -481,7 +489,7 @@ ORDER BY P.ProductCode
             ProductTypeID,
             ProductName,
             StorageUnitID          
-         FROM Master_Product
+         FROM md.Product
          WHERE ProductCode = @Code
          AND IsActive = 1"
 
@@ -1025,6 +1033,7 @@ CALC:
         ' ===============================
         LoadAllCombos()
         LoadTaxReasonCombo()
+        LoadShippingModeCombo()
         ' ===============================
         ' 🔴 إضافات معمارية صحيحة
         ' ===============================
@@ -1230,13 +1239,34 @@ CALC:
         taxableTotal = Math.Round(taxableTotal, 6, MidpointRounding.AwayFromZero)
         vatTotal = Math.Round(vatTotal, 6, MidpointRounding.AwayFromZero)
         grandTotal = Math.Round(grandTotal, 6, MidpointRounding.AwayFromZero)
-
         txtTotalAmount.Text = subTotal.ToString("0.000")
         txtTotalDiscount.Text = discountTotal.ToString("0.000")
         txtTotalTaxableAmount.Text = taxableTotal.ToString("0.000")
         txtTotalTax.Text = vatTotal.ToString("0.000")
+        ' 1️⃣ احسب الشحن فقط
+        ApplyShippingCalculation(subTotal, vatTotal, grandTotal)
+
+        ' 2️⃣ GrandTotal = البضاعة فقط
         txtGrandTotal.Text = grandTotal.ToString("0.000")
 
+        ' 3️⃣ الإجمالي النهائي (اللي تبيه)
+        Dim finalTotal As Decimal
+
+        Dim mode As Integer = 1
+
+        Dim drv As DataRowView = TryCast(cboShippingMode.SelectedItem, DataRowView)
+
+        If drv IsNot Nothing AndAlso drv.Row IsNot Nothing Then
+            mode = CInt(drv("ID"))
+        End If
+
+        If mode = ShippingModeEnum.IncludedInPrice Then
+            finalTotal = grandTotal
+        Else
+            finalTotal = grandTotal + CurrentDeliveryNet + CurrentDeliveryTax
+        End If
+
+        txtAmountDue.Text = finalTotal.ToString("0.000") ' 🔥 هذا الحقل الجديد
         UpdateTotalVolumeLabel()
 
     End Sub
@@ -1251,7 +1281,7 @@ SELECT
     TotalDiscount,
     TotalTax,
     LineTotal
-FROM Inventory_DocumentHeader
+FROM inv.DocumentHeader
 WHERE DocumentID = @DocumentID
 ", con)
 
@@ -1649,8 +1679,8 @@ SELECT
     P.PartnerCode,
     P.PartnerName,
     P.VATRegistrationNumber
-FROM Business_SR SR
-INNER JOIN Master_Partner P 
+FROM inv.SR SR
+INNER JOIN md.Partner P 
     ON P.PartnerID = SR.PartnerID
 WHERE SR.SRID = @SRID
 ", con)
@@ -1700,14 +1730,14 @@ SELECT
     SR.SRCode,
     E.EmpName,
     V.VehicleCode
-FROM Logistics_LoadingOrder LO
-INNER JOIN Logistics_LoadingOrderSR LOS 
+FROM log.LoadingOrder LO
+INNER JOIN log.LoadingOrderSR LOS 
     ON LOS.LOID = LO.LOID
-INNER JOIN Business_SR SR 
+INNER JOIN inv.SR SR 
     ON SR.SRID = LOS.SRID
-LEFT JOIN Security_Employee E 
+LEFT JOIN sec.Employee E 
     ON E.EmployeeID = LO.DriverEmployeeID
-LEFT JOIN Master_Vehicle V 
+LEFT JOIN md.Vehicle V 
     ON V.VehicleID = LO.VehicleID
 WHERE LO.LOID = @LOID
 ", con)
@@ -1770,18 +1800,18 @@ SELECT
     P.Width,
     P.Height
 
-FROM Logistics_LoadingOrderDetail LOD
+FROM log.LoadingOrderDetail LOD
 
-INNER JOIN Business_SRD SRD
+INNER JOIN inv.SRD SRD
     ON SRD.SRDID = LOD.SourceDetailID
 
-INNER JOIN Master_Product P
+INNER JOIN md.Product P
     ON P.ProductID = SRD.ProductID
 
-LEFT JOIN Master_Product BP
+LEFT JOIN md.Product BP
     ON BP.ProductID = P.BaseProductID
 
-LEFT JOIN Master_Unit U
+LEFT JOIN md.Unit U
     ON U.UnitID = P.StorageUnitID
 
 WHERE LOD.LOID = @LOID
@@ -1791,8 +1821,8 @@ WHERE LOD.LOID = @LOID
   -- ✅ الاتفاق: استبعد إذا مرتبط بأي فاتورة SAL غير ملغاة (StatusID <> 10)
   AND NOT EXISTS (
         SELECT 1
-        FROM Inventory_DocumentDetails D
-        INNER JOIN Inventory_DocumentHeader H
+        FROM inv.DocumentDetails D
+        INNER JOIN inv.DocumentHeader H
             ON H.DocumentID = D.DocumentID
         WHERE D.SourceLoadingOrderDetailID = LOD.LoadingOrderDetailID
           AND H.DocumentType = 'SAL'
@@ -1885,8 +1915,8 @@ WHERE LOD.LOID = @LOID
 
             Using cmd As New SqlCommand("
 SELECT TOP 1 LO.SourceStoreID
-FROM Logistics_LoadingOrder LO
-INNER JOIN Logistics_LoadingOrderSR LOS ON LOS.LOID = LO.LOID
+FROM log.LoadingOrder LO
+INNER JOIN log.LoadingOrderSR LOS ON LOS.LOID = LO.LOID
 WHERE LOS.SRID = @SRID
 ORDER BY LO.LOID DESC
 ", con)
@@ -2129,6 +2159,8 @@ ORDER BY LO.LOID DESC
         Dim totalTaxable As Decimal = 0D         ' TaxableAmount
         Dim totalTax As Decimal = 0D             ' TaxAmount
         Dim grandTotal As Decimal = 0D           ' LineTotal
+        Dim totalNet As Decimal = 0D
+        Dim amountDue As Decimal
 
         If details IsNot Nothing Then
             For Each r As DataRow In details.Rows
@@ -2138,7 +2170,7 @@ ORDER BY LO.LOID DESC
                 totalTaxable += CDec(r("TaxableAmount"))
                 totalTax += CDec(r("TaxAmount"))
                 grandTotal += CDec(r("LineTotal"))
-
+                totalNet += CDec(r("NetAmount"))
             Next
         End If
 
@@ -2146,16 +2178,27 @@ ORDER BY LO.LOID DESC
         header.TotalDiscount = Math.Round(totalDiscount, 4)
         header.TotalTaxableAmount = Math.Round(totalTaxable, 4)
         header.TotalTax = Math.Round(totalTax, 4)
-        header.GrandTotal = Math.Round(grandTotal, 4)
+        header.TotalNetAmount = totalNet ' مجموع NetAmount من التفاصيل
+        header.GrandTotal = Math.Round(
+    grandTotal + CurrentDeliveryNet + CurrentDeliveryTax, 4)
 
+        Dim mode As Integer = header.ShippingMode
         header.PaidAmount = 0D
-        header.RemainingAmount = header.GrandTotal
-
+        If mode = ShippingModeEnum.IncludedInPrice Then
+            amountDue = grandTotal
+        Else
+            amountDue = grandTotal + CurrentDeliveryNet + CurrentDeliveryTax
+        End If
+        header.RemainingAmount = amountDue
         ' ======================================
         ' 6) Delivery Info
         ' ======================================
         header.DeliveryDate = Nothing
-
+        ' ======================================
+        ' 🔥 Delivery (Shipping)
+        ' ======================================
+        header.DeliveryNet = CurrentDeliveryNet
+        header.DeliveryTax = CurrentDeliveryTax
         If Not String.IsNullOrWhiteSpace(txtDriverName.Text) Then
             header.DriverName = txtDriverName.Text.Trim()
         End If
@@ -2163,7 +2206,14 @@ ORDER BY LO.LOID DESC
         If Not String.IsNullOrWhiteSpace(txtVehicleCode.Text) Then
             header.VehicleNo = txtVehicleCode.Text.Trim()
         End If
+        If cboShippingMode.SelectedValue IsNot Nothing AndAlso
+   IsNumeric(cboShippingMode.SelectedValue) Then
 
+            header.ShippingMode = CInt(cboShippingMode.SelectedValue)
+
+        Else
+            header.ShippingMode = 1 ' سيارات المصنع / بدون شحن
+        End If
         ' ======================================
         ' 7) Notes
         ' ======================================
@@ -2293,7 +2343,7 @@ ORDER BY LO.LOID DESC
                             ' - سنحذفه بعد إعادة الحساب خارج الترانزاكشن.
                             ' ---------------------------------
                             Using cmdDet As New SqlCommand("
-DELETE FROM Inventory_DocumentDetails
+DELETE FROM inv.DocumentDetails
 WHERE DocumentID = @ID
 ", con, tran)
                                 cmdDet.Parameters.AddWithValue("@ID", oldDocumentID)
@@ -2301,7 +2351,7 @@ WHERE DocumentID = @ID
                             End Using
 
                             Using cmdHdr As New SqlCommand("
-DELETE FROM Inventory_DocumentHeader
+DELETE FROM inv.DocumentHeader
 WHERE DocumentID = @ID
 ", con, tran)
                                 cmdHdr.Parameters.AddWithValue("@ID", oldDocumentID)
@@ -2314,7 +2364,7 @@ WHERE DocumentID = @ID
                             ' لا نحذف التفاصيل ولا الروابط
                             ' ---------------------------------
                             Using cmdCancel As New SqlCommand("
-UPDATE Inventory_DocumentHeader
+UPDATE inv.DocumentHeader
 SET StatusID = 10
 WHERE DocumentID = @ID
 ", con, tran)
@@ -2350,7 +2400,7 @@ WHERE DocumentID = @ID
                 Using con As New SqlConnection(ConnStr)
                     con.Open()
                     Using cmdLink As New SqlCommand("
-DELETE FROM Document_Link
+DELETE FROM inv.DocumentLink
 WHERE TargetDocumentID = @ID
   AND TargetType = 'SAL'
 ", con)
@@ -2418,17 +2468,17 @@ SELECT
     P.VATRegistrationNumber AS TaxNumber,
     LO.LOCode,
     SR.SRCode
-FROM Inventory_DocumentHeader H
-LEFT JOIN Master_Partner P
+FROM inv.DocumentHeader H
+LEFT JOIN md.Partner P
     ON P.PartnerID = H.PartnerID
-LEFT JOIN Document_Link L
+LEFT JOIN inv.DocumentLink L
     ON L.TargetDocumentID = H.DocumentID
     AND L.TargetType = 'SAL'
-LEFT JOIN Logistics_LoadingOrder LO
+LEFT JOIN log.LoadingOrder LO
     ON LO.LOID = L.SourceDocumentID
-LEFT JOIN Logistics_LoadingOrderSR LOSR
+LEFT JOIN log.LoadingOrderSR LOSR
     ON LOSR.LOID = LO.LOID
-LEFT JOIN Business_SR SR
+LEFT JOIN inv.SR SR
     ON SR.SRID = LOSR.SRID
 WHERE H.DocumentID = @DocumentID
 ", con)
@@ -2482,7 +2532,14 @@ WHERE H.DocumentID = @DocumentID
                         txtTotalTaxableAmount.Text = rd("TotalTaxableAmount").ToString()
                         txtTotalTax.Text = rd("TotalTax").ToString()
                         txtGrandTotal.Text = rd("GrandTotal").ToString()
+                        CurrentDeliveryNet = ToDec(rd("DeliveryNet"))
+                        CurrentDeliveryTax = ToDec(rd("DeliveryTax"))
 
+                        txtDeliveryValue.Text = (CurrentDeliveryNet + CurrentDeliveryTax).ToString("0.000")
+
+                        If Not IsDBNull(rd("ShippingMode")) Then
+                            cboShippingMode.SelectedValue = CInt(rd("ShippingMode"))
+                        End If
                     End If
                 End Using
             End Using
@@ -2503,10 +2560,10 @@ SELECT
     P.Height,
     U.UnitName,
     U.UnitCode
-FROM Inventory_DocumentDetails D
-INNER JOIN Master_Product P
+FROM inv.DocumentDetails D
+INNER JOIN md.Product P
     ON P.ProductID = D.ProductID
-LEFT JOIN Master_Unit U
+LEFT JOIN md.Unit U
     ON U.UnitID = D.UnitID
 WHERE D.DocumentID = @DocumentID
 ", con)
@@ -2628,6 +2685,8 @@ WHERE D.DocumentID = @DocumentID
             End If
 
             Dim details As DataTable = GetInvoiceDetailsTable()
+            ' تأكد من تحديث الشحن قبل الحفظ
+            RecalculateInvoiceTotals_FromGrid()
             Dim header As InvoiceHeaderInput =
             BuildInvoiceHeader(details)
 
@@ -3058,8 +3117,8 @@ WHERE D.DocumentID = @DocumentID
 
             Using cmd As New SqlCommand("
             SELECT P.StorageUnitID, U.UnitCode
-            FROM Master_Product P
-            INNER JOIN Master_Unit U
+            FROM md.Product P
+            INNER JOIN md.Unit U
                 ON U.UnitID = P.StorageUnitID
             WHERE P.ProductID = @PID", con)
 
@@ -3088,7 +3147,7 @@ WHERE D.DocumentID = @DocumentID
 
             Using cmd As New SqlCommand("
             SELECT UnitName
-            FROM Master_Unit
+            FROM md.Unit
             WHERE UnitID = @ID", con)
 
                 cmd.Parameters.AddWithValue("@ID", unitID)
@@ -3193,7 +3252,7 @@ WHERE D.DocumentID = @DocumentID
 
             Using cmd As New SqlCommand("
 SELECT LoadingStatusID, ModifiedAt
-FROM dbo.Logistics_LoadingOrder
+FROM log.LoadingOrder
 WHERE LOID = @LOID
 ", con)
 
@@ -3238,5 +3297,160 @@ WHERE LOID = @LOID
         End Using
 
     End Function
+    Private Sub LoadShippingModeCombo()
+
+        Dim dt As New DataTable()
+        dt.Columns.Add("ID", GetType(Integer))
+        dt.Columns.Add("Name", GetType(String))
+
+        dt.Rows.Add(1, "سيارات المصنع")
+        dt.Rows.Add(2, "ايجار بدون فاتورة")
+        dt.Rows.Add(3, "ايجار بفاتورة")
+        dt.Rows.Add(4, "الشحن ضمن سعر الأصناف")
+
+        cboShippingMode.DataSource = dt
+        cboShippingMode.DisplayMember = "Name"
+        cboShippingMode.ValueMember = "ID"
+        cboShippingMode.SelectedIndex = -1
+
+    End Sub
+    Private Sub ApplyShippingCalculation(
+    subTotal As Decimal,
+    vatTotal As Decimal,
+    grandTotal As Decimal
+)
+
+        If cboShippingMode.SelectedValue Is Nothing Then Exit Sub
+
+        Dim drv As DataRowView = TryCast(cboShippingMode.SelectedItem, DataRowView)
+        If drv Is Nothing Then Exit Sub
+
+        Dim mode As Integer = CInt(drv("ID"))
+        Dim deliveryValue As Decimal = ToDec(txtDeliveryValue.Text)
+
+        If deliveryValue <= 0 Then
+            CurrentDeliveryNet = 0
+            CurrentDeliveryTax = 0
+            Exit Sub
+        End If
+
+        Dim deliveryNet As Decimal = 0D
+        Dim deliveryTax As Decimal = 0D
+
+        Dim vatRate As Decimal = 0.15D
+
+        Select Case mode
+
+            Case ShippingModeEnum.Internal
+                deliveryNet = 0
+                deliveryTax = 0
+
+            Case ShippingModeEnum.ExternalNoTax
+                deliveryNet = deliveryValue
+                deliveryTax = 0
+
+            Case ShippingModeEnum.ExternalWithTax
+                deliveryNet = deliveryValue / (1 + vatRate)
+                deliveryTax = deliveryValue - deliveryNet
+
+            Case ShippingModeEnum.IncludedInPrice
+                CurrentDeliveryNet = deliveryValue / (1 + vatRate)
+                CurrentDeliveryTax = deliveryValue - CurrentDeliveryNet
+                Exit Sub
+
+        End Select
+
+        ' 🔥 التخزين
+        CurrentDeliveryNet = deliveryNet
+        CurrentDeliveryTax = deliveryTax
+
+        ' 🔥 تحديث الإجمالي
+    End Sub
+    Private Sub cboShippingMode_SelectedIndexChanged(sender As Object, e As EventArgs) Handles cboShippingMode.SelectedIndexChanged
+        Dim drv As DataRowView = TryCast(cboShippingMode.SelectedItem, DataRowView)
+        If drv Is Nothing Then Exit Sub
+
+        Dim mode As Integer = CInt(drv("ID"))
+
+        If mode = ShippingModeEnum.Internal Then
+            txtDeliveryValue.Text = "0"
+        End If
+        RecalculateInvoiceTotals_FromGrid()
+
+    End Sub
+
+    Private Sub txtDeliveryValue_TextChanged(sender As Object, e As EventArgs) Handles txtDeliveryValue.TextChanged
+        If Not IsLoadingInvoiceDetails Then
+            RecalculateInvoiceTotals_FromGrid()
+        End If
+
+    End Sub
+    Private Sub txtDeliveryValue_Leave(sender As Object, e As EventArgs) _
+    Handles txtDeliveryValue.Leave
+
+        If cboShippingMode.DataSource Is Nothing Then Exit Sub
+
+        Dim value As Decimal = ToDec(txtDeliveryValue.Text)
+
+        If value > 0 Then
+
+            If cboShippingMode.SelectedValue Is Nothing OrElse cboShippingMode.SelectedIndex = -1 Then
+                cboShippingMode.SelectedValue = 2 ' ايجار بدون فاتورة
+            End If
+
+        End If
+        RecalculateInvoiceTotals_FromGrid()
+    End Sub
+    Private Sub DistributeDeliveryOnItems(deliveryValue As Decimal)
+
+        If deliveryValue <= 0 Then Exit Sub
+
+        Dim totalTaxable As Decimal = 0D
+
+        ' 1️⃣ احسب مجموع الأصناف
+        For Each row As DataGridViewRow In dgvInvoiceDetails.Rows
+            If row.IsNewRow Then Continue For
+            totalTaxable += ToDec(row.Cells("colDetTaxableAmount").Value)
+        Next
+
+        If totalTaxable <= 0 Then Exit Sub
+
+        Dim vatRate As Decimal = 0.15D
+
+        ' 2️⃣ وزع الشحن على الأصناف
+        For Each row As DataGridViewRow In dgvInvoiceDetails.Rows
+
+            If row.IsNewRow Then Continue For
+
+            Dim rowTaxable As Decimal =
+                ToDec(row.Cells("colDetTaxableAmount").Value)
+
+            If rowTaxable <= 0 Then Continue For
+
+            ' نسبة السطر
+            Dim ratio As Decimal = rowTaxable / totalTaxable
+
+            ' نصيب الشحن
+            Dim shareNet As Decimal =
+                Math.Round(deliveryValue * ratio, 6)
+
+            Dim shareTax As Decimal =
+                Math.Round(shareNet * vatRate, 6)
+
+            ' 3️⃣ أضفها للسعر
+            Dim oldNet As Decimal = ToDec(row.Cells("colDetTaxableAmount").Value)
+            Dim oldTax As Decimal = ToDec(row.Cells("colDetTaxAmount").Value)
+
+            Dim newNet = oldNet + shareNet
+            Dim newTax = oldTax + shareTax
+
+            row.Cells("colDetTaxableAmount").Value = newNet
+            row.Cells("colDetTaxAmount").Value = newTax
+            row.Cells("colTotal").Value = newNet + newTax
+
+        Next
+
+
+    End Sub
 End Class
 

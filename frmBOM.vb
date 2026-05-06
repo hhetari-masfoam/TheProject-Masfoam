@@ -223,7 +223,7 @@ Public Class frmBOM
 
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
-                "SELECT UnitID, UnitName FROM Master_Unit ORDER BY UnitID", con)
+                "SELECT UnitID, UnitName FROM md.Unit ORDER BY UnitID", con)
 
                 Using da As New SqlDataAdapter(cmd)
                     da.Fill(dt)
@@ -315,7 +315,7 @@ Public Class frmBOM
             Notes,
             BOMCode,
             IsActive
-         FROM Production_BOMHeader
+         FROM prod.BOMHeader
          WHERE ProductID = @ProductID
          ORDER BY VersionNo ASC", con)
 
@@ -382,7 +382,7 @@ Public Class frmBOM
                 CustomerID,
             IsActive,
                 Notes
-             FROM Production_BOMHeader
+             FROM prod.BOMHeader
              WHERE BOMID = @BOMID", con)
 
                 cmd.Parameters.Add("@BOMID", SqlDbType.Int).Value = bomID
@@ -423,9 +423,9 @@ Public Class frmBOM
                 u.UnitName        AS BaseUnitName,
                 p.AvgCost,
                 p.IsActive
-            FROM Production_BOMDetails d
-            JOIN Master_Product p ON p.ProductID = d.ComponentProductID
-            LEFT JOIN Master_Unit u ON u.UnitID = d.UnitID
+            FROM prod.BOMDetails d
+            JOIN md.Product p ON p.ProductID = d.ComponentProductID
+            LEFT JOIN md.Unit u ON u.UnitID = d.UnitID
             WHERE d.BOMID = @BOMID
             ORDER BY d.LineNumber
             ", con)
@@ -482,7 +482,7 @@ Public Class frmBOM
         Using con As New SqlConnection(ConnStr)
             Using cmd As New SqlCommand(
             "SELECT ProductID, ProductCode, ProductName, StorageUnitID, ProductCategoryID, ProductSubCategoryID,ProductGroupID
-             FROM Master_Product
+             FROM md.Product
              WHERE IsActive = 1
              ORDER BY ProductCode", con)
 
@@ -600,7 +600,7 @@ Public Class frmBOM
 
             Using con As New SqlConnection(ConnStr)
                 Using cmd As New SqlCommand(
-                "SELECT ProductID FROM Production_BOMHeader WHERE BOMID = @BOMID", con)
+                "SELECT ProductID FROM prod.BOMHeader WHERE BOMID = @BOMID", con)
 
                     cmd.Parameters.Add("@BOMID", SqlDbType.Int).Value = f.SelectedBOMID
                     con.Open()
@@ -1217,7 +1217,7 @@ srcRow.Cells("colSelProductCode").FormattedValue
             con.Open()
 
             Using cmd As New SqlCommand(
-            "UPDATE Production_BOMHeader
+            "UPDATE prod.BOMHeader
              SET IsActive = @IsActive
              WHERE BOMID = @BOMID", con)
 

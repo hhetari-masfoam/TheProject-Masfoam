@@ -51,9 +51,12 @@
     ' نقطة التوسعة للفورم الابن
     ' =========================
     Protected Overridable Sub OnRowSelected(rowIndex As Integer)
-        ' سيتم تنفيذها في الفورم الابن
-    End Sub
 
+        ' الافتراضي: يرجع OK ويغلق
+        Me.DialogResult = DialogResult.OK
+        Me.Close()
+
+    End Sub
     ' =========================
     ' زر الإغلاق
     ' =========================

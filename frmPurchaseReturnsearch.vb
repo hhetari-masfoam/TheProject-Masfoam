@@ -95,15 +95,15 @@ Public Class frmPurchaseReturnsearch
     ws.StatusName,
     (
         SELECT TOP 1 pur.DocumentNo
-        FROM Document_Link l
-        INNER JOIN Inventory_DocumentHeader pur
+        FROM inv.DocumentLink l
+        INNER JOIN inv.DocumentHeader pur
             ON pur.DocumentID = l.SourceDocumentID
         WHERE l.TargetDocumentID = prt.DocumentID
     ) AS OriginalInvoiceNo
-FROM Inventory_DocumentHeader prt
-INNER JOIN Master_Partner p
+FROM inv.DocumentHeader prt
+INNER JOIN md.Partner p
     ON p.PartnerID = prt.PartnerID
-INNER JOIN Workflow_Status ws
+INNER JOIN wf.Status ws
     ON ws.StatusID = prt.StatusID
 WHERE prt.DocumentType = 'PRT'
 ORDER BY prt.DocumentDate DESC

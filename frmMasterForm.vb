@@ -338,5 +338,85 @@
 
     End Sub
 
+    Private Sub frmChartOfAccounts_Click(sender As Object, e As EventArgs) Handles frmChartOfAccounts.Click
+        If Not PermissionService.Can("PURCHASE_OPEN") Then
+            MessageBox.Show("لا تملك صلاحية فتح قوائم الانتاج")
+            Exit Sub
+        End If
+
+        ' منع فتح أكثر من نسخة (اختياري)
+        For Each f As Form In Application.OpenForms
+            If TypeOf f Is frmfinChartOfAccounts Then
+                f.Activate()
+                Exit Sub
+            End If
+        Next
+
+        ' فتح الفورم بشكل عادي
+        Dim frm As New frmfinChartOfAccounts()
+        frm.Show()   ' 👈 هذا كل المطلوب
+
+    End Sub
+
+    Private Sub frmTrialBalance_Click(sender As Object, e As EventArgs) Handles frmTrialBalance.Click
+        If Not PermissionService.Can("PURCHASE_OPEN") Then
+            MessageBox.Show("لا تملك صلاحية فتح قوائم الانتاج")
+            Exit Sub
+        End If
+
+        ' منع فتح أكثر من نسخة (اختياري)
+        For Each f As Form In Application.OpenForms
+            If TypeOf f Is frmTrialBalance Then
+                f.Activate()
+                Exit Sub
+            End If
+        Next
+
+        ' فتح الفورم بشكل عادي
+        Dim frm As New frmTrialBalance()
+        frm.Show()   ' 👈 هذا كل المطلوب
+    End Sub
+
+
+    Private Sub frmfinPaymentVouchers_Click(sender As Object, e As EventArgs) Handles frmfinPaymentVouchers.Click
+        If Not PermissionService.Can("PURCHASE_OPEN") Then
+            MessageBox.Show("لا تملك صلاحية فتح قوائم الانتاج")
+            Exit Sub
+        End If
+
+        ' منع فتح أكثر من نسخة (اختياري)
+        For Each f As Form In Application.OpenForms
+            If TypeOf f Is frmfinPaymentVouchers Then
+                f.Activate()
+                Exit Sub
+            End If
+        Next
+
+        ' فتح الفورم بشكل عادي
+        Dim frm As New frmfinPaymentVouchers()
+        frm.Show()   ' 👈 هذا كل المطلوب
+
+    End Sub
+
+    Private Sub frmfinAccountStatment_Click(sender As Object, e As EventArgs) Handles frmfinAccountStatment.Click
+        If Not PermissionService.Can("PURCHASE_OPEN") Then
+            MessageBox.Show("لا تملك صلاحية فتح قوائم الانتاج")
+            Exit Sub
+        End If
+
+        ' منع فتح أكثر من نسخة (اختياري)
+        For Each f As Form In Application.OpenForms
+            If TypeOf f Is frmfinAccountStatment Then
+                f.Activate()
+                Exit Sub
+            End If
+        Next
+
+        ' فتح الفورم بشكل عادي
+        Dim frm As New frmfinAccountStatment()
+        frm.Show()   ' 👈 هذا كل المطلوب
+
+
+    End Sub
 End Class
 

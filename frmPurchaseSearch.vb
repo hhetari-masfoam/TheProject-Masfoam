@@ -87,10 +87,10 @@ Public Class frmPurchaseSearch
             p.PartnerName,
             s.StatusName,
             d.IsInventoryPosted
-        FROM Inventory_DocumentHeader d
-        INNER JOIN Master_Partner p
+        FROM inv.DocumentHeader d
+        INNER JOIN md.Partner p
             ON p.PartnerID = d.PartnerID
-        INNER JOIN Workflow_Status s
+        INNER JOIN wf.Status s
             ON s.StatusID = d.StatusID
         WHERE d.DocumentType = @DocType
         "
